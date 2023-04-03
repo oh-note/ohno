@@ -76,6 +76,17 @@ function _convertRefToBias(
   let curSize: number;
   if (isTextNode(cur)) {
     curSize = offset;
+  } else if (container.childNodes.length === offset) {
+    cur = lastValidChild(container as HTMLElement) as ValidNode;
+    if (isTextNode(cur)) {
+      curSize = getTokenSize(cur);
+    } else if (isTokenHTMLElement(cur)) {
+      curSize = 2;
+    } else {
+      curSize = getTokenSize(cur) + 2;
+    }
+  } else if (container.childNodes.length < offset) {
+    throw EvalError("?");
   } else {
     cur = container.childNodes[offset] as ValidNode;
     curSize = 0;
@@ -171,6 +182,10 @@ function _convertBiasToRef(root: HTMLElement, bias: number): [Node, number] {
     if (isTextNode(cur) && curOffset + delta < bias) {
       cur = nextValidSibling(cur)!;
       delta += curOffset;
+    } else if (delta === bias) {
+      //  <b> <i> </i> <i> </i> </b>
+      // 0   1   2    3   4    5    6
+      return [cur.parentElement as HTMLElement, indexOfNode(cur)];
     } else if (isHTMLElement(cur) && curOffset + delta + 1 < bias) {
       //   a b c <b> d </b>
       //  0 1 2 3   4 5    6
@@ -221,6 +236,7 @@ export function reverseOffset(root: HTMLElement, offset: Offset): Offset {
   if (offset.end) {
     res["end"] = offset.end - size - 1;
   }
+  return res;
 }
 
 export function setRange(range: Range, add?: boolean) {
@@ -228,6 +244,13 @@ export function setRange(range: Range, add?: boolean) {
     document.getSelection()?.removeAllRanges();
   }
   document.getSelection()?.addRange(range);
+}
+
+export function setPosition(root: HTMLElement, offset: Offset) {
+  const range = offsetToRange(root, offset);
+  if (range) {
+    setRange(range);
+  }
 }
 
 export function getInlinePosition(root: HTMLElement) {}
@@ -271,7 +294,6 @@ export function getPrevWordRange(
   function convert(container: Node, offset: number): [Node, number] {
     let cur = container;
     while (isTextNode(cur) && offset > 0) {
-      console.log(cur, offset);
       let res = findCharBeforePosition(cur.textContent!, " ", offset);
       if (res >= 0) {
         return [cur, res];
@@ -324,7 +346,6 @@ export function getNextWordRange(
       }
       container = cur;
       cur = nextValidSibling(cur) as Node;
-      console.log([cur, res, container]);
       if (isTextNode(cur)) {
         offset = cur.textContent!.length;
       } else if (offset != container.textContent?.length) {
@@ -371,6 +392,9 @@ export function getTokenSize(root: ValidNode): number {
   if (isTextNode(root)) {
     return root.textContent?.length!;
   }
+  if (isTokenHTMLElement(root)) {
+    return 0;
+  }
   for (let i = 0; i < root.childNodes.length; i++) {
     if (isValidNode(root.childNodes[i])) {
       const cur = root.childNodes[i] as ValidNode;
@@ -410,8 +434,36 @@ export function isRight(root: HTMLElement, range: Range): boolean {
   return true;
 }
 
-export function isFirstLine(root: HTMLElement, range: Range) {}
-export function isLastLine(root: HTMLElement, range: Range) {}
+export function isFirstLine(root: HTMLElement, range: Range) {
+  if (root.childNodes.length === 0) {
+    return true;
+  }
+  range = range.cloneRange();
+  const test = createElement("span", {
+    textContent: "|",
+  });
+  root.insertBefore(test, root.firstChild);
+  const first = test.getClientRects();
+  range.insertNode(test);
+  const second = test.getClientRects();
+  test.remove();
+  return first[0].y === second[0].y;
+}
+export function isLastLine(root: HTMLElement, range: Range) {
+  if (root.childNodes.length === 0) {
+    return true;
+  }
+  range = range.cloneRange();
+  const test = createElement("span", {
+    textContent: " ",
+  });
+  root.appendChild(test);
+  const first = test.getClientRects();
+  range.insertNode(test);
+  const second = test.getClientRects();
+  test.remove();
+  return first[0].y === second[0].y;
+}
 
 export function getLineInfo(root: HTMLElement): LineInfo {
   if (root.childNodes.length === 0) {
@@ -442,7 +494,6 @@ export function getLineInfo(root: HTMLElement): LineInfo {
   newLine.remove();
 
   const lineNumber = Math.round(offsetHeight / lineHeight) - 1;
-  console.log(lineNumber);
   return {
     lineNumber: lineNumber,
     lineHeight,

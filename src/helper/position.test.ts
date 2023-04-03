@@ -1,5 +1,9 @@
 import { loadConfigFromFile } from "vite";
-import { createElement } from "./document";
+import {
+  createElement,
+  innerHTMLToNodeList,
+  makeInlineBlock,
+} from "./document";
 import { getTagName } from "./element";
 import { addMarkdownHint } from "./markdown";
 import {
@@ -9,6 +13,7 @@ import {
   getNextRange,
 } from "./position";
 import { describe, expect, test } from "vitest";
+import katex from "katex";
 
 function tryThis(p: HTMLElement) {
   const size = getTokenSize(p);
@@ -98,51 +103,65 @@ describe("offsetToRange", () => {
 
   test("reOrder", () => {
     const p = createElement("p");
-    function tryThis() {
-      const size = getTokenSize(p);
-      for (let i = 0; i < size; i++) {
-        const range = offsetToRange(p, { start: i })!;
-        const rerange = offsetToRange(p, { start: i - size - 1 })!;
-        expect(range.startContainer).toBe(rerange.startContainer);
-        expect(range.startOffset).toBe(rerange.startOffset);
-      }
-      let res = "";
-      for (let i = 0; i < size; i++) {
-        const offset = { start: i, end: i + 1 };
-        const range = offsetToRange(p, offset)!;
-        try {
-          res += range.cloneContents().textContent;
-        } catch {}
-      }
-      expect(res).toBe(p.textContent);
-    }
+
     p.innerHTML = "Lorem";
-    tryThis();
-    p.innerHTML = "Lor<b>e</b>m";
-    tryThis();
+    tryThis(p);
     p.innerHTML = "Lor<b>e<i>a</i>sd</b>m";
-    tryThis();
+    tryThis(p);
     p.innerHTML = "Lor<b>e<i>a</i>sd</b>m";
     addMarkdownHint(p);
-    tryThis();
-    p.innerHTML = "Lor<b>e<i>a</i>sd</b>m";
-    tryThis();
+    tryThis(p);
     p.innerHTML = "<b>e<i>a</i>sd</b>m";
-    tryThis();
+    tryThis(p);
+    p.innerHTML = "<b><i>t</i><i></i></b>";
+    tryThis(p);
     p.innerHTML = "L<b>d<i>i<code>c</code></i></b>";
     addMarkdownHint(p);
-    tryThis();
+    tryThis(p);
     p.innerHTML =
       "Lorem ipsum <b>dolor <i>sit <code>amet</code></i></b>, consectetur adipiscing elit, sed do eiusmod <code>tempor <b><i><code>incididunt</code></i></b></code> ut labore et dolore magna aliqua.";
     addMarkdownHint(p);
-    tryThis();
+    tryThis(p);
   });
   test("emptyChild", () => {});
   test("mathElement", () => {
     const p = createElement("p");
-    p.innerHTML = "Loiajsdn<b>bold</b>";
     addMarkdownHint(p);
-    // tryThis();
+    const value = "f(x)=ax+b";
+
+    p.appendChild(
+      makeInlineBlock({
+        serailizer: "katex",
+        attributes: { value: value },
+        el: innerHTMLToNodeList(katex.renderToString(value)),
+      })
+    );
+    expect(getTokenSize(p)).toBe(2);
+    // |<label>...</label>
+    expect(offsetToRange(p, { start: 0 })?.startOffset).toBe(0);
+    // [<label>...</label>]
+    expect(getTagName(offsetToRange(p, { start: 1 })?.startContainer!)).toBe(
+      "label"
+    );
+    // <label>...</label>|
+    expect(offsetToRange(p, { start: 2 })?.startOffset).toBe(1);
+    expect(rangeToOffset(p, offsetToRange(p, { start: 2 })!).start).toBe(2);
+    expect(offsetToRange(p, { start: 3 })).toBe(null);
+  });
+
+  test("2023-04-03-18-15", () => {
+    // 边界条件
+    const p = createElement("p");
+    p.innerHTML = "<b>t</b>";
+    // <b>t</b>| -> container = p, offset = 1, container.childList[offset] === null
+    expect(rangeToOffset(p, offsetToRange(p, { start: 3 })!).start).toBe(3);
+    p.innerHTML = "<b><i>t</i><i></i></b>";
+
+    expect(getTagName(offsetToRange(p, { start: 4 })?.startContainer!)).toBe(
+      "b"
+    );
+    expect(rangeToOffset(p, offsetToRange(p, { start: 4 })!).start).toBe(4);
+    expect(rangeToOffset(p, offsetToRange(p, { start: 6 })!).start).toBe(6);
   });
 
   test("inOrder", () => {
