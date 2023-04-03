@@ -97,6 +97,10 @@ body {
   background-color: #f0f0f0;
 }
 
+.oh-editer-root {
+  overflow-y: auto;
+}
+
 .oh-editer-root p {
   width: 500px;
   height: 150px;
