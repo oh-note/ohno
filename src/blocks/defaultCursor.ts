@@ -1,4 +1,8 @@
-import { FIRST_POSITION, LAST_POSITION } from "../helper/position";
+import {
+  FIRST_POSITION,
+  LAST_POSITION,
+  rangeToOffset,
+} from "../helper/position";
 import { EventContext, Handler, KeyDispatchedHandler } from "../system/handler";
 
 export function defaultHandleArrowDown(
@@ -12,7 +16,7 @@ export function defaultHandleArrowDown(
   }
   if (e.key === "ArrowUp") {
     if (block.isFirstLine(range)) {
-      const offset = block.getPosition();
+      const offset = rangeToOffset(block.currentContainer(), range);
       const prevContainer = block.aboveContainer();
       if (prevContainer) {
         block.setInlinePositionAtLastLine(offset, prevContainer);
@@ -32,7 +36,8 @@ export function defaultHandleArrowDown(
   } else if (e.key === "ArrowDown") {
     // 在边界时处理，否则交给默认行为
     if (block.isLastLine(range)) {
-      const offset = block.getInlinePosition(range);
+      const offset = rangeToOffset(block.currentContainer(), range);
+      // const offset = block.getInlinePosition(range);
       const nextContainer = block.belowContainer();
       if (nextContainer) {
         block.setPosition(offset, nextContainer);
@@ -85,17 +90,12 @@ export function defaultHandleArrowDown(
     if (!e.shiftKey) {
       range.collapse(false);
     }
-
     if (e.altKey) {
       next = block.getNextWordPosition(range);
     } else {
       next = block.getNextPosition(range);
     }
-
-    if (next) {
-      block.setRange(next);
-      return true;
-    }
+    console.log(next);
 
     if (next) {
       block.setRange(next);

@@ -5,6 +5,9 @@ import {
   getNextWordRange,
   getPrevRange,
   getPrevWordRange,
+  isFirstLine,
+  isLastLine,
+  setPosition,
   setRange,
 } from "../helper/position";
 import { OperationHandlerFn } from "./operation";
@@ -73,13 +76,13 @@ export class Block {
     if (!container) {
       container = this.currentContainer();
     }
-    return false;
+    return isFirstLine(container, range);
   }
   isLastLine(range: Range, container?: HTMLElement): boolean {
     if (!container) {
       container = this.currentContainer();
     }
-    return false;
+    return isLastLine(container, range);
   }
   getPrevWordPosition(range: Range, container?: HTMLElement): Range | null {
     if (!container) {
@@ -116,6 +119,8 @@ export class Block {
     if (!container) {
       container = this.currentContainer();
     }
+    
+
     if (reversed) {
       return { start: -1 };
     } else {
@@ -133,11 +138,13 @@ export class Block {
     if (!container) {
       container = this.currentContainer();
     }
+    
   }
   setPosition(offset: Offset, container?: HTMLElement) {
     if (!container) {
       container = this.currentContainer();
     }
+    setPosition(container, offset);
   }
   setRange(range: Range, container?: HTMLElement) {
     if (!container) {
