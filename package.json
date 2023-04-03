@@ -1,0 +1,25 @@
+{
+  "name": "ohno",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@types/katex": "^0.16.0",
+    "happy-dom": "^9.1.0",
+    "jsdom": "^21.1.1",
+    "typescript": "^4.9.3",
+    "vite": "^4.2.0",
+    "vitest": "^0.29.8"
+  },
+  "dependencies": {
+    "highlight.js": "^11.7.0",
+    "katex": "^0.16.4"
+  }
+}
