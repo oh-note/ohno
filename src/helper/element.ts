@@ -1,4 +1,4 @@
-import { OH_MDHINT } from "./consts";
+import { OH_INLINEBLOCK, OH_MDHINT } from "./consts";
 import { ElementTagName } from "./document";
 
 export type ValidNode = Text | HTMLElement;
@@ -20,14 +20,12 @@ export function isTag(el: Node, name: ElementTagName) {
   return getTagName(el) === name;
 }
 export function isHTMLElement(el: Node) {
-  return el.nodeType === Node.ELEMENT_NODE;
+  return el && el.nodeType === Node.ELEMENT_NODE;
 }
 
 export function isTokenHTMLElement(el: ValidNode) {
   return (
-    isHTMLElement(el) &&
-    (el as HTMLElement).style.display === "inline-block" &&
-    !(el as HTMLElement).classList.contains(OH_MDHINT)
+    isHTMLElement(el) && (el as HTMLElement).classList.contains(OH_INLINEBLOCK)
   );
 }
 

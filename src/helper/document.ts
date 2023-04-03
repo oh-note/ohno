@@ -96,9 +96,7 @@ export function createElement<K extends HTMLElementTagName>(
     });
   }
   if (style) {
-    for (let key in style) {
-      el.style[key!] = style[key];
-    }
+    Object.assign(el.style, style);
   }
 
   return el;
