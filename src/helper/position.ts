@@ -5,7 +5,8 @@
  * 3. 只处理 range 和 offset 之间的转换，不改变任何元素
  */
 
-import { createElement } from "./document";
+import { InsertText } from "../contrib/commands/text";
+import { createElement, createTextNode } from "./document";
 import {
   ValidNode,
   firstValidChild,
@@ -78,12 +79,16 @@ function _convertRefToBias(
     curSize = offset;
   } else if (container.childNodes.length === offset) {
     cur = lastValidChild(container as HTMLElement) as ValidNode;
-    if (isTextNode(cur)) {
-      curSize = getTokenSize(cur);
-    } else if (isTokenHTMLElement(cur)) {
-      curSize = 2;
+    if (cur) {
+      if (isTextNode(cur)) {
+        curSize = getTokenSize(cur);
+      } else if (isTokenHTMLElement(cur)) {
+        curSize = 2;
+      } else {
+        curSize = getTokenSize(cur) + 2;
+      }
     } else {
-      curSize = getTokenSize(cur) + 2;
+      return 0;
     }
   } else if (container.childNodes.length < offset) {
     throw EvalError("?");
@@ -152,14 +157,19 @@ export function rangeToOffset(root: HTMLElement, range: Range): Offset {
   return res;
 }
 
-function _convertBiasToRef(root: HTMLElement, bias: number): [Node, number] {
+function _convertBiasToRef(root: ValidNode, bias: number): [Node, number] {
   if (bias < 0) {
     bias += getTokenSize(root) + 1;
     if (bias < 0) {
       bias = 0;
     }
   }
-  var cur = firstValidChild(root);
+
+  if (isTextNode(root)) {
+    return [root, bias];
+  }
+
+  var cur = firstValidChild(root as HTMLElement);
   var delta = 0;
 
   if (!cur) {
@@ -203,18 +213,35 @@ function _convertBiasToRef(root: HTMLElement, bias: number): [Node, number] {
       }
     }
   }
-  return [root, indexOfNode(lastValidChild(root)) + 1];
+  return [root, indexOfNode(lastValidChild(root as HTMLElement)) + 1];
 }
 
-export function offsetToRange(root: HTMLElement, offset: Offset): Range | null {
+/**
+ * 需要确保 root 节点不出现在 Range 中，而是 root 节点的子元素
+ * 当位置必须通过 root 节点 + offset 表示时，在相应位置创建一个空 Text Node 来返回
+ * 这一操作用于减少应用富文本格式时的条件判断
+ * @param root
+ * @param offset
+ * @returns
+ */
+export function offsetToRange(
+  root: ValidNode | ValidNode[],
+  offset: Offset
+): Range | null {
   const range = document.createRange();
+
+  if (root instanceof Array) {
+    const temp = document.createDocumentFragment();
+    temp.append(...root);
+    root = temp;
+  }
 
   const rootSize = getTokenSize(root);
   if (offset.start > rootSize) {
     return null;
   }
 
-  const [startContainer, startOffset] = _convertBiasToRef(root, offset.start);
+  let [startContainer, startOffset] = _convertBiasToRef(root, offset.start);
   let [endContainer, endOffset] = [startContainer, startOffset];
   if (offset.end && offset.end != offset.start) {
     [endContainer, endOffset] = _convertBiasToRef(
@@ -222,6 +249,22 @@ export function offsetToRange(root: HTMLElement, offset: Offset): Range | null {
       offset.end || offset.start
     );
   }
+  if (root instanceof HTMLElement) {
+    if (endContainer === root) {
+      const text = createTextNode("");
+      root.insertBefore(text, endContainer.childNodes[endOffset]);
+      endContainer = text;
+      endOffset = 0;
+    }
+
+    if (startContainer === root) {
+      const text = createTextNode("");
+      root.insertBefore(text, startContainer.childNodes[startOffset]);
+      startContainer = text;
+      startOffset = 0;
+    }
+  }
+
   range.setStart(startContainer, startOffset);
   range.setEnd(endContainer, endOffset);
   return range;

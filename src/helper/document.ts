@@ -1,4 +1,5 @@
 import { OH_INLINEBLOCK } from "./consts";
+import { validChildNodes } from "./element";
 
 export type HTMLElementTagName = keyof HTMLElementTagNameMap;
 export type ElementTagName = keyof HTMLElementTagNameMap | "#text";

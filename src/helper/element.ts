@@ -1,7 +1,7 @@
 import { OH_INLINEBLOCK, OH_MDHINT } from "./consts";
-import { ElementTagName } from "./document";
+import { ElementTagName, createElement } from "./document";
 
-export type ValidNode = Text | HTMLElement;
+export type ValidNode = Text | HTMLElement | DocumentFragment;
 
 export interface Condition {
   emptyText?: boolean;
@@ -34,7 +34,7 @@ export function isHintHTMLElement(el: Node) {
 }
 
 export function isTextNode(el: Node) {
-  return el && el.nodeType === Node.TEXT_NODE;
+  return el && el instanceof Text;
 }
 
 export function isValidNode(el: Node, condition?: Condition): ValidNode | null {
@@ -147,4 +147,45 @@ export function indexOfNode(el?: Node | null, name?: ElementTagName) {
   return i;
 }
 
-export function replaceWith(range: Range) {}
+export function validChildNodes(
+  el: HTMLElement | DocumentFragment
+): ValidNode[] {
+  const res: ValidNode[] = [];
+  el.childNodes.forEach((item) => {
+    if (isValidNode(item)) {
+      res.push(item as ValidNode);
+    }
+  });
+  return res;
+}
+
+export function innerHTML(...node: Node[]): string {
+  const wrap = createElement("p");
+  node.forEach((item) => {
+    wrap.appendChild(item.cloneNode(true));
+  });
+  return wrap.innerHTML;
+}
+
+export function tryConcatLeft(el: ValidNode): ValidNode {
+  if (el instanceof Text) {
+    let prev = prevValidSibling(el);
+    while (prev && prev instanceof Text) {
+      el.textContent = prev.textContent || "" + el.textContent;
+      prev.remove();
+      prev = prevValidSibling(el);
+    }
+    return el;
+  } else {
+    let prev = prevValidSibling(el);
+    while (prev && getTagName(prev) === getTagName(el)) {
+      const first = firstValidChild(el);
+      prev.childNodes.forEach((item) => {
+        el.insertBefore(item, first);
+      });
+      prev.remove();
+      prev = prevValidSibling(el);
+    }
+  }
+}
+export function tryConcatRight(el: ValidNode) {}

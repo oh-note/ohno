@@ -1,36 +1,37 @@
-import { createElement } from "../helper/document";
-import { Block, Order } from "../system/block";
+import { createElement } from "../../helper/document";
+import { Block, BlockInit, Order } from "../../system/block";
 import {
   EventContext,
   Handler,
   KeyDispatchedHandler,
   dispatchKeyDown,
   setBeforeHandlers,
-} from "../system/handler";
+} from "../../system/handler";
 
-export class Paragraph extends Block {
-  constructor(
-    el?: HTMLElement,
-    order?: Order,
-    innerHTML?: string,
-    children?: Node[]
-  ) {
-    if (!el) {
-      el = createElement("p", {
+export interface ParagraphInit extends BlockInit {
+  innerHTML?: string;
+  children?: HTMLElement[];
+}
+
+export class Paragraph extends Block<ParagraphInit> {
+  constructor(init?: ParagraphInit) {
+    init = init || {};
+    if (!init.el) {
+      init.el = createElement("p", {
         attributes: { placeholder: "type / for start" },
       });
     }
-    if (innerHTML) {
-      el.innerHTML = innerHTML;
+    if (init.innerHTML) {
+      init.el.innerHTML = init.innerHTML;
     }
-    if (children) {
-      children.forEach((item) => {
+    if (init.children) {
+      init.children.forEach((item) => {
         if (item) {
-          el?.appendChild(item);
+          init!.el?.appendChild(item);
         }
       });
     }
-    super(el, order);
+    super(init);
   }
 }
 
@@ -52,4 +53,4 @@ export class ParagraphHandler extends Handler implements KeyDispatchedHandler {
   }
 }
 
-setBeforeHandlers(new ParagraphHandler());
+// setBeforeHandlers(new ParagraphHandler());

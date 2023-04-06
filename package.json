@@ -11,6 +11,7 @@
     "coverage": "vitest run --coverage"
   },
   "devDependencies": {
+    "@edge-runtime/vm": "^2.1.2",
     "@types/katex": "^0.16.0",
     "@vitest/coverage-c8": "^0.29.8",
     "happy-dom": "^9.1.0",

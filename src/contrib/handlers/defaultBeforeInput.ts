@@ -2,10 +2,10 @@ import {
   FIRST_POSITION,
   LAST_POSITION,
   rangeToOffset,
-} from "../helper/position";
-import { EventContext, Handler, KeyDispatchedHandler } from "../system/handler";
+} from "../../helper/position";
+import { EventContext, Handler, KeyDispatchedHandler } from "../../system/handler";
 
-export function defaultHandleArrowDown(
+export function defaultBeforeInput(
   handler: Handler,
   e: KeyboardEvent,
   { page, block }: EventContext
@@ -64,7 +64,7 @@ export function defaultHandleArrowDown(
     if (e.altKey) {
       prev = block.getPrevWordPosition(range);
     } else {
-      prev = block.getPrevPosition(range);
+      prev = block.getPrevRange(range);
     }
     if (prev) {
       block.setRange(prev);
@@ -93,7 +93,7 @@ export function defaultHandleArrowDown(
     if (e.altKey) {
       next = block.getNextWordPosition(range);
     } else {
-      next = block.getNextPosition(range);
+      next = block.getNextRange(range);
     }
     console.log(next);
 

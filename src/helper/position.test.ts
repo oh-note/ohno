@@ -1,26 +1,29 @@
 import { loadConfigFromFile } from "vite";
 import {
   createElement,
+  createTextNode,
   innerHTMLToNodeList,
   makeInlineBlock,
 } from "./document";
-import { getTagName } from "./element";
+import { ValidNode, getTagName } from "./element";
 import { addMarkdownHint } from "./markdown";
 import {
   offsetToRange,
   getTokenSize,
   rangeToOffset,
   getNextRange,
+  FIRST_POSITION,
+  LAST_POSITION,
 } from "./position";
 import { describe, expect, test } from "vitest";
 import katex from "katex";
 
-function tryThis(p: HTMLElement) {
+function tryThis(p: ValidNode) {
   const size = getTokenSize(p);
   for (let i = 0; i < size; i++) {
     const range = offsetToRange(p, { start: i })!;
     const rerange = offsetToRange(p, { start: i - size - 1 })!;
-    expect(range.startContainer).toBe(rerange.startContainer);
+    expect(range.startContainer).toStrictEqual(rerange.startContainer);
     expect(range.startOffset).toBe(rerange.startOffset);
   }
   let res = "";
@@ -35,6 +38,19 @@ function tryThis(p: HTMLElement) {
 }
 
 describe("offsetToRange", () => {
+  test("text node", () => {
+    const text = createTextNode("012345");
+    expect(offsetToRange(text, FIRST_POSITION)?.startContainer).toStrictEqual(
+      text
+    );
+    expect(offsetToRange(text, FIRST_POSITION)?.startOffset).toBe(0);
+    expect(offsetToRange(text, LAST_POSITION)?.endContainer).toStrictEqual(
+      text
+    );
+    expect(offsetToRange(text, LAST_POSITION)?.endOffset).toBe(text.length);
+    tryThis(text);
+  });
+
   test("2023-04-03-09-39", () => {
     const p = createElement("p");
     p.innerHTML = "L<b>d<i>i<code>c</code></i></b>";
@@ -144,7 +160,11 @@ describe("offsetToRange", () => {
       "label"
     );
     // <label>...</label>|
-    expect(offsetToRange(p, { start: 2 })?.startOffset).toBe(1);
+    expect(offsetToRange(p, { start: 2 })?.startOffset).toBe(0);
+    expect(getTagName(offsetToRange(p, { start: 2 })?.startContainer!)).toBe(
+      "#text"
+    );
+    expect(offsetToRange(p, { start: 2 })?.startContainer.textContent).toBe("");
     expect(rangeToOffset(p, offsetToRange(p, { start: 2 })!).start).toBe(2);
     expect(offsetToRange(p, { start: 3 })).toBe(null);
   });
@@ -201,7 +221,7 @@ describe("offsetToRange", () => {
     addMarkdownHint(p);
 
     range = offsetToRange(p, { start: 0 })!;
-    expect(getTagName(range.startContainer)).toBe("p");
+    expect(getTagName(range.startContainer)).toBe("#text");
     expect(range.startOffset).toBe(0);
 
     range = offsetToRange(p, { start: 5 })!;

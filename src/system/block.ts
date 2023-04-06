@@ -7,6 +7,7 @@ import {
   getPrevWordRange,
   isFirstLine,
   isLastLine,
+  rangeToOffset,
   setPosition,
   setRange,
 } from "../helper/position";
@@ -14,18 +15,35 @@ import { OperationHandlerFn } from "./operation";
 
 export type Order = string;
 
-export class Block {
+export interface BlockInit {
+  order?: Order;
+  type?: string;
+  el?: HTMLElement;
+}
+
+export class Block<T extends BlockInit> {
   el: HTMLElement;
   type: string;
+  init?: T;
   order: Order = "";
-  constructor(el: HTMLElement, order?: Order) {
+  constructor(init?: T) {
+    const { el, type, order } = init as BlockInit;
+    if (!el) {
+      throw new Error("root el should be created befire constructor");
+    }
+
     this.el = el;
     el.classList.add("oh-is-block");
-    this.type = el.tagName.toLowerCase();
+    this.type = type || el.tagName.toLowerCase();
     if (order) {
       this.order = order;
     }
+    this.init = init;
     addMarkdownHint(el);
+  }
+
+  equals(block: Block<T>) {
+    return block.el === this.el;
   }
 
   assignOrder(order: Order) {
@@ -35,6 +53,10 @@ export class Block {
 
   currentContainer() {
     // document.getSelection().focusNode
+    return this.el;
+  }
+
+  getContainer(index: number) {
     return this.el;
   }
 
@@ -84,11 +106,19 @@ export class Block {
     }
     return isLastLine(container, range);
   }
+
+  getIndexOfContainer(container: HTMLElement, reversde?: boolean): number {
+    if (reversde) {
+      return -1;
+    }
+    return 0;
+  }
+
   getPrevWordPosition(range: Range, container?: HTMLElement): Range | null {
     if (!container) {
       container = this.currentContainer();
     }
-    console.log(container);
+    // console.log(container);
     return getPrevWordRange(container, range);
   }
 
@@ -99,14 +129,14 @@ export class Block {
     return getNextWordRange(container, range);
   }
 
-  getPrevPosition(range: Range, container?: HTMLElement): Range | null {
+  getPrevRange(range: Range, container?: HTMLElement): Range | null {
     if (!container) {
       container = this.currentContainer();
     }
     return getPrevRange(container, range);
     // return null;
   }
-  getNextPosition(range: Range, container?: HTMLElement): Range | null {
+  getNextRange(range: Range, container?: HTMLElement): Range | null {
     if (!container) {
       container = this.currentContainer();
     }
@@ -115,16 +145,21 @@ export class Block {
   getTokenSize(): number {
     return 0;
   }
-  getPosition(reversed?: boolean, container?: HTMLElement): Offset {
+  getPosition(
+    range: Range,
+    reversed?: boolean,
+    container?: HTMLElement
+  ): Offset {
     if (!container) {
       container = this.currentContainer();
     }
-    
 
+    const offset = rangeToOffset(container, range);
+    offset.index = this.getIndexOfContainer(container);
     if (reversed) {
-      return { start: -1 };
+      return offset; // TODO should be reversed
     } else {
-      return { start: 0 };
+      return offset;
     }
   }
   getInlinePosition(range: Range, container?: HTMLElement): Offset {
@@ -138,7 +173,6 @@ export class Block {
     if (!container) {
       container = this.currentContainer();
     }
-    
   }
   setPosition(offset: Offset, container?: HTMLElement) {
     if (!container) {
@@ -153,5 +187,7 @@ export class Block {
     setRange(range);
   }
 }
+
+export type AnyBlock = Block<any>;
 
 export type BlockOperations = { [key: string]: OperationHandlerFn };

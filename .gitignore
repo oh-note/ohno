@@ -129,3 +129,4 @@ dist-ssr
 *.sln
 *.sw?
 TODO.md
+*.code-workspace

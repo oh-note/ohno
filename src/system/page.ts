@@ -39,9 +39,10 @@ import {
 } from "./handler";
 import { createOrder } from "../helper/order";
 import { LinkedDict } from "../struct/linkeddict";
-import { Block, Order } from "./block";
-import { Operation, OperationHandlerFn } from "./operation";
-import { Paragraph } from "../blocks/paragraph";
+import { AnyBlock, Block, Order } from "./block";
+import { OperationHandlerFn } from "./operation";
+import { Paragraph } from "../contrib/handlers/paragraph";
+import { Command, History, globalHistory } from "./history";
 
 export class PageDispatch {
   beforeHandlerd: { [key: string]: Handler[] } = defaultBeforeHandlers;
@@ -87,7 +88,45 @@ export class PageDispatch {
     );
     return el;
   }
+  bingEventListener(el: HTMLElement) {
+    el.addEventListener("copy", this.handleCopy.bind(this));
+    el.addEventListener("paste", this.handlePaste.bind(this));
+    el.addEventListener("blur", this.handleBlur.bind(this));
+    el.addEventListener("focus", this.handleFocus.bind(this));
+    el.addEventListener("keydown", this.handleKeyDown.bind(this));
+    el.addEventListener("keypress", this.handleKeyPress.bind(this));
+    el.addEventListener("keyup", this.handleKeyUp.bind(this));
+    el.addEventListener("mousedown", this.handleMouseDown.bind(this));
 
+    // should be bind manully
+    el.addEventListener("mousemove", this.handleMouseMove.bind(this));
+    el.addEventListener("mouseenter", this.handleMouseEnter.bind(this));
+    el.addEventListener("mouseleave", this.handleMouseLeave.bind(this));
+    el.addEventListener("mouseup", this.handleMouseUp.bind(this));
+    el.addEventListener("click", this.handleClick.bind(this));
+    el.addEventListener("input", this.handleInput.bind(this));
+    el.addEventListener("contextmenu", this.handleContextMenu.bind(this));
+
+    el.addEventListener("beforeinput", this.handleBeforeInput.bind(this));
+
+    el.addEventListener(
+      "selectionchange",
+      this.handleSelectionChange.bind(this)
+    );
+    el.addEventListener("select", this.handleSelect.bind(this));
+    el.addEventListener("selectstart", this.handleSelectStart.bind(this));
+
+    el.addEventListener(
+      "compositionstart",
+      this.handleCompositionStart.bind(this)
+    );
+    el.addEventListener(
+      "compositionupdate",
+      this.handleCompositionUpdate.bind(this)
+    );
+    el.addEventListener("compositionend", this.handleCompositionEnd.bind(this));
+    return el;
+  }
   registerBeforeHandler(name: string, handler: Handler) {
     if (!this.beforeHandlerd[name]) {
       this.beforeHandlerd[name] = [];
@@ -104,7 +143,7 @@ export class PageDispatch {
     this.afterHandlerd[name].push(handler);
   }
 
-  findBlock(target: EventTarget | Node | null | undefined): Block | null {
+  findBlock(target: EventTarget | Node | null | undefined): AnyBlock | null {
     if (!target) {
       return null;
     }
@@ -117,12 +156,12 @@ export class PageDispatch {
     }
     return el;
   }
-  makeContext(block: Block): EventContext {
+  makeContext(block: AnyBlock): EventContext {
     return { block: block, page: this.page };
   }
 
   sendEvent<K extends Event>(
-    block: Block,
+    block: AnyBlock,
     e: K,
     eventName: keyof HandlerMethods
   ) {
@@ -299,6 +338,40 @@ export class PageDispatch {
     }
     this.sendEvent<InputEvent>(block, e, "handleBeforeInput");
   }
+  handleSelectStart(e: Event): void | boolean {
+    console.log(e);
+    return;
+    const block = this.findBlock(
+      document.getSelection()?.getRangeAt(0).startContainer
+    );
+    if (!block) {
+      return;
+    }
+    this.sendEvent<Event>(block, e, "handleSelectStart");
+  }
+  handleSelectionChange(e: Event): void | boolean {
+    console.log(e);
+    return;
+    const block = this.findBlock(
+      document.getSelection()?.getRangeAt(0).startContainer
+    );
+    if (!block) {
+      return;
+    }
+    this.sendEvent<Event>(block, e, "handleSelectionChange");
+  }
+  handleSelect(e: Event): void | boolean {
+    console.log(e);
+    return;
+    const block = this.findBlock(
+      document.getSelection()?.getRangeAt(0).startContainer
+    );
+    if (!block) {
+      return;
+    }
+    this.sendEvent<Event>(block, e, "handleSelect");
+  }
+
   handleCompositionEnd(e: CompositionEvent): void | boolean {
     const block = this.findBlock(e.target);
     if (!block) {
@@ -320,56 +393,24 @@ export class PageDispatch {
     }
     this.sendEvent<CompositionEvent>(block, e, "handleCompositionUpdate");
   }
-  bingEventListener(el: HTMLElement) {
-    el.addEventListener("copy", this.handleCopy.bind(this));
-    el.addEventListener("paste", this.handlePaste.bind(this));
-    el.addEventListener("blur", this.handleBlur.bind(this));
-    el.addEventListener("focus", this.handleFocus.bind(this));
-    el.addEventListener("keydown", this.handleKeyDown.bind(this));
-    el.addEventListener("keypress", this.handleKeyPress.bind(this));
-    el.addEventListener("keyup", this.handleKeyUp.bind(this));
-    el.addEventListener("mousedown", this.handleMouseDown.bind(this));
-
-    // should be bind manully
-    el.addEventListener("mousemove", this.handleMouseMove.bind(this));
-    el.addEventListener("mouseenter", this.handleMouseEnter.bind(this));
-    el.addEventListener("mouseleave", this.handleMouseLeave.bind(this));
-    el.addEventListener("mouseup", this.handleMouseUp.bind(this));
-    el.addEventListener("click", this.handleClick.bind(this));
-    el.addEventListener("input", this.handleInput.bind(this));
-    el.addEventListener("contextmenu", this.handleContextMenu.bind(this));
-
-    el.addEventListener("beforeinput", this.handleBeforeInput.bind(this));
-
-    el.addEventListener(
-      "compositionstart",
-      this.handleCompositionStart.bind(this)
-    );
-    el.addEventListener(
-      "compositionupdate",
-      this.handleCompositionUpdate.bind(this)
-    );
-    el.addEventListener("compositionend", this.handleCompositionEnd.bind(this));
-    return el;
-  }
 }
 
 export class Page {
   handler: PageDispatch;
   opHandlers: { [key: string]: OperationHandlerFn } = {};
-  blocks: LinkedDict<string, Block> = new LinkedDict();
+  blocks: LinkedDict<string, AnyBlock> = new LinkedDict();
   root: HTMLElement | null;
+  history: History = globalHistory;
   constructor() {
     this.handler = new PageDispatch(this);
     this.root = null;
   }
-  emit(operation: Operation, event: any) {
-    return this.opHandlers[operation.type](operation, {
-      // event: event,
-      page: this,
-      src: null,
-      event: event as any,
-    });
+  emit(command: Command<any>, executed?: boolean) {
+    if (executed) {
+      this.history.append(command);
+    } else {
+      this.history.execute(command);
+    }
   }
   registerOp(type: string, handlerFn: OperationHandlerFn) {
     this.opHandlers[type] = handlerFn;
@@ -405,7 +446,7 @@ export class Page {
     tgt.el.classList.add("oh-is-active");
   }
 
-  findBlock(order: Order): Block | null {
+  findBlock(order: Order): AnyBlock | null {
     const results = this.blocks.find(order);
     if (!results) {
       return null;
@@ -413,7 +454,7 @@ export class Page {
     return results[0];
   }
 
-  getPrevBlock(block: Block): Block | null {
+  getPrevBlock(block: AnyBlock): AnyBlock | null {
     const results = this.blocks.previous(block.order!);
     if (!results) {
       return null;
@@ -421,7 +462,7 @@ export class Page {
     return results[0];
   }
 
-  getNextBlock(block: Block): Block | null {
+  getNextBlock(block: AnyBlock): AnyBlock | null {
     let results = this.blocks.next(block.order!);
     if (!results) {
       return null;
@@ -438,7 +479,7 @@ export class Page {
     tgt.el.classList.remove("oh-is-active");
   }
 
-  appendBlock(newBlock: Block) {
+  appendBlock(newBlock: AnyBlock) {
     const [tgt, _] = this.blocks.getLast();
     if (tgt) {
       newBlock.assignOrder(createOrder(tgt.order));
@@ -448,9 +489,10 @@ export class Page {
       this.blocks.append(newBlock.order!, newBlock);
     }
     this.root?.appendChild(newBlock.el);
+    return newBlock.order;
   }
 
-  insertBlockBefore(name: Order, newBlock: Block) {
+  insertBlockBefore(name: Order, newBlock: AnyBlock) {
     const result = this.blocks.find(name);
     if (!result) {
       throw EvalError(`name ${name} not exists!`);
@@ -465,7 +507,7 @@ export class Page {
     }
     tgt.el.insertAdjacentElement("beforebegin", newBlock.el);
   }
-  insertBlockAfter(name: Order, newBlock: Block) {
+  insertBlockAfter(name: Order, newBlock: AnyBlock) {
     const result = this.blocks.find(name);
     if (!result) {
       throw EvalError(`name ${name} not exists!`);
@@ -488,7 +530,7 @@ export class Page {
     const [tgt, _] = result;
     tgt.el.remove();
   }
-  replaceBlock(name: Order, newBlock: Block) {
+  replaceBlock(name: Order, newBlock: AnyBlock) {
     const result = this.blocks.find(name);
     if (!result) {
       throw EvalError(`name ${name} not exists!`);
@@ -508,7 +550,6 @@ export class Page {
     if (!el.hasChildNodes()) {
       this.appendBlock(new Paragraph());
     }
-    console.log(el);
   }
 
   dismiss(removeElement?: boolean) {

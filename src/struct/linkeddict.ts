@@ -1,14 +1,18 @@
-export interface Node<K, V> {
-  prev?: Node<K, V>;
+export interface DictNode<K, V> {
+  prev?: DictNode<K, V>;
   name?: K;
   value: V;
-  next?: Node<K, V>;
+  next?: DictNode<K, V>;
 }
 
-export class LinkedDict<K extends string, V> {
-  first?: Node<K, V>;
-  last?: Node<K, V>;
-  nodes: { [key in K]?: Node<K, V> } = {};
+export class LinkedDict<K extends string | number, V> {
+  first?: DictNode<K, V>;
+  last?: DictNode<K, V>;
+  nodes: { [key in K]?: DictNode<K, V> } = {};
+
+  public get length(): number {
+    return Object.keys(this.nodes).length;
+  }
 
   append(name: K, value: V) {
     const node = { prev: this.last, name, value };
@@ -22,7 +26,7 @@ export class LinkedDict<K extends string, V> {
     this.nodes[name] = node;
   }
 
-  find(name: K): [V, Node<K, V>] | null {
+  find(name: K): [V, DictNode<K, V>] | null {
     const node = this.nodes[name];
     if (!node) {
       return null;
@@ -30,7 +34,7 @@ export class LinkedDict<K extends string, V> {
     return [node.value, node];
   }
 
-  previous(name: K): [V, Node<K, V>] | null {
+  previous(name: K): [V, DictNode<K, V>] | null {
     const node = this.nodes[name];
     if (!node) {
       return null;
@@ -41,7 +45,7 @@ export class LinkedDict<K extends string, V> {
     return [node.prev.value, node.prev];
   }
 
-  next(name: K): [V, Node<K, V>] | null {
+  next(name: K): [V, DictNode<K, V>] | null {
     const node = this.nodes[name];
     if (!node) {
       return null;
@@ -52,7 +56,7 @@ export class LinkedDict<K extends string, V> {
     return [node.next.value, node.next];
   }
 
-  pop(name: K): [V, Node<K, V>] | null {
+  pop(name: K): [V, DictNode<K, V>] | null {
     const node = this.nodes[name];
     if (!node) {
       return null;
@@ -76,7 +80,10 @@ export class LinkedDict<K extends string, V> {
     if (!node) {
       return false;
     }
-    const newNode = { prev: node.prev, key, value, next: node } as Node<K, V>;
+    const newNode = { prev: node.prev, key, value, next: node } as DictNode<
+      K,
+      V
+    >;
     if (node.prev) {
       node.prev.next = newNode;
     } else {
@@ -102,9 +109,9 @@ export class LinkedDict<K extends string, V> {
     this.nodes[key] = newNode;
     return true;
   }
-  getLast(): [V, Node<K, V>] {
+  getLast(): [V, DictNode<K, V>] {
     if (!this.last) {
-      const node = {} as Node<K, V>;
+      const node = {} as DictNode<K, V>;
       return [node.value, node];
     }
     return [this.last.value, this.last];

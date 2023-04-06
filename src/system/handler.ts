@@ -1,11 +1,11 @@
-import { Block, BlockOperations } from "./block";
+import { AnyBlock, Block, BlockOperations } from "./block";
 import { Page } from "./page";
 
 export class HandlerOption {}
 
 export interface EventContext {
   page: Page;
-  block: Block;
+  block: AnyBlock;
 }
 
 export type HandlerMethod<K> = (
@@ -15,6 +15,9 @@ export type HandlerMethod<K> = (
 ) => boolean | void;
 
 export interface HandlerMethods {
+  handleSelect(e: Event, context: EventContext): void | boolean;
+  handleSelectionChange(e: Event, context: EventContext): void | boolean;
+  handleSelectStart(e: Event, context: EventContext): void | boolean;
   handleCopy(e: ClipboardEvent, context: EventContext): void | boolean;
   handlePaste(e: ClipboardEvent, context: EventContext): void | boolean;
   handleBlur(e: FocusEvent, context: EventContext): void | boolean;
@@ -54,6 +57,9 @@ export class Handler implements HandlerMethods, KeyDispatchedHandler {
     }
     this.option = option;
   }
+  handleSelect(e: Event, context: EventContext): boolean | void {}
+  handleSelectionChange(e: Event, context: EventContext): boolean | void {}
+  handleSelectStart(e: Event, context: EventContext): boolean | void {}
 
   handleCopy(e: ClipboardEvent, context: EventContext): void | boolean {}
   handlePaste(e: ClipboardEvent, context: EventContext): void | boolean {}
@@ -138,9 +144,9 @@ export function dispatchKeyDown(
   } else if (e.key == "End" && handler.handleEndDown) {
     return handler.handleEndDown(e, context);
   } else if (e.key == "PageUp" && handler.handlePageUpDown) {
-    return handler.handlePageUpDown(e, context, -1);
+    return handler.handlePageUpDown(e, context);
   } else if (e.key == "PageDown" && handler.handlePageDownDown) {
-    return handler.handlePageDownDown(e, context, 1);
+    return handler.handlePageDownDown(e, context);
   }
   return false;
 }
@@ -153,12 +159,12 @@ export function setBeforeHandlers(handler: Handler) {
   if (!defaultBeforeHandlers[handler.block_type]) {
     defaultBeforeHandlers[handler.block_type] = [];
   }
-  console.log(["Register before handler", handler]);
+  // console.log(["Register before handler", handler]);
   defaultBeforeHandlers[handler.block_type].push(handler);
 }
 
 export function setHandler(handler: Handler) {
-  console.log(["Register global handler", handler]);
+  // console.log(["Register global handler", handler]);
   defaultGlobalHandlers.push(handler);
 }
 
