@@ -2,8 +2,12 @@ import {
   FIRST_POSITION,
   LAST_POSITION,
   rangeToOffset,
-} from "../../helper/position";
-import { EventContext, Handler, KeyDispatchedHandler } from "../../system/handler";
+} from "../../system/position";
+import {
+  EventContext,
+  Handler,
+  KeyDispatchedHandler,
+} from "../../system/handler";
 
 export function defaultHandleArrowDown(
   handler: Handler,
@@ -95,7 +99,6 @@ export function defaultHandleArrowDown(
     } else {
       next = block.getNextRange(range);
     }
-    console.log(next);
 
     if (next) {
       block.setRange(next);

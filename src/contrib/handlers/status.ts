@@ -16,7 +16,7 @@ import {
   InsertText,
 } from "../commands/text";
 import { defaultHandleArrowDown } from "./defaultArrowDown";
-import { rangeToOffset } from "../../helper/position";
+import { rangeToOffset } from "../../system/position";
 import { FormatText } from "../commands/format";
 import { HTMLElementTagName } from "../../helper/document";
 
@@ -118,4 +118,4 @@ export class TransferHandler extends Handler implements KeyDispatchedHandler {
   }
 }
 
-// setHandler(new TransferHandler());
+setHandler(new TransferHandler());

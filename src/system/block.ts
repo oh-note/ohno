@@ -1,17 +1,15 @@
 import { addMarkdownHint } from "../helper/markdown";
+import { Offset, rangeToOffset, setPosition } from "./position";
+import { OperationHandlerFn } from "./operation";
 import {
-  Offset,
   getNextRange,
   getNextWordRange,
   getPrevRange,
   getPrevWordRange,
   isFirstLine,
   isLastLine,
-  rangeToOffset,
-  setPosition,
   setRange,
-} from "../helper/position";
-import { OperationHandlerFn } from "./operation";
+} from "./range";
 
 export type Order = string;
 
@@ -104,6 +102,7 @@ export class Block<T extends BlockInit> {
     if (!container) {
       container = this.currentContainer();
     }
+
     return isLastLine(container, range);
   }
 
@@ -118,29 +117,29 @@ export class Block<T extends BlockInit> {
     if (!container) {
       container = this.currentContainer();
     }
-    // console.log(container);
-    return getPrevWordRange(container, range);
+
+    return getPrevWordRange(range, container);
   }
 
   getNextWordPosition(range: Range, container?: HTMLElement): Range | null {
     if (!container) {
       container = this.currentContainer();
     }
-    return getNextWordRange(container, range);
+    return getNextWordRange(range, container);
   }
 
   getPrevRange(range: Range, container?: HTMLElement): Range | null {
     if (!container) {
       container = this.currentContainer();
     }
-    return getPrevRange(container, range);
+    return getPrevRange(range, container);
     // return null;
   }
   getNextRange(range: Range, container?: HTMLElement): Range | null {
     if (!container) {
       container = this.currentContainer();
     }
-    return getNextRange(container, range);
+    return getNextRange(range, container);
   }
   getTokenSize(): number {
     return 0;

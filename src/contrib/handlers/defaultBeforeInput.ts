@@ -2,7 +2,7 @@ import {
   FIRST_POSITION,
   LAST_POSITION,
   rangeToOffset,
-} from "../../helper/position";
+} from "../../system/position";
 import { EventContext, Handler, KeyDispatchedHandler } from "../../system/handler";
 
 export function defaultBeforeInput(

@@ -1,22 +1,21 @@
-import { loadConfigFromFile } from "vite";
 import {
   createElement,
   createTextNode,
   innerHTMLToNodeList,
   makeInlineBlock,
-} from "./document";
-import { ValidNode, getTagName } from "./element";
-import { addMarkdownHint } from "./markdown";
+} from "../helper/document";
+import { ValidNode, getTagName } from "../helper/element";
+import { addMarkdownHint } from "../helper/markdown";
 import {
   offsetToRange,
   getTokenSize,
   rangeToOffset,
-  getNextRange,
   FIRST_POSITION,
   LAST_POSITION,
 } from "./position";
 import { describe, expect, test } from "vitest";
 import katex from "katex";
+import { getNextOffset, getPrevOffset, setRange } from "./range";
 
 function tryThis(p: ValidNode) {
   const size = getTokenSize(p);
@@ -37,7 +36,32 @@ function tryThis(p: ValidNode) {
   expect(res).toBe(p.textContent);
 }
 
-describe("offsetToRange", () => {
+describe("position", () => {
+  test("neighbor Range", () => {
+    const p = createElement("p");
+    p.innerHTML = "L<b>d<i>i<code>c</code></i></b>";
+    addMarkdownHint(p);
+    let init = offsetToRange(p, { start: 8, end: 9 })!;
+    expect(getPrevOffset(init.endContainer, init.endOffset)).toStrictEqual([
+      init.startContainer,
+      init.startOffset,
+    ]);
+    
+    setRange(init);
+    const size = getTokenSize(p);
+    for (let i = 0; i < size; i++) {
+      const offset = { start: i, end: i + 1 };
+      init = offsetToRange(p, offset)!;
+      expect(
+        getNextOffset(init.startContainer, init.startOffset)
+      ).toStrictEqual([init.endContainer, init.endOffset]);
+      expect(getPrevOffset(init.endContainer, init.endOffset)).toStrictEqual([
+        init.startContainer,
+        init.startOffset,
+      ]);
+    }
+  });
+
   test("text node", () => {
     const text = createTextNode("012345");
     expect(offsetToRange(text, FIRST_POSITION)?.startContainer).toStrictEqual(

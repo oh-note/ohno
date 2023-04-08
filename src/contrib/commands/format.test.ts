@@ -5,9 +5,10 @@ import { Paragraph } from "..";
 import { InsertText } from "./text";
 import { Page } from "../../system/page";
 import { FormatText } from "./format";
-import { setRange } from "../../helper/position";
 import { addMarkdownHint } from "../../helper/markdown";
-import { innerHTML } from "../../helper/element";
+import { getTagName, innerHTML } from "../../helper/element";
+import { normalizeRange, setRange } from "../../system/range";
+import { normalizePath } from "vite";
 
 function makeFakePage() {
   const page = new Page();
@@ -33,9 +34,13 @@ describe("test command", () => {
     setRange(range);
 
     expect(range.cloneContents().textContent!).toBe("*1234*");
+    normalizeRange(block.el, range);
+    setRange(range);
+    console.log(getTagName(range.startContainer));
     page.root?.dispatchEvent(new InputEvent("formatBold"));
     // *[*text*]*
     // 需要先检测光标位于 span，并解决光标偏移的问题（通过 selectionchange？有这个事件吗？）
+    console.log(innerHTML(block.el));
     expect(block.el.textContent).toBe("1234");
   });
 

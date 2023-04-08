@@ -1,7 +1,7 @@
 import { OH_INLINEBLOCK, OH_MDHINT } from "./consts";
 import { ElementTagName, createElement } from "./document";
 
-export type ValidNode = Text | HTMLElement | DocumentFragment;
+export type ValidNode = Text | HTMLElement;
 
 export interface Condition {
   emptyText?: boolean;
@@ -23,7 +23,7 @@ export function isHTMLElement(el: Node) {
   return el && el.nodeType === Node.ELEMENT_NODE;
 }
 
-export function isTokenHTMLElement(el: ValidNode) {
+export function isTokenHTMLElement(el: Node) {
   return (
     isHTMLElement(el) && (el as HTMLElement).classList.contains(OH_INLINEBLOCK)
   );
@@ -37,39 +37,60 @@ export function isTextNode(el: Node) {
   return el && el instanceof Text;
 }
 
-export function isValidNode(el: Node, condition?: Condition): ValidNode | null {
+export function isValidNode(el: Node): boolean {
   if (!el) {
-    return null;
+    return false;
   }
   if (isTag(el, "#text")) {
-    return el as Text;
+    return true;
   } else if (isHintHTMLElement(el)) {
-    return null;
+    return false;
   } else if (isHTMLElement(el)) {
-    return el as HTMLElement;
+    return true;
   }
-  return null;
+  return false;
 }
+
+export function isEntityNode(el: Node) {
+  if (!isValidNode(el)) {
+    return false;
+  }
+  if (el instanceof Text) {
+    return el.textContent?.length! > 0;
+  }
+  return true;
+}
+
 export function firstValidChild(
-  el: HTMLElement,
-  condition?: Condition
+  el: ValidNode,
+  filter: (el: Node) => boolean = isValidNode
 ): ValidNode | null {
   let cur = el.firstChild as Node;
   while (cur) {
-    if (isValidNode(cur, condition)) {
+    if (filter(cur)) {
       return cur as ValidNode;
     }
     cur = cur.nextSibling as Node;
   }
   return cur;
 }
+
+export function isParent(child: Node, parent: Node) {
+  while (child) {
+    if (child === parent) {
+      return true;
+    }
+    child = child.parentElement!;
+  }
+  return false;
+}
 export function lastValidChild(
-  el: HTMLElement,
-  condition?: Condition
+  el: ValidNode,
+  filter: (el: Node) => boolean = isValidNode
 ): ValidNode | null {
   let cur = el.lastChild as Node;
   while (cur) {
-    if (isValidNode(cur, condition)) {
+    if (filter(cur)) {
       return cur as ValidNode;
     }
     cur = cur.previousSibling as Node;
@@ -79,11 +100,11 @@ export function lastValidChild(
 
 export function prevValidSibling(
   el: Node,
-  condition?: Condition
+  filter: (el: Node) => boolean = isValidNode
 ): ValidNode | null {
   while (el) {
     el = el.previousSibling as Node;
-    if (isValidNode(el, condition)) {
+    if (filter(el)) {
       return el as ValidNode;
     }
   }
@@ -92,15 +113,35 @@ export function prevValidSibling(
 
 export function nextValidSibling(
   el: Node,
-  condition?: Condition
+  filter: (el: Node) => boolean = isValidNode
 ): ValidNode | null {
   while (el) {
     el = el.nextSibling as Node;
-    if (isValidNode(el, condition)) {
+    if (filter(el)) {
       return el as ValidNode;
     }
   }
   return el;
+}
+
+export function parentElementWithFilter(
+  el: Node,
+  root: Node,
+  filter: (el: Node) => boolean
+) {
+  var cur = el as HTMLElement;
+  // el.parentElement
+  while (cur && cur !== root) {
+    if (filter(cur)) {
+      return cur;
+    }
+    if (cur.parentElement) {
+      cur = cur.parentElement;
+    } else {
+      break;
+    }
+  }
+  return null;
 }
 
 export function parentElementWithTag(
@@ -148,7 +189,7 @@ export function indexOfNode(el?: Node | null, name?: ElementTagName) {
 }
 
 export function validChildNodes(
-  el: HTMLElement | DocumentFragment
+  el: ValidNode | DocumentFragment
 ): ValidNode[] {
   const res: ValidNode[] = [];
   el.childNodes.forEach((item) => {
@@ -186,6 +227,8 @@ export function tryConcatLeft(el: ValidNode): ValidNode {
       prev.remove();
       prev = prevValidSibling(el);
     }
+    return el;
   }
 }
+
 export function tryConcatRight(el: ValidNode) {}

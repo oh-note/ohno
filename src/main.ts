@@ -29,7 +29,7 @@ const wrap = makeInlineBlock({
 });
 
 let innerHTML =
-  "Lor<b>em</b> ipsum <b>dolor <i>sit <code>amet</code></i></b>, consectetur adipiscing elit, sed do eiusmod <code>tempor <b><i><code>incididunt</code></i></b></code> ut labore et dolore magna aliqua.";
+  "Lor<i>em ipsum</i> ipsum <b>dolor <i>sit <code>amet</code></i></b>, consectetur adipiscing elit, sed do eiusmod <code>tempor <b><i><code>incididunt</code></i></b></code> ut labore et dolore magna aliqua.";
 
 page.appendBlock(new Headings({ level: "h1", innerHTML: "Heading 1" }));
 page.appendBlock(new Headings({ level: "h2", innerHTML: "Heading 2" }));
@@ -43,9 +43,9 @@ page.appendBlock(new Paragraph({ innerHTML, children: [wrap] }));
 // page.appendBlock(new ParagraphQuote(undefined, undefined, "hello"));
 // page.appendBlock(new H1(undefined, undefined, "hello"));
 
-document.addEventListener("selectionchange", () => {
-  console.log(document.getSelection());
-});
+// document.addEventListener("selectionchange", () => {
+//   console.log(document.getSelection());
+// });
 // const np = document.createElement("textarea");
 // np.value = "123123123123";
 // np.addEventListener("selectionchange", (e) => {

@@ -1,7 +1,8 @@
-import { Offset, offsetToRange, setRange } from "../../helper/position";
+import { Offset, offsetToRange } from "../../system/position";
 import { AnyBlock, Block } from "../../system/block";
 import { Command } from "../../system/history";
 import { Page } from "../../system/page";
+import { setRange } from "../../system/range";
 
 export interface TextEditPayload {
   page: Page;

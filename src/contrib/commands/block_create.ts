@@ -1,4 +1,4 @@
-import { Offset } from "../../helper/position";
+import { Offset } from "../../system/position";
 import { AnyBlock, Block } from "../../system/block";
 import { Command } from "../../system/history";
 import { Page } from "../../system/page";

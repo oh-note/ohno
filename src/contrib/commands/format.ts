@@ -1,28 +1,23 @@
-import { HTMLElementTagName, createTextNode } from "../../helper/document";
+import { HTMLElementTagName } from "../../helper/document";
 import { createElement } from "../../helper/document";
-import {
-  ValidNode,
-  firstValidChild,
-  innerHTML,
-  lastValidChild,
-  tryConcatLeft,
-} from "../../helper/element";
+import { ValidNode, getTagName, innerHTML } from "../../helper/element";
 import { parentElementWithTag, validChildNodes } from "../../helper/element";
 import { addMarkdownHint } from "../../helper/markdown";
 import {
-  FIRST_POSITION,
   FULL_BLOCK as FULL_SELECTED,
-  LAST_POSITION,
   Offset,
-  getNextRange,
+  elementOffset,
   offsetToRange,
-  rangeToOffset,
-  setRange,
-} from "../../helper/position";
-import { AnyBlock, Block } from "../../system/block";
+} from "../../system/position";
+import { AnyBlock } from "../../system/block";
 import { Command } from "../../system/history";
 import { Page } from "../../system/page";
-import { deserialize, serialize } from "../../system/serializer";
+import {
+  getValidAdjacent,
+  nodesOfRange,
+  normalizeRange,
+  setRange,
+} from "../../system/range";
 
 export interface FormatPayload {
   page: Page;
@@ -31,8 +26,8 @@ export interface FormatPayload {
   format: HTMLElementTagName;
   // remove?: boolean;
   undo_hint?: {
-    offset: Offset;
-    formatIndex: number[];
+    offsets: Offset[];
+    op?: "enformat" | "deformat";
   };
   intime?: {
     range: Range;
@@ -43,100 +38,158 @@ export class FormatText extends Command<FormatPayload> {
   execute(): void {
     const { page, block, format, offset } = this.payload;
     const range = offsetToRange(block.getContainer(offset.index!), offset)!;
+    normalizeRange(range.commonAncestorContainer as Node, range);
+
+    let fathers: ValidNode[] = [];
+    const related: HTMLElement[] = [];
+    for (const child of nodesOfRange(range)) {
+      fathers.push(child as ValidNode);
+      const iterator = document.createNodeIterator(
+        child,
+        NodeFilter.SHOW_ELEMENT,
+        (el: Node) => {
+          if (getTagName(el) === format && el !== child) {
+            return NodeFilter.FILTER_ACCEPT;
+          }
+          return NodeFilter.FILTER_SKIP;
+        }
+      );
+
+      let node;
+      while ((node = iterator.nextNode())) {
+        related.push(node as HTMLElement);
+      }
+    }
 
     const fmt = parentElementWithTag(
       range.commonAncestorContainer,
       format,
       block.currentContainer()
     );
-    if (fmt) {
-      // <b>te|xt</b>
-      // <b>te[x<i>te]xt</i>t</b>
-      console.log("deformat");
-      const childs = validChildNodes(fmt);
-      fmt.replaceWith(...childs);
-      // 左右边界存在问题，应该再各自扩大一格
-      // TODO 优化 getPrevRange/getNextRange 后修改这里
-      range.setStartBefore(childs[0]);
-      range.setEndAfter(childs[childs.length - 1]);
+
+    this.payload.undo_hint = { offsets: [] };
+
+    if (
+      related.length > 0 ||
+      fathers.filter((item) => getTagName(item) === format).length > 0
+    ) {
+      // deformat
+      this.payload.undo_hint.op = "deformat";
+      related.forEach((item) => {
+        const itemOffset = elementOffset(block.currentContainer(), item);
+        this.payload.undo_hint?.offsets.push(itemOffset);
+        const childs = validChildNodes(item);
+        item.replaceWith(...childs);
+      });
+
+      fathers = fathers.flatMap((item) => {
+        if (getTagName(item) === format) {
+          const itemOffset = elementOffset(block.currentContainer(), item);
+          this.payload.undo_hint?.offsets.push(itemOffset);
+          const childs = validChildNodes(item);
+          item.replaceWith(...childs);
+          return childs;
+        }
+        return item;
+      });
+      const [startContainer, startOffset] = getValidAdjacent(
+        fathers[0],
+        "beforebegin"
+      );
+      const [endContainer, endOffset] = getValidAdjacent(
+        fathers[fathers.length - 1],
+        "afterend"
+      );
+
+      range.setStart(startContainer, startOffset);
+      range.setEnd(endContainer, endOffset);
       setRange(range);
       return;
-    }
+    } else if (fmt) {
+      // deformat 2
+      // <b>te|xt</b>
+      // <b>te[x<i>te]xt</i>t</b>
+      const childs = validChildNodes(fmt);
+      this.payload.undo_hint.op = "deformat";
 
-    const frag = range.cloneContents();
-    const segs = serialize(...Array.from(frag.childNodes));
+      const itemOffset = elementOffset(block.currentContainer(), fmt);
+      this.payload.undo_hint?.offsets.push(itemOffset);
 
-    if (segs.length === 1) {
-      const fmtindex = segs[0].format.indexOf(format);
-      if (fmtindex >= 0) {
-        // [<b>text</b>]
-        segs[0].format.splice(fmtindex);
-        const childs = deserialize(segs[0]);
-        range.deleteContents();
-        const text = createTextNode("");
-        range.insertNode(text);
-        text.replaceWith(...childs);
-        return;
-      }
-    }
+      fmt.replaceWith(...childs);
+      const [startContainer, startOffset] = getValidAdjacent(
+        childs[0],
+        "beforebegin"
+      );
+      const [endContainer, endOffset] = getValidAdjacent(
+        childs[childs.length - 1],
+        "afterend"
+      );
 
-    /**
-     * 上下文包括：选中区域，区域左侧，区域右侧
-     * execute
-     * 对选中区域检查，
-     *
-     *  - 删除属性：当父节点为该属性或者seg 数量为1 且为该属性时候
-     *  - 添加属性：其他所有的情况
-     *
-     * undo 时还原依赖于区域左侧和区域右侧
-     * 对选中区域，检查
-     */
-    {
-      const left = range.startContainer;
-      const right = range.endContainer;
-
-      // const leftFmt = parentElementWithTag(left, format, block.el);
-
-      segs.map((item) => {
-        item.format.unshift(format);
-        item.index.unshift(0);
-      });
-
-      range.deleteContents();
+      range.setStart(startContainer, startOffset);
+      range.setEnd(endContainer, endOffset);
+      setRange(range);
+      return;
+    } else {
+      // enformat
+      this.payload.undo_hint.op = "enformat";
       const wrap = createElement(format, {
-        children: Array.from(frag.childNodes),
-        textContent: frag.textContent === "" ? " " : undefined,
+        children: fathers,
+        textContent: innerHTML(...fathers) === "" ? " " : undefined,
       });
       addMarkdownHint(wrap);
-      addMarkdownHint(left.parentElement as ValidNode);
-      addMarkdownHint(right.parentElement as ValidNode);
+
       range.insertNode(wrap);
+      this.payload.undo_hint.offsets.push(
+        elementOffset(block.currentContainer(), wrap)
+      );
       setRange(offsetToRange(wrap, FULL_SELECTED)!);
-      // offsetToRange(wrap, FULL_SELECTED);
-
-      // if (range.startContainer === range.endContainer) {
-      //   // add format
-      //   console.log("add format");
-      //   const wrap = createElement(format);
-
-      //   //  [text] -> <b>[text]</b> ->undo-> [text]
-      //   range.extractContents().childNodes.forEach((item) => {
-      //     wrap.appendChild(item);
-      //   });
-      //   addMarkdownHint(wrap);
-      //   range.insertNode(wrap);
-      //   range.selectNodeContents(wrap);
-      //   setRange(range);
-      // } else {
-      //   //  [te<i>x]t</i> -> <b>[te<i>x<i>]</b><i>t</i> ->undo-> [te<i>x]t</i>
-      //   //  [te<b>x]t</b> -> <b>text</b> ->undo-> [te<b>x]t</b>
-      //   //  [te<i><b>x</b>]t</i> -> <b>[te</b><i><b>x]</b>t</i>
-      // }
+      return;
     }
-
-    // range.extra
   }
   undo(): void {
-    throw new Error("Method not implemented.");
+    const { offsets, op } = this.payload.undo_hint!;
+    const { page, block, format, offset } = this.payload;
+    // 逆序排列
+    offsets
+      .sort((a, b) => {
+        return a.start < b.start ? 1 : -1;
+      })
+      .forEach((item) => {
+        if (op === "deformat") {
+          item.end! -= 2;
+          const range = offsetToRange(block.getContainer(offset.index!), item)!;
+          const children = Array.from(range.extractContents().childNodes);
+          const wrap = createElement(format, {
+            children: children,
+          });
+          addMarkdownHint(wrap);
+          range.insertNode(wrap);
+        } else {
+          const range = offsetToRange(block.getContainer(offset.index!), item)!;
+          const fathers = nodesOfRange(range).flatMap((item) => {
+            if (getTagName(item) === format) {
+              const childs = validChildNodes(item);
+              item.replaceWith(...childs);
+              return childs;
+            }
+            return item;
+          });
+          const [startContainer, startOffset] = getValidAdjacent(
+            fathers[0],
+            "beforebegin"
+          );
+          const [endContainer, endOffset] = getValidAdjacent(
+            fathers[fathers.length - 1],
+            "afterend"
+          );
+
+          range.setStart(startContainer, startOffset);
+          range.setEnd(endContainer, endOffset);
+          setRange(range);
+        }
+      });
+
+    const range = offsetToRange(block.getContainer(offset.index!), offset)!;
+    setRange(range);
   }
 }

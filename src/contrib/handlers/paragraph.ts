@@ -53,4 +53,4 @@ export class ParagraphHandler extends Handler implements KeyDispatchedHandler {
   }
 }
 
-// setBeforeHandlers(new ParagraphHandler());
+setBeforeHandlers(new ParagraphHandler());
