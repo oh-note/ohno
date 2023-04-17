@@ -13,7 +13,17 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noImplicitReturns": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "@*": ["src/*"],
+      // "@helper/*": ["src/helper/*"],
+      // "@contrib/*": ["src/contrib/*"],
+      // "@struct/*": ["src/struct/*"],
+      // "@system/*": ["src/system/*"],
+      "virtual:reload-on-update-in-background-script": ["./src/global.d.ts"],
+      "virtual:reload-on-update-in-view": ["./src/global.d.ts"]
+    }
   },
   "include": ["src"]
 }
