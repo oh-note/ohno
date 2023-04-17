@@ -33,35 +33,10 @@ body {
   min-height: 100vh;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
 #app {
   max-width: 1280px;
   margin: 0 auto;
   padding: 2rem;
-  text-align: center;
-}
-
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-
-.logo.vanilla:hover {
-  filter: drop-shadow(0 0 2em #3178c6aa);
-}
-
-.card {
-  padding: 2em;
 }
 
 .read-the-docs {
@@ -97,17 +72,48 @@ body {
   background-color: #f0f0f0;
 }
 
-.oh-editer-root {
+.oh-is-root {
   overflow-y: auto;
+  background-color: white;
 }
 
-.oh-editer-root p {
+.oh-is-root * {
+  min-height: 1.5em;
+  white-space: pre-wrap;
+}
+
+.oh-is-root p {
   width: 500px;
-  padding: 20px;
   background-color: #fff;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
 }
 
+.oh-is-root blockquote {
+  margin: 0;
+  padding: 0 1em;
+  color: #57606a;
+  border-left: 0.25em solid #d0d7de;
+}
+
+
+.oh-is-root h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  width: 500px;
+  min-height: 1.5em;
+  background-color: #fff;
+}
+
+.oh-is-root p span.placeholder {
+  content: attr(placeholder);
+  color: #aaa;
+}
+
+.oh-is-root label.active {
+  background-color: #747bff;
+}
 
 @media (prefers-color-scheme: light) {
   :root {

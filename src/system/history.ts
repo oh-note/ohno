@@ -1,6 +1,13 @@
-import { LinkedList } from "../struct/linkedlist";
-import { Block } from "./block";
+import { LinkedList } from "@struct/linkedlist";
+import { AnyBlock, Block } from "./block";
 import { Page } from "./page";
+
+export interface Payload {
+  page: Page;
+  block: AnyBlock;
+  undo_hint?: { [key: string]: any };
+  intime?: { [key: string]: any };
+}
 
 export abstract class Command<P> {
   payload: P;
@@ -55,8 +62,10 @@ export class History {
   }
 
   execute(command: Command<any>) {
+    console.log(command);
     command.history = this;
     command.execute();
+    this.undo_commands.clear();
     this.append(command);
   }
 
@@ -74,6 +83,7 @@ export class History {
     // console.log(results);
     if (results) {
       results[0].execute();
+      this.undo_commands.clear();
       this.commands.append(results[0]);
     }
   }

@@ -1,12 +1,12 @@
-import { createElement } from "../../helper/document";
-import { Block, BlockInit, Order } from "../../system/block";
+import { createElement } from "@helper/document";
+import { Block, BlockInit, Order } from "@system/block";
 import {
   EventContext,
   Handler,
   KeyDispatchedHandler,
   dispatchKeyDown,
   setBeforeHandlers,
-} from "../../system/handler";
+} from "@system/handler";
 
 export interface BlockQuoteInit extends BlockInit {
   innerHTML?: string;

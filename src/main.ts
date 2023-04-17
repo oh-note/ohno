@@ -1,18 +1,30 @@
 import "./style.css";
-import { Block } from "./system/block";
 import { Page } from "./system/page";
 import {
   createElement,
-  createInlineBlock,
   innerHTMLToNodeList,
   makeInlineBlock,
 } from "./helper/document";
 import katex from "katex";
-import { Paragraph } from "./contrib";
-import { Headings } from "./contrib/handlers/headings";
-import { BlockQuote as Blockquote } from "./contrib/handlers/blockquote";
+import {
+  Blockquote,
+  BlockquoteHandlers,
+  HeadingHandlers,
+  Headings,
+  Paragraph,
+  ParagraphHandlers,
+} from "./contrib/blocks";
+import { DefaultBlockHandler } from "./contrib";
 
-const page = new Page();
+const page = new Page({
+  handlers: [
+    { globalHandler: new DefaultBlockHandler() },
+    ParagraphHandlers,
+    HeadingHandlers,
+    BlockquoteHandlers,
+  ],
+});
+
 const el = document.querySelector("#app") as HTMLElement;
 if (el) {
   page.render(el);
@@ -31,15 +43,17 @@ const wrap = makeInlineBlock({
 let innerHTML =
   "Lor<i>em ipsum</i> ipsum <b>dolor <i>sit <code>amet</code></i></b>, consectetur adipiscing elit, sed do eiusmod <code>tempor <b><i><code>incididunt</code></i></b></code> ut labore et dolore magna aliqua.";
 
-page.appendBlock(new Headings({ level: "h1", innerHTML: "Heading 1" }));
-page.appendBlock(new Headings({ level: "h2", innerHTML: "Heading 2" }));
-page.appendBlock(new Headings({ level: "h3", innerHTML: "Heading 3" }));
-page.appendBlock(new Headings({ level: "h4", innerHTML: "Heading 4" }));
-page.appendBlock(new Headings({ level: "h5", innerHTML: "Heading 5" }));
+innerHTML = "012<b>456</b>89<i>012</i>";
+
+page.appendBlock(new Paragraph({ innerHTML, children: [wrap] }));
+page.appendBlock(new Headings({ level: 1, innerHTML: "Heading 1" }));
+page.appendBlock(new Paragraph({ innerHTML, children: [wrap] }));
+page.appendBlock(new Paragraph({}));
+page.appendBlock(new Paragraph({ innerHTML, children: [wrap] }));
 page.appendBlock(new Paragraph({ innerHTML, children: [wrap] }));
 page.appendBlock(new Blockquote({ innerHTML, children: [wrap] }));
 innerHTML = "";
-page.appendBlock(new Paragraph({ innerHTML, children: [wrap] }));
+page.appendBlock(new Blockquote({ innerHTML, children: [wrap] }));
 // page.appendBlock(new ParagraphQuote(undefined, undefined, "hello"));
 // page.appendBlock(new H1(undefined, undefined, "hello"));
 
@@ -60,7 +74,7 @@ document.body.appendChild(
     eventHandler: {
       click: () => {
         page.appendBlock(
-          new Paragraph({ el: createElement("p", { textContent: "Hello" }) })
+          new Blockquote({ el: createElement("p", { textContent: "Hello" }) })
         );
       },
     },
@@ -77,7 +91,7 @@ document.body.appendChild(
       click: () => {
         page.insertBlockBefore(
           ipt.value,
-          new Paragraph({
+          new Blockquote({
             el: createElement("p", { textContent: "Hello Insert Before" }),
           })
         );
@@ -93,7 +107,7 @@ document.body.appendChild(
       click: () => {
         page.insertBlockAfter(
           ipt.value,
-          new Paragraph({
+          new Blockquote({
             el: createElement("p", { textContent: "Hello Insert After" }),
           })
         );
@@ -109,7 +123,7 @@ document.body.appendChild(
       click: () => {
         page.replaceBlock(
           ipt.value,
-          new Paragraph({
+          new Blockquote({
             el: createElement("p", { textContent: "Hello replace" }),
           })
         );

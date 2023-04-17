@@ -3,19 +3,24 @@ import {
   createTextNode,
   innerHTMLToNodeList,
   makeInlineBlock,
-} from "../helper/document";
-import { ValidNode, getTagName } from "../helper/element";
-import { addMarkdownHint } from "../helper/markdown";
+} from "@helper/document";
+import { ValidNode, getTagName, outerHTML } from "@helper/element";
+import { addMarkdownHint } from "@helper/markdown";
 import {
   offsetToRange,
   getTokenSize,
   rangeToOffset,
   FIRST_POSITION,
   LAST_POSITION,
-} from "./position";
+} from "@system/position";
 import { describe, expect, test } from "vitest";
 import katex from "katex";
-import { getNextOffset, getPrevOffset, setRange } from "./range";
+import {
+  createRange,
+  getNextLocation,
+  getPrevLocation,
+  setRange,
+} from "@system/range";
 
 function tryThis(p: ValidNode) {
   const size = getTokenSize(p);
@@ -37,32 +42,32 @@ function tryThis(p: ValidNode) {
 }
 
 describe("position", () => {
-  test("neighbor Range", () => {
+  test("getPrevOffset/getNextOffset", () => {
     const p = createElement("p");
     p.innerHTML = "L<b>d<i>i<code>c</code></i></b>";
     addMarkdownHint(p);
     let init = offsetToRange(p, { start: 8, end: 9 })!;
-    expect(getPrevOffset(init.endContainer, init.endOffset)).toStrictEqual([
+    expect(getPrevLocation(init.endContainer, init.endOffset)).toStrictEqual([
       init.startContainer,
       init.startOffset,
     ]);
-    
+
     setRange(init);
     const size = getTokenSize(p);
     for (let i = 0; i < size; i++) {
       const offset = { start: i, end: i + 1 };
       init = offsetToRange(p, offset)!;
       expect(
-        getNextOffset(init.startContainer, init.startOffset)
+        getNextLocation(init.startContainer, init.startOffset)
       ).toStrictEqual([init.endContainer, init.endOffset]);
-      expect(getPrevOffset(init.endContainer, init.endOffset)).toStrictEqual([
+      expect(getPrevLocation(init.endContainer, init.endOffset)).toStrictEqual([
         init.startContainer,
         init.startOffset,
       ]);
     }
   });
 
-  test("text node", () => {
+  test("offsetToRange/text node", () => {
     const text = createTextNode("012345");
     expect(offsetToRange(text, FIRST_POSITION)?.startContainer).toStrictEqual(
       text
@@ -75,7 +80,7 @@ describe("position", () => {
     tryThis(text);
   });
 
-  test("2023-04-03-09-39", () => {
+  test("rangeToOffset/2023-04-03-09-39", () => {
     const p = createElement("p");
     p.innerHTML = "L<b>d<i>i<code>c</code></i></b>";
     //  L <b> d <i> i <code> c </code> </i> </b>
@@ -87,7 +92,7 @@ describe("position", () => {
     expect(coffset.end).toBe(9);
   });
 
-  test("2023-04-03-08-48", () => {
+  test("offsetToRange/2023-04-03-08-48", () => {
     const p = createElement("p");
     p.innerHTML = "Lor<b><i>a</i></b>m";
     // Lor<b>|**<i>*|a*</i>**</b>m
@@ -116,7 +121,15 @@ describe("position", () => {
     ).toBe("*");
   });
 
-  test("2023-04-03-00-28", () => {
+  test("rangeToOffset/**|**/2023.04.16", () => {
+    const p = createElement("p");
+    p.innerHTML = "<b></b>";
+    addMarkdownHint(p);
+    const res = rangeToOffset(p, createRange(p.firstChild!, 1));
+    expect(res.start).toBe(1);
+  });
+
+  test("offsetToRange/2023-04-03-00-28", () => {
     const p = createElement("p");
     p.innerHTML = "Lor<b>e<i>a</i>sd</b>m";
     //                        |   |
@@ -132,7 +145,7 @@ describe("position", () => {
     ).toBe("*");
   });
 
-  test("2023-04-02-21-50", () => {
+  test("offsetToRange/2023-04-02-21-50", () => {
     const p = createElement("p");
     p.innerHTML = "Lor<b>e</b>m";
 
@@ -141,7 +154,7 @@ describe("position", () => {
     ).toBe("e");
   });
 
-  test("reOrder", () => {
+  test("offsetToRange", () => {
     const p = createElement("p");
 
     p.innerHTML = "Lorem";
@@ -163,7 +176,32 @@ describe("position", () => {
     addMarkdownHint(p);
     tryThis(p);
   });
-  test("emptyChild", () => {});
+
+  test("rangeToOffset/<p><b>?|</b></p>", () => {
+    const p = createElement("p", { children: [createElement("b")] });
+    // expect(outerHTML(p)).toBe("<p><b></b></p>");
+    const range = document.createRange();
+
+    p.innerHTML = "<b>text</b>";
+    // <b>text|</b>
+    range.setStart(p.firstChild!, 1);
+    expect(rangeToOffset(p, range).start).toBe(5);
+
+    p.innerHTML = "<b><i></i></b>";
+    // <b><i></i>|</b>
+    range.setStart(p.firstChild!, 1);
+    expect(rangeToOffset(p, range).start).toBe(3);
+    // <b>|<i></i></b>
+    range.setStart(p.firstChild!, 0);
+    expect(rangeToOffset(p, range).start).toBe(1);
+    p.innerHTML = "<b>123<i></i></b>";
+    range.setStart(p.firstChild!, 1);
+    expect(rangeToOffset(p, range).start).toBe(4);
+
+    p.innerHTML = "<b></b>";
+    range.setStart(p, 1);
+    expect(rangeToOffset(p, range).start).toBe(2);
+  });
   test("mathElement", () => {
     const p = createElement("p");
     addMarkdownHint(p);

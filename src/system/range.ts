@@ -1,24 +1,25 @@
-import { createElement, createTextNode } from "../helper/document";
+import { createElement, createTextNode } from "@helper/document";
 import {
   ValidNode,
   firstValidChild,
   getTagName,
   indexOfNode,
   isEntityNode,
+  isHTMLElement,
+  isHintHTMLElement,
   isParent,
   isTextNode,
   isTokenHTMLElement,
   isValidNode,
   lastValidChild,
   nextValidSibling,
+  outerHTML,
   parentElementWithFilter,
   parentElementWithTag,
   prevValidSibling,
-} from "../helper/element";
-import {
-  findCharAfterPosition,
-  findCharBeforePosition,
-} from "../helper/string";
+} from "@helper/element";
+import { findCharAfterPosition, findCharBeforePosition } from "@helper/string";
+import { addMarkdownHint } from "@helper/markdown";
 
 export interface LineInfo {
   lineNumber: number;
@@ -70,7 +71,7 @@ export function createRange(
 ): Range {
   if (!endContainer) {
     endContainer = startContainer;
-    endOffset = endOffset;
+    endOffset = startOffset;
   }
   const range = document.createRange();
   range.setStart(startContainer, startOffset);
@@ -133,7 +134,21 @@ export function getValidAdjacent(
     if (where === "afterbegin" || where === "beforebegin") {
       return [container, 0];
     } else {
-      return [container, container.textContent?.length!];
+      return [container, container.textContent!.length!];
+    }
+  }
+  if (isHintHTMLElement(container)) {
+    // 禁止在 hint 内获取光标
+    if (where === "afterbegin" || where === "beforeend") {
+      throw new Error(
+        "Sanity check: can not get position inside a hint span element"
+      );
+    }
+    if (where === "afterend" && !container.nextElementSibling) {
+      return getValidAdjacent(container.parentElement!, "afterend");
+    }
+    if (where === "beforebegin" && !container.previousElementSibling) {
+      return getValidAdjacent(container.parentElement!, "beforebegin");
     }
   }
 
@@ -144,7 +159,7 @@ export function getValidAdjacent(
       if (norm) {
         const neighbor = prevValidSibling(container);
         if (neighbor instanceof Text) {
-          return [neighbor, neighbor.textContent?.length!];
+          return [neighbor, neighbor.textContent!.length];
         }
       }
       return [parent, indexOfNode(container)];
@@ -162,6 +177,12 @@ export function getValidAdjacent(
         return [container, 0];
       }
       const child = firstValidChild(container);
+      if (!child) {
+        // 空文本，且包含 markdown hint 的特殊情况
+        if (container.firstChild && isHintHTMLElement(container.firstChild)) {
+          return [container, 1];
+        }
+      }
       if (child instanceof Text) {
         // <b>"|"</b>
         // <b>|text</b>
@@ -179,9 +200,10 @@ export function getValidAdjacent(
       if (child instanceof Text) {
         // <b>"|"</b>
         // <b>text|</b>
-        return [child, child.textContent?.length!];
+        return [child, child.textContent!.length];
       } else {
         // <b><i></i>|</b>
+        // child 为空也走这一条，此时 indexOfNode(child) === 0
         return [container, indexOfNode(child) + 1];
       }
     }
@@ -190,7 +212,10 @@ export function getValidAdjacent(
   throw new Error("Not parent");
 }
 
-export function getNextOffset(
+/**
+ * 以固定的逻辑获取下一个光标可以移动的位置
+ */
+export function getNextLocation(
   container: Node,
   offset: number
 ): [Node, number] | null {
@@ -198,7 +223,7 @@ export function getNextOffset(
     // tex|t
     return [container, offset + 1];
   }
-  console.log(container, offset);
+
   if (container instanceof Text && offset == container.length) {
     // text|?
     const neighbor = nextValidSibling(container, isEntityNode);
@@ -241,7 +266,9 @@ export function getNextOffset(
         return getValidAdjacent(containerChild as HTMLElement, "afterbegin");
       }
     } else {
-      const neighborChild = nextValidSibling(containerChild);
+      const neighborChild = nextValidSibling(containerChild, (el) => {
+        return isEntityNode(el);
+      });
       if (neighborChild) {
         if (neighborChild instanceof Text) {
           // <b></b>"|""text"
@@ -260,7 +287,10 @@ export function getNextOffset(
   }
 }
 
-export function getPrevOffset(
+/**
+ * 以固定的逻辑获取上一个光标可以移动的位置
+ */
+export function getPrevLocation(
   container: Node,
   offset: number
 ): [Node, number] | null {
@@ -281,7 +311,7 @@ export function getPrevOffset(
 
       if (neighbor instanceof Text) {
         // "text""|text"
-        return [neighbor, neighbor.textContent?.length! - 1];
+        return [neighbor, neighbor.textContent!.length - 1];
       }
 
       // <i>?</i>|text
@@ -317,17 +347,20 @@ export function getPrevOffset(
     if (isEntityNode(containerChild)) {
       if (containerChild instanceof Text) {
         // text|?
-        return [containerChild, containerChild.textContent?.length! - 1];
+        return [containerChild, containerChild.textContent!.length - 1];
       } else {
         // <b></b><i></i>\
         return getValidAdjacent(containerChild, "beforeend");
       }
     } else {
-      const neighborChild = prevValidSibling(containerChild);
+      const neighborChild = prevValidSibling(containerChild, (el) => {
+        return isEntityNode(el);
+      });
+
       if (neighborChild) {
         if (neighborChild instanceof Text) {
           // "text""|"<b></b>
-          return [neighborChild, neighborChild.textContent?.length! - 1];
+          return [neighborChild, neighborChild.textContent!.length - 1];
         } else {
           // <i>?</i>"|"<b></b>
           return getValidAdjacent(neighborChild, "beforeend");
@@ -342,6 +375,11 @@ export function getPrevOffset(
   }
 }
 
+/**
+ * 带有根节点判断的相邻位置获取，如果已经到边界，则返回空
+ * 如果不提供 root 节点，则不进行边界判定
+ * range 是一个范围，因此左右两侧有一个到了边界就进行判定
+ */
 function _getNeighborRange(
   neighborFn: (container: Node, offset: number) => [Node, number] | null,
   range: Range,
@@ -375,11 +413,87 @@ function _getNeighborRange(
 }
 
 export function getPrevRange(range: Range, root?: HTMLElement): Range | null {
-  return _getNeighborRange(getPrevOffset, range, root);
+  return _getNeighborRange(getPrevLocation, range, root);
 }
 
+export function tryGetBoundsRichNode(
+  container: Node,
+  offset: number,
+  direction: "left" | "right"
+): HTMLElement | null {
+  if (container instanceof HTMLElement) {
+    let neighbor;
+    const filter = (el: Node) => {
+      return isEntityNode(el) || isHintHTMLElement(el);
+    };
+    if (container.childNodes[offset]) {
+      if (direction === "left") {
+        neighbor = prevValidSibling(container.childNodes[offset], filter);
+      } else {
+        if (filter(container.childNodes[offset])) {
+          neighbor = container;
+        } else {
+          neighbor = nextValidSibling(container.childNodes[offset], filter);
+        }
+      }
+    } else {
+      throw new Error("Saniti check");
+    }
+    if (neighbor) {
+      if (isHintHTMLElement(neighbor)) {
+        return neighbor.parentElement;
+      } else if (isHTMLElement(neighbor)) {
+        return neighbor as HTMLElement;
+      }
+    }
+  }
+
+  if (container instanceof Text) {
+    if (direction === "left" && offset === 0) {
+      let prev;
+      if (
+        (prev = prevValidSibling(container, (el) => {
+          return isValidNode(el) || isHintHTMLElement(el);
+        }))
+      ) {
+        if (prev) {
+          if (isHintHTMLElement(prev)) {
+            return prev.parentElement;
+          } else if (isHTMLElement(prev)) {
+            return prev as HTMLElement;
+          }
+        }
+        return null;
+      }
+      return null;
+    }
+    if (direction === "right" && offset === container.textContent!.length) {
+      let next;
+      if (
+        (next = nextValidSibling(container, (el) => {
+          return isValidNode(el) || isHintHTMLElement(el);
+        }))
+      ) {
+        if (next) {
+          if (isHintHTMLElement(next)) {
+            return next.parentElement;
+          } else if (isHTMLElement(next)) {
+            return next as HTMLElement;
+          }
+        }
+        return null;
+      }
+      return null;
+    }
+  }
+  return null;
+}
+
+/**
+ * 获取基于
+ */
 export function getNextRange(range: Range, root: HTMLElement): Range | null {
-  return _getNeighborRange(getNextOffset, range, root);
+  return _getNeighborRange(getNextLocation, range, root);
 }
 
 export function getPrevWordRange(
@@ -409,7 +523,7 @@ export function getPrevWordRange(
         return [container, 0];
       }
     }
-    return getPrevOffset(container, offset)!;
+    return getPrevLocation(container, offset)!;
   }
   const [startContainer, startOffset] = convert(
     range.startContainer,
@@ -452,7 +566,7 @@ export function getNextWordRange(
         break;
       }
     }
-    return getNextOffset(container, offset)!;
+    return getNextLocation(container, offset)!;
   }
   const [startContainer, startOffset] = convert(
     range.startContainer,
@@ -473,26 +587,27 @@ export function setRange(range: Range, add?: boolean) {
   if (!add) {
     const sel = document.getSelection();
     if (sel && sel.rangeCount > 0) {
-      const old = document.getSelection()?.getRangeAt(0);
+      const old = sel.getRangeAt(0);
       if (old && old != range) {
         old.setStart(range.startContainer, range.startOffset);
         old.setEnd(range.endContainer, range.endOffset);
       }
     } else {
-      sel?.addRange(range);
+      sel!.addRange(range);
     }
   } else {
-    document.getSelection()?.addRange(range);
+    document.getSelection()!.addRange(range);
   }
 }
 
+// 跳出 label 和 span 的范围，同时如果是 span的边界，还要跳出富文本范围
 export function normalizeRange(root: Node, range: Range) {
   function normContainer(
     container: Node,
     offset: number,
     direction: "left" | "right"
   ): [Node, number] {
-    let tgt = parentElementWithFilter(container, root, (el: Node) => {
+    const tgt = parentElementWithFilter(container, root, (el: Node) => {
       const tagName = getTagName(el);
       if (tagName === "label" || tagName === "span") {
         return true;
@@ -531,7 +646,7 @@ export function normalizeRange(root: Node, range: Range) {
   const [endContainer, endOffset] = normContainer(
     range.endContainer,
     range.endOffset,
-    "left"
+    "right"
   );
   range.setStart(startContainer, startOffset);
   range.setEnd(endContainer, endOffset);
@@ -562,15 +677,21 @@ export function nodesOfRange(
   const root = range.commonAncestorContainer;
 
   function father(container: Node, offset: number): Node {
+    // 空元素，如 <b>|</b> 的情况，不可能发生 container === root
+    // <p>te[xt<i>...</i>]</p>，此时 endContainer 的落点会在 p 上，offset = 2
+    if (container === root) {
+      container = container.childNodes[offset - 1];
+    }
     while (container.parentElement !== root) {
       container = container.parentElement as Node;
     }
 
     return container;
   }
+  let left, right;
+  left = father(range.startContainer, range.startOffset);
+  right = father(range.endContainer, range.endOffset);
 
-  let left = father(range.startContainer, range.startOffset);
-  let right = father(range.endContainer, range.endOffset);
   if (splitText) {
     if (left instanceof Text) {
       left = left.splitText(range.startOffset);

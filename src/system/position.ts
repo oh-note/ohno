@@ -5,20 +5,22 @@
  * 3. 只处理 range 和 offset 之间的转换，不改变任何元素
  */
 
-import { createTextNode } from "../helper/document";
+import { createTextNode, getDefaultRange } from "@helper/document";
 import {
   ValidNode,
   firstValidChild,
   indexOfNode,
   isHTMLElement,
   isHintHTMLElement,
+  isParent,
   isTextNode,
   isTokenHTMLElement,
   isValidNode,
   lastValidChild,
   nextValidSibling,
+  outerHTML,
   prevValidSibling,
-} from "../helper/element";
+} from "@helper/element";
 import { getValidAdjacent, setRange } from "./range";
 
 export interface Offset {
@@ -43,6 +45,18 @@ export const FULL_BLOCK: Offset = {
   end: -1,
 };
 
+/**
+ * 基于 Root，计算 container 和 container 的 offset 相对 root 的 token 数量
+ *
+ * 思路：首先计算该 container 内的偏差值，随后不断的迭代左相邻节点和父节点
+ *  - 左相邻节点时添加全部 token 数
+ *  - 跨过父节点时 token 数 + 1
+ * 直到和父节点相邻
+ * @param root
+ * @param container
+ * @param offset
+ * @returns
+ */
 function _convertRefToBias(
   root: HTMLElement,
   container: ValidNode,
@@ -51,32 +65,44 @@ function _convertRefToBias(
   let size = 0;
   let cur: ValidNode | null = container;
   let curSize: number;
+
+  if (!isParent(container, root)) {
+    throw new Error(
+      "Cannot calculate offset when selection range are not in root"
+    );
+  }
+
   if (isTextNode(cur)) {
     curSize = offset;
   } else if (container.childNodes.length === offset) {
+    // <b>...<i>...</i>|</b>
     cur = lastValidChild(container as HTMLElement) as ValidNode;
     if (cur) {
+      // <b>?</b>
       if (isTextNode(cur)) {
+        // <b>text|</b>
         curSize = getTokenSize(cur);
       } else if (isTokenHTMLElement(cur)) {
+        // <b><label>...</label>|</b>
         curSize = 2;
       } else {
+        // <b><i>...</i>|</b>
         curSize = getTokenSize(cur) + 2;
       }
     } else {
-      return 0;
+      curSize = 0;
     }
   } else if (container.childNodes.length < offset) {
-    throw EvalError("?");
+    throw EvalError("sanity check");
   } else {
+    // <b><i>...</i>|<i>...</i></b>
     cur = container.childNodes[offset] as ValidNode;
     curSize = 0;
   }
 
-  // 补全该函数
+  // 从相邻节点直接开始计算，初始 cur 的 token 已经在上面的逻辑中计算完了
   while (cur && cur !== root) {
     size += curSize;
-
     let prev = prevValidSibling(cur);
     let parent = cur;
     while (!prev) {
@@ -103,6 +129,21 @@ function _convertRefToBias(
     }
   }
   return size;
+}
+
+export function makeBiasPos(
+  root: ValidNode,
+  bias?: number
+): number | undefined {
+  if (bias) {
+    if (bias < 0) {
+      bias += getTokenSize(root) + 1;
+      if (bias < 0) {
+        bias = 0;
+      }
+    }
+  }
+  return bias;
 }
 
 function _convertBiasToRef(root: ValidNode, bias: number): [Node, number] {
@@ -174,6 +215,7 @@ function _convertBiasToRef(root: ValidNode, bias: number): [Node, number] {
  */
 export function rangeToOffset(root: HTMLElement, range: Range): Offset {
   const res: Offset = { start: 0 };
+
   res["start"] = _convertRefToBias(
     root,
     range.startContainer as ValidNode,
@@ -200,17 +242,8 @@ export function rangeToOffset(root: HTMLElement, range: Range): Offset {
  * @param offset
  * @returns
  */
-export function offsetToRange(
-  root: ValidNode | ValidNode[],
-  offset: Offset
-): Range | null {
+export function offsetToRange(root: ValidNode, offset: Offset): Range | null {
   const range = document.createRange();
-
-  if (root instanceof Array) {
-    const temp = document.createDocumentFragment();
-    temp.append(...root);
-    root = temp;
-  }
 
   const rootSize = getTokenSize(root);
   if (offset.start > rootSize) {
@@ -227,16 +260,24 @@ export function offsetToRange(
   }
   if (root instanceof HTMLElement) {
     if (endContainer === root) {
-      const text = createTextNode("");
-      root.insertBefore(text, endContainer.childNodes[endOffset]);
-      endContainer = text;
+      if (endContainer.childNodes[endOffset] instanceof Text) {
+        endContainer = endContainer.childNodes[endOffset];
+      } else {
+        const text = createTextNode("");
+        root.insertBefore(text, endContainer.childNodes[endOffset]);
+        endContainer = text;
+      }
       endOffset = 0;
     }
 
     if (startContainer === root) {
-      const text = createTextNode("");
-      root.insertBefore(text, startContainer.childNodes[startOffset]);
-      startContainer = text;
+      if (startContainer.childNodes[startOffset] instanceof Text) {
+        startContainer = startContainer.childNodes[startOffset];
+      } else {
+        const text = createTextNode("");
+        root.insertBefore(text, startContainer.childNodes[startOffset]);
+        startContainer = text;
+      }
       startOffset = 0;
     }
   }
@@ -258,10 +299,17 @@ export function reverseOffset(root: HTMLElement, offset: Offset): Offset {
   return res;
 }
 
-export function elementOffset(root: HTMLElement, el: ValidNode): Offset {
+export function elementOffset(
+  root: HTMLElement,
+  ...node: ValidNode[]
+): // left: ValidNode,
+// right?: ValidNode
+Offset {
   const range = document.createRange();
-  const [startContainer, startOffset] = getValidAdjacent(el, "beforebegin");
-  const [endContainer, endOffset] = getValidAdjacent(el, "afterend");
+  const left = node[0];
+  const right = node[node.length - 1];
+  const [startContainer, startOffset] = getValidAdjacent(left, "beforebegin");
+  const [endContainer, endOffset] = getValidAdjacent(right, "afterend");
   range.setStart(startContainer, startOffset);
   range.setEnd(endContainer, endOffset);
   return rangeToOffset(root, range);
@@ -269,13 +317,30 @@ export function elementOffset(root: HTMLElement, el: ValidNode): Offset {
 
 export function getInlinePosition(root: HTMLElement) {}
 
-export function getTokenSize(root: ValidNode): number {
+/**
+ * 计算节点或节点组的 token 数
+ * 如果是节点数组，默认包含每一个节点两侧的 token
+ * 如果不是节点数组，默认忽略根节点两侧的 token
+ */
+export function getTokenSize(
+  root: ValidNode | ValidNode[] | DocumentFragment,
+  with_root: boolean = false
+): number {
   let res = 0;
+  if (Array.isArray(root)) {
+    root.forEach((item) => {
+      res += getTokenSize(item, true);
+    });
+    return res;
+  }
   if (isTextNode(root)) {
-    return root.textContent?.length!;
+    return root.textContent!.length;
+  }
+  if (with_root) {
+    res += 2;
   }
   if (isTokenHTMLElement(root)) {
-    return 0;
+    return res;
   }
   for (let i = 0; i < root.childNodes.length; i++) {
     if (isValidNode(root.childNodes[i])) {
@@ -303,9 +368,11 @@ export function getTokenSize(root: ValidNode): number {
   return res;
 }
 
-export function setPosition(root: HTMLElement, offset: Offset) {
+export function setOffset(root: HTMLElement, offset: Offset) {
   const range = offsetToRange(root, offset);
   if (range) {
     setRange(range);
+    return;
   }
+  throw new Error("set offset error");
 }

@@ -27,6 +27,18 @@ export function getPrevRange(root: HTMLElement, range: Range): Range | null;
 export function getNextRange(root: HTMLElement, range: Range): Range | null;
 ```
 
+以 `getNextRange` 而言，需要处理的有三种情况：
+
+- 最简单的情况：`container` 为 `Text`，且 `offset < container.textContent.length`，返回 `offset+1` 即可
+- `"text|"?`：存在相邻节点：根据相邻节点为 `Text` 还是 `HTMLElement` 需要进行区分
+  - `Text`：下一个位置是 `[neighbor, 1]`，即 `"text|""text"` -> `"text""t|ext"`
+  - `HTMLElement`：下一个位置是 `[neighbor, 0]`，即 `"text|"<b>?</b>` -> `"text"<b>|?</b>`
+- `<b>"text"</b>?`：不存在相邻节点：同样根据相邻节点为 `Text` 还是 `HTMLElement` 需要进行区分
+  - `Text`：下一个位置是 `[neighbor, 0]`，即 `<b>"text|"</b>"text"` -> `<b>"text"</b>"|text"`
+  - `HTMLElement`：下一个位置是 `[container.parentElement, indexOfNode(neighbor)]`，即 `<b>"text|"</b><i>?</i>` -> `<b>"text"</b>|<i>?</i>`
+
+> 此外，可能还需要一些边界条件的判断，如相邻节点是 `Text` 但 `textContent` 为 `""`。这要求在寻找相邻节点时还需要遍历节点找到合法的相邻节点，而不能简单的使用 `el.nextSibling`。
+
 ## Block 间：边界判断
 
 上面以 Token 为移动单位的逻辑在遇到跨 Block 时会存在问题，因为会存在一个中间的分隔，比如两个 Block 可以表示为：`<p></p><p>|</p>`，当按下左键时候，合理的行为应该是 `<p>|</p><p></p>`，但如果按照上一节 Token 的默认行为就会出现 `<p></p>|<p></p>`，从而破坏了处理逻辑。如果是对 `getPrevRange`/`getNextRange` 这两个方法的接口进行改进，会引入额外的判断，也会导致函数的逻辑不纯粹，因此，Block 间光标的移动可以在 handler 内通过其他逻辑实现，`getPrevRange`/`getNextRange`通过返回 `null`起到边界提示作用。

@@ -127,7 +127,7 @@ export function dispatchKeyDown(
 ): boolean | void {
   if (e.key == "Enter" && handler.handleEnterDown) {
     return handler.handleEnterDown(e, context);
-  } else if (e.key == "Space" && handler.handleSpaceDown) {
+  } else if (e.key == " " && handler.handleSpaceDown) {
     return handler.handleSpaceDown(e, context);
   } else if (e.key == "Tab" && handler.handleTabDown) {
     return handler.handleTabDown(e, context);
@@ -163,8 +163,9 @@ export function setBeforeHandlers(handler: Handler) {
   defaultBeforeHandlers[handler.block_type].push(handler);
 }
 
-export function setHandler(handler: Handler) {
+export function setGlobalHandler(handler: Handler) {
   // console.log(["Register global handler", handler]);
+  console.log(handler)
   defaultGlobalHandlers.push(handler);
 }
 

@@ -51,12 +51,20 @@ export function isValidNode(el: Node): boolean {
   return false;
 }
 
+/**
+ * Token 数大于 1 的结点，包括：
+ *  - 任意有效 HTMLElement 结点（即使内容为空，但空 HTML Token=2）
+ *  - 任意长度大于 0 的文本结点
+ *  -
+ * @param el
+ * @returns
+ */
 export function isEntityNode(el: Node) {
   if (!isValidNode(el)) {
     return false;
   }
   if (el instanceof Text) {
-    return el.textContent?.length! > 0;
+    return el.textContent!.length > 0;
   }
   return true;
 }
@@ -84,6 +92,19 @@ export function isParent(child: Node, parent: Node) {
   }
   return false;
 }
+
+export function calcDepths(child: Node, parent: Node) {
+  let res = 0;
+  while (child) {
+    if (child === parent) {
+      return res;
+    }
+    res++;
+    child = child.parentElement!;
+  }
+  throw new Error("child is not real child of parent");
+}
+
 export function lastValidChild(
   el: ValidNode,
   filter: (el: Node) => boolean = isValidNode
@@ -188,9 +209,7 @@ export function indexOfNode(el?: Node | null, name?: ElementTagName) {
   return i;
 }
 
-export function validChildNodes(
-  el: ValidNode | DocumentFragment
-): ValidNode[] {
+export function validChildNodes(el: ValidNode | DocumentFragment): ValidNode[] {
   const res: ValidNode[] = [];
   el.childNodes.forEach((item) => {
     if (isValidNode(item)) {
@@ -200,7 +219,29 @@ export function validChildNodes(
   return res;
 }
 
-export function innerHTML(...node: Node[]): string {
+export function containHTMLElement(root: HTMLElement): boolean {
+  for (let index = 0; index < root.childNodes.length; index++) {
+    const element = root.childNodes[index];
+    if (element instanceof HTMLElement) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// export function outerHTML(...node:Node[])
+
+export function innerHTML(el: Node): string {
+  if (el instanceof Text) {
+    return el.textContent || "";
+  }
+  if (el instanceof HTMLElement) {
+    return el.innerHTML;
+  }
+  return "";
+}
+// 用于边界合并
+export function outerHTML(...node: Node[]): string {
   const wrap = createElement("p");
   node.forEach((item) => {
     wrap.appendChild(item.cloneNode(true));
@@ -230,5 +271,3 @@ export function tryConcatLeft(el: ValidNode): ValidNode {
     return el;
   }
 }
-
-export function tryConcatRight(el: ValidNode) {}

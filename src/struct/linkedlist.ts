@@ -70,4 +70,8 @@ export class LinkedList<V> {
     }
     return [this.last.value, this.last];
   }
+  clear() {
+    this.last = undefined;
+    this.first = undefined;
+  }
 }

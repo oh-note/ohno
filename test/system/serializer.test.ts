@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
-import { createElement, innerHTMLToNodeList } from "../helper/document";
-import { Segment, deserialize, serialize } from "./serializer";
-import { innerHTML } from "../helper/element";
+import { createElement, innerHTMLToNodeList } from "@helper/document";
+import { Segment, deserialize, serialize } from "../../src/system/serializer";
+import { outerHTML } from "@helper/element";
 
 describe("test tokenizer", () => {
   test("format and deformat", () => {
@@ -14,13 +14,13 @@ describe("test tokenizer", () => {
     });
     let wraped = deserialize(...segs);
     let tgt = "<b>" + p.innerHTML + "</b>";
-    expect(innerHTML(...wraped)).toBe(tgt);
+    expect(outerHTML(...wraped)).toBe(tgt);
     segs.map((item) => {
       item.format.shift();
       item.index.shift();
     });
     wraped = deserialize(...segs);
-    expect(innerHTML(...wraped)).toBe(p.innerHTML);
+    expect(outerHTML(...wraped)).toBe(p.innerHTML);
   });
 
   test("deserializer", () => {

@@ -2,12 +2,12 @@ import {
   FIRST_POSITION,
   LAST_POSITION,
   rangeToOffset,
-} from "../../system/position";
+} from "@system/position";
 import {
   EventContext,
   Handler,
   KeyDispatchedHandler,
-} from "../../system/handler";
+} from "@system/handler";
 
 export function defaultHandleArrowDown(
   handler: Handler,

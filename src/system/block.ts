@@ -1,5 +1,11 @@
-import { addMarkdownHint } from "../helper/markdown";
-import { Offset, rangeToOffset, setPosition } from "./position";
+import { addMarkdownHint } from "@helper/markdown";
+import {
+  Offset,
+  makeBiasPos,
+  offsetToRange,
+  rangeToOffset,
+  setOffset,
+} from "./position";
 import { OperationHandlerFn } from "./operation";
 import {
   getNextRange,
@@ -10,6 +16,8 @@ import {
   isLastLine,
   setRange,
 } from "./range";
+import { getDefaultRange } from "@helper/document";
+import { Page } from "./page";
 
 export type Order = string;
 
@@ -19,10 +27,15 @@ export interface BlockInit {
   el?: HTMLElement;
 }
 
+/**
+ * Block 会默认对所有 children 添加 markdown hint
+ */
 export class Block<T extends BlockInit> {
   el: HTMLElement;
   type: string;
   init?: T;
+  page?: Page;
+  multiContainer: boolean = false;
   order: Order = "";
   constructor(init?: T) {
     const { el, type, order } = init as BlockInit;
@@ -39,12 +52,50 @@ export class Block<T extends BlockInit> {
     this.init = init;
     addMarkdownHint(el);
   }
+  /**
+   * attached 表示 block 已渲染
+   * @param page
+   */
+  attached(page: Page) {
+    this.page = page;
+  }
+  /**
+   * Activate 表示 block 存在焦点，焦点在 block 的具体位置在 block 内部处理
+   * @param page
+   */
+  activate(page?: Page) {
+    if (page) {
+      this.page = page;
+    }
+    this.el.classList.add("active");
+  }
+  /**
+   * 表示 block 已失去焦点
+   */
+  deactivate() {
+    this.el.classList.remove("active");
+  }
+  /**
+   * 表示 block 已不可见，但内部元素仍然还存在
+   */
+  detached() {
+    this.page = undefined;
+    this.deactivate();
+  }
 
   equals(block: Block<T>) {
     return block.el === this.el;
   }
 
-  assignOrder(order: Order) {
+  assignOrder(order: Order, left?: string, right?: string) {
+    if (this.order) {
+      if ((left && left > this.order) || (right && right > this.order)) {
+        throw new Error(
+          "old order not match" + `${this.order}, ${order} ${left} ${right}`
+        );
+      }
+      return;
+    }
     this.order = order;
     this.el.setAttribute("order", order);
   }
@@ -54,7 +105,7 @@ export class Block<T extends BlockInit> {
     return this.el;
   }
 
-  getContainer(index: number) {
+  getContainer(index?: number) {
     return this.el;
   }
 
@@ -84,13 +135,19 @@ export class Block<T extends BlockInit> {
     if (!container) {
       container = this.currentContainer();
     }
-    return false;
+    if (getPrevRange(range, container)) {
+      return false;
+    }
+    return true;
   }
   isRight(range: Range, container?: HTMLElement): boolean {
     if (!container) {
       container = this.currentContainer();
     }
-    return false;
+    if (getNextRange(range, container)) {
+      return false;
+    }
+    return true;
   }
   isFirstLine(range: Range, container?: HTMLElement): boolean {
     if (!container) {
@@ -177,13 +234,35 @@ export class Block<T extends BlockInit> {
     if (!container) {
       container = this.currentContainer();
     }
-    setPosition(container, offset);
+    setOffset(container, offset);
   }
-  setRange(range: Range, container?: HTMLElement) {
-    if (!container) {
-      container = this.currentContainer();
-    }
+  setRange(range: Range) {
     setRange(range);
+  }
+  getOffset(): Offset {
+    const root = this.currentContainer();
+    const range = getDefaultRange();
+    if (!range) {
+      throw new Error("Cannot calculate offset without focus");
+    }
+    return rangeToOffset(root, range);
+  }
+  setOffset(offset: Offset) {
+    const container = this.getContainer(offset.index);
+    const range = offsetToRange(container, offset)!;
+    this.setRange(range);
+  }
+
+  /**
+   * 将 offset 中的负值转换为正值
+   */
+  correctOffset(offset: Offset): Offset {
+    this.getContainer(offset.index);
+    return {
+      ...offset,
+      start: makeBiasPos(this.getContainer(offset.index), offset.start)!,
+      end: makeBiasPos(this.getContainer(offset.index), offset.end),
+    };
   }
 }
 

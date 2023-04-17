@@ -56,17 +56,13 @@ export abstract class Command<P> {
 
 > 其中，`ensureContext` 装饰器保证了所有在其他位置生成的 `Command` 都必须在 `History` 的上下文中才能执行。
 
-contenteditable 元素可以注册 `input` 和 `beforeinput` 事件，[w3c](https://rawgit.com/w3c/input-events/v1/index.html#interface-InputEvent-Attributes) 详细定义了 InputEvent 事件中和编辑操作有关的项，大致包括 `type`,`data`和 `datatransfer` 三种。里面还定义了哪些编辑操作是在 `beforeinput` 中可以取消的。对于可取消的事件，我们可以对其进行拦截，并自行实现。对不可取消的事件，我们可以在事件发生后手动对该事件的影响用命令模式建模，从而保证可撤销。如果后期自行实现的命令无法保证效率，那么默认可以不拦截事件，而只是对事件进行建模，用于撤销/重做，从而提高正常编辑操作的效率。
+contenteditable 元素可以注册 `input` 和 `beforeinput` 事件，[w3c](https://rawgit.com/w3c/input-events/v1/index.html#interface-InputEvent-Attributes) 详细定义了 InputEvent 事件中和编辑操作有关的项，相关的变量主要为 `type`,`data`和 `datatransfer` 三种。里面还定义了哪些编辑操作是在 `beforeinput` 中可以取消的。对于可取消的事件，我们可以对其进行拦截，并自行实现。对不可取消的事件，我们可以在事件发生后手动对该事件的影响用命令模式建模，从而保证可撤销。如果后期自行实现的命令无法保证效率，那么默认可以不拦截事件，而只是对事件进行建模，用于撤销/重做，从而提高正常编辑操作的效率。
 
 为了减少开销，ohno 使用命令模式对每个操作建模而不是建立快照。其中，在记录编辑操作时，因为 `Range` 对 `Node` 元素的引用（相对路径）可能会因为结点被删除而失效，所以 onho 通过之前设计的 `Offset`、`Block` 来定位不会失效的绝对路径。
 
-下面，介绍 ohno 不同编辑操作类型的处理思路：
+## insertText
 
-## 文本的插入和删除
-
-在 textarea 中，插入是 insertText，删除根据 `del` 还是 `backspace`、是否按下了 `alt` 键、选中状态等分为了 `deleteContentBackward`、`deleteContentForward`、`deleteContent`、`deleteWordBackward`、`deleteWordForward` 等，事件十分丰富。
-
-以插入文本为例，上下文的 `Block` 可以定位到相应的根节点，`Offset` 则可以定位到编辑位置所在的绝对位置，通过 `Offset` 可以实时转换为 `Range`，再通过 `Range` 将选中结点进行删除：
+在光标位置插入文本，可以简单的基于 `range.insertNode()` 来实现，通过 `rangeToOffset` 可以记录绝对位置，用于 undo 和 redo。
 
 ```ts
 export interface TextEditPayload {
@@ -124,6 +120,170 @@ export class InsertText extends Command<TextEditPayload> {
 }
 ```
 
+## deleteContentBackward
+
+> delete the content directly before the caret position and this intention is not covered by another inputType or delete the selection with the selection collapsing to its start after the deletion
+
+Backward 为按下 Backspace 的效果，Forward 为按下 Delete 的效果，无论是否有选中文本。因此 `type === "deleteContentBackward"` 时，还需要根据 `range.collapsed` 区分是否是选中状态。
+
+删除可以通过 `range.deleteContents()` 来完成，但在删除前需要做好状态管理，保证删除内容可以完全 undo。
+
+### 删除单个文本（`range.collapsed`）
+
+单个文本通过 `offset = {start, end: start+1}` 即可模拟，该命令单个文本假设文本不在富文本边界 `*|123*`。在添加和删除后，对于 `Text` 结点，还可以额外的考虑被切断的两个 `Text` 结点合并。
+
+```ts
+export class DeleteTextBackward extends Command<TextEditPayload> {
+  execute(): void {
+    // TODO apply intime
+    const block = this.payload.block;
+    const offset = Object.assign({}, this.payload.offset);
+    offset.end = offset.start + this.payload.value.length;
+    const range = offsetToRange(block.getContainer(offset.index!), offset)!;
+    range.deleteContents();
+    setRange(range);
+  }
+  undo(): void {
+    let range: Range;
+    const block = this.payload.block;
+    const offset = this.payload.offset;
+    range = offsetToRange(block.getContainer(offset.index!), offset)!;
+    const node = document.createTextNode(this.payload.value);
+    range.insertNode(node);
+    range.setStartAfter(node);
+    range.setEndAfter(node);
+    setRange(range);
+  }
+  public get label(): string {
+    return `delete ${this.payload.value}`;
+  }
+
+  tryMerge(command: DeleteTextBackward): boolean {
+    if (!(command instanceof DeleteTextBackward)) {
+      return false;
+    }
+    if (command.payload.value.indexOf(" ") >= 0) {
+      return false;
+    }
+    // 更早的左删除命令在的 offset 在右侧
+    if (
+      command.payload.block.equals(this.payload.block) &&
+      command.payload.offset.start + command.payload.value.length ===
+        this.payload.offset.start
+    ) {
+      this.payload.offset = command.payload.offset;
+      this.payload.value = command.payload.value + this.payload.value;
+      return true;
+    }
+    return false;
+  }
+}
+```
+
+### 删除选中文本（`!range.collapsed`）
+
+对选中的文本，需要考虑的内容相对较多，主要问题是选中文本可能跨不同的富文本格式，如 `<b>1[23</b>456<i>7]89</i>`，需要合适的定义这些情况下的删除行为：
+
+- 当没有选中全部的富文本时，删除仅删除文本部分，保留其他文本的富文本格式
+- 当富文本全部被选中时，将富文本内容也全部删除。
+
+实现方法通过 Offset 进行转换后，也可以相对比较容易，具体的步骤如下：
+
+- 获取从 range.startContainer 到 range.endContainer 涉及到的全部结点，返回 `nodes: Node[]`。该方法要和 `range.commonAncestorContainer` 区分，如 `<p>123<b>4[56</b>78]9</p>` 返回的是 `[<b>456</b>, 789]` 两个结点，而 `range.commonAncestorContainer` 返回的是 `<p>..</p>` 结点。
+- 计算选中范围的 Token 数
+- 记录 nodes 左右边界的 Offset、删除后 nodes 左右边界的 Offset、删除前 `nodes` 的 clone 结点。
+- `range.deleteContents()`
+
+在有了上述的数据后，`undo` 时，将删除后 `nodes` 结点删除，随后将备份的原 `nodes` 结点插入到删除为止即可
+
+```ts
+export class DeleteSelection extends Command<SelectionPayload> {
+  execute(): void {
+    let { block, page, delOffset, afterOffset } = this.payload;
+    const range = offsetToRange(
+      block.getContainer(delOffset.index!),
+      delOffset
+    )!;
+
+    if (!this.payload.beforeOffset) {
+      this.payload.beforeOffset = { ...delOffset, end: undefined };
+    }
+    if (!afterOffset) {
+      this.payload.afterOffset = { ...delOffset, end: undefined };
+      afterOffset = this.payload.afterOffset;
+    }
+
+    const selectedTokenN = delOffset.end! - delOffset.start;
+
+    const container = block.currentContainer();
+    const nodes = nodesOfRange(range, false);
+
+    // 计算光标在 range.startContainer 在 nodes[0] 的深度
+    // 在 <b>01[23</b>45]6 删除时，计算了 </b>，但实际上 </b> 会在之后被补全，没有实质上的删除
+    // 所以需要额外的判断边界的富文本深度
+    // 在选中范围中间的不需要，因为是真实删除了
+    // 需要判断的只有左右两个边界
+    const leftDepth = calcDepths(range.startContainer, nodes[0]);
+    const rightDepth = calcDepths(range.endContainer, nodes[nodes.length - 1]);
+
+    const fullOffset = elementOffset(
+      container,
+      nodes[0],
+      nodes[nodes.length - 1]
+    );
+    this.payload.undo_hint = {
+      full_html: nodes.map((item) => {
+        return item.cloneNode(true) as ValidNode;
+      }),
+      full_offset: {
+        start: fullOffset.start,
+        end: fullOffset.end,
+      },
+      trim_offset: {
+        start: fullOffset.start,
+        end: fullOffset.end! - selectedTokenN + leftDepth + rightDepth,
+      },
+    };
+    range.deleteContents();
+    nodes.forEach((item) => {
+      addMarkdownHint(item);
+    });
+
+    const afterRange = offsetToRange(
+      block.getContainer(afterOffset.index),
+      afterOffset
+    )!;
+    block.setRange(afterRange);
+  }
+  undo(): void {
+    const { undo_hint, block, delOffset, beforeOffset } = this.payload;
+    // 删掉原来的 common 部分
+    const range = offsetToRange(
+      block.getContainer(delOffset.index),
+      undo_hint!.trim_offset
+    )!;
+    range.deleteContents();
+
+    const flag = createElement("span");
+    range.insertNode(flag);
+    // 添加后来的
+    flag.replaceWith(...undo_hint!.full_html);
+    if (beforeOffset) {
+      const beforeRange = offsetToRange(
+        block.getContainer(beforeOffset.index),
+        beforeOffset
+      )!;
+      block.setRange(beforeRange);
+    }
+    const fullRange = offsetToRange(
+      block.getContainer(beforeOffset?.index),
+      undo_hint!.full_offset
+    )!;
+    addMarkdownHint(...nodesOfRange(fullRange));
+  }
+}
+```
+
 ## 富文本格式的应用和取消
 
 基于 contenteditable 的富文本格式操作需要考虑很多边界情况，包括：
@@ -136,188 +296,145 @@ export class InsertText extends Command<TextEditPayload> {
 - 上述操作 undo/redo 时的效果
 - 。。。
 
-需要合适的抽象和精准的操作来涵盖并处理所有的情况。以加粗为例，以下是可能遇到的情况：
+为了实现这一操作，需要合适的抽象和精准的操作来保证应用格式正常执行。对这一部分，一些编辑器的解决方案是将数据层和表示层分开，数据层以 token 为单位对每个字符的样式建模，并在 token 发生变化时触发更新移动到表示层。
 
-- 空文本加粗：`te|xt`，期望行为：`te**[ ]**xt`
-- 选中文本加粗： `te[xtte]xt`，期望行为：`te**[xtte]**xt`
-- 选中文本跨样式加粗：`te[xt<i>te]xt</i>`，期望行为：`te<b>[xt<i>te</i>]</b><i><xt/i>`
-- 跨加粗样式加粗：`te[xt<b>te]xt</b>`，期望行为： `te<b>[xtte]xt</b>`
-- 加粗样式内加粗（取消加粗）：`**te|xt**`/`**t[ext]**`，期望行为：`[text]`
-- ...
+然而，onho 在开发过程中发现，通过定义合适的期望行为，同样可以大幅度降低实现难度。以加粗为例，当上下文为 `<b>te[xt</b>te]xt` 时，对行为的预期可以有以下几种情况：
 
-上述的期望行为同时参考了 Markdown 编辑器和 Word 等富文本编辑器的行为。对跨样式应用格式的情况，还需要考虑 `undo` 时**相邻元素的合并问题**。如：
+- 选中范围内全部加粗：`<b>te[xtte]</b>xt`
+- 选中范围内取消加粗：`<b>te</b>[xtte]xt`
+- 选中范围及其扩散范围取消加粗：`[textte]xt`
 
-- `te[xt<i>te]xt</i>` -> `te<b>[xt<i>te</i>]</b><i><xt/i>` -> undo -> `te[xt<i>te]xt</i>`（而不能是`te[xt<i>te</i>]<i><xt/i>`）
+在实践中，前两种需要考虑更多的情况，包括格式是否嵌套，如何实现 undo 操作等。在同时考虑到用户行为和开发难度的情况下，onho 最终使用第三种行为设定。该设定为：
 
-对于嵌套具有一定深度的富文本，格式应用操作需要考虑的内容更多。对这种情况，一些编辑器的解决方案是将数据层和表示层分开，数据层以 token 为单位对每个字符的样式建模，并在 token 发生变化时触发更新移动到表示层。 ohno 参考了这一思路，在命令模式中以更加轻量（或许）的方式对待应用格式的内容及其上下文进行一次数据层和表示层的转换。下面先介绍数据层和表示层的转换（即序列化和反序列化）。
+- 当应用格式 A 时，如果选中内容的任意部分存在格式 A，则取消格式 A；在不存在格式 A 时，对选中格式添加格式 A
+- 在应用和取消时，尝试将选中范围扩展两侧边界，对文本节点，通过 `splitText` 切割选中部分；对 `HTMLElement`，扩展到两侧边界。
 
-### 数据层建模（序列化）
+这种类似贪心的思路在实现中困难很小，无论是否存在嵌套关系都不增加实现的复杂度。根据具体的实现代码，又将情况分为三种：
 
-对数据层的建模，可以看做是序列化的过程，通过递归或者堆栈都可以比较方便的实现，以递归方式为例：
+### 任意子元素存在待应用格式
 
-```ts
-export interface Segment {
-  value: string;
-  format: HTMLElementTagName[];
-}
-export function serializeNode(
-  el: Node,
-  context?: HTMLElementTagName[]
-): Segment[] {
-  const res: Segment[] = [];
-  context = context || [];
-  if (isTextNode(el)) {
-    res.push({ format: context, value: el.textContent! });
-  } else if (isHTMLElement(el)) {
-    if (el.childNodes.length === 0) {
-      res.push({
-        value: "",
-        format: context?.slice().concat(getTagName(el) as HTMLElementTagName),
-      });
-    }
-
-    el.childNodes.forEach((item) => {
-      res.push(
-        ...serializeNode(
-          item,
-          context?.slice().concat(getTagName(el) as HTMLElementTagName)
-        )
-      );
-    });
-  }
-
-  return res;
-}
-
-export function serialize(...el: Node[]): Segment[] {
-  const res: Segment[] = [];
-  el.forEach((item) => {
-    res.push(...serializeNode(item));
-  });
-  return res;
-}
-```
-
-可以通过测试检测 `serialize()` 的有效性
+通过下面的代码，可以从 startContainer 到 endContainer 遍历所有节点，其中 fathers 是所选中范围中最上层的元素，在替换过程中需要维持这部分的引用。related 是任意层级子元素中包含待应用格式且不为最上层元素的子节点。
 
 ```ts
-describe("test serializer", () => {
-  test("default", () => {
-    const p = createElement("p");
-    p.innerHTML = "000<i>123<b>456</b>789</i>";
-    res = serialize(p);
-    expect(res.length).toBe(4);
-    expect(res[0]).toStrictEqual({ value: "000", format: ["p"] });
-    expect(res[1]).toStrictEqual({ value: "123", format: ["p", "i"] });
-    expect(res[2]).toStrictEqual({ value: "456", format: ["p", "i", "b"] });
-    expect(res[3]).toStrictEqual({ value: "789", format: ["p", "i"] });
-  });
-});
-```
-
-> Notion 的数据结构就是类似的方式
-
-这种序列化方法缺少对每个元素的标识，从而无法保证反序列化结果唯一，下面是一个例子：
-
-```ts
-p.innerHTML = "<b><i>123</i>000<i>456</i></b>";
-res = serialize(p);
-
-expect(res).toStrictEqual([
-  { format: ["p", "b", "i"], value: "123" },
-  { format: ["p", "b"], value: "000" },
-  { format: ["p", "b", "i"], value: "456" },
-]);
-
-p.innerHTML = "<b><i>123</i></b><b>000</b><b><i>456</i></b>";
-res = serialize(p);
-expect(res).toStrictEqual([
-  { format: ["p", "b", "i"], value: "123" },
-  { format: ["p", "b"], value: "000" },
-  { format: ["p", "b", "i"], value: "456" },
-]);
-```
-
-可以通过在渲染过程中递归的传入当前元素的深度序列信息来解决这一问题，Segment 的字段更新为：
-
-```ts
-export interface Segment {
-  value: string;
-  format: HTMLElementTagName[];
-  index: number[];
-}
-```
-
-添加 `index` 不需要 `serialize` 改动太多，代码略。
-
-### 数据层渲染（反序列化）
-
-反序列化这里假设不会有太深的层级（最多 6 层：`code+b+i+del+u+el`），简单实现如下：
-
-```ts
-export function deserialize(...seg: Segment[]): Node[] {
-  const root = createElement("p");
-
-  for (const { value, format, index } of seg) {
-    let cur: HTMLElement = root;
-    for (let i = 0; i < format.length; i++) {
-      const ind = index[i];
-      if (cur.childNodes[ind]) {
-        cur = cur.childNodes[ind] as HTMLElement;
-      } else {
-        const child = createElement(format[i]);
-        cur.appendChild(child);
-        cur = child;
+let fathers: ValidNode[] = [];
+const related: HTMLElement[] = [];
+for (const child of nodesOfRange(range)) {
+  fathers.push(child as ValidNode);
+  const iterator = document.createNodeIterator(
+    child,
+    NodeFilter.SHOW_ELEMENT,
+    (el: Node) => {
+      if (getTagName(el) === format && el !== child) {
+        return NodeFilter.FILTER_ACCEPT;
       }
+      return NodeFilter.FILTER_SKIP;
     }
-    cur.appendChild(createTextNode(value));
-  }
+  );
 
-  return Array.from(root.childNodes);
+  let node;
+  while ((node = iterator.nextNode())) {
+    related.push(node as HTMLElement);
+  }
 }
 ```
 
-通过测试可以证明这种方式可以在 Segment 和 HTMLElement 之间建立唯一的映射（序列化和反序列化）关系。
+通过分别删除 related 和 fathers 中的元素，即可实现取消待应用格式的效果。对 fathers 中的元素取消时，使用 flatMap 而不是 map 可以更方便的设置取消格式后的选中范围：
 
 ```ts
-p.innerHTML = "<b><i>123</i>000<i>456</i></b>";
-res = serialize(p);
-expect((deserialize(...res)[0] as HTMLElement).innerHTML).toBe(p.innerHTML);
+if (
+  related.length > 0 ||
+  fathers.filter((item) => getTagName(item) === format).length > 0
+) {
+  // deformat
+  this.payload.undo_hint.op = "deformat";
+  related.forEach((item) => {
+    const childs = validChildNodes(item);
+    item.replaceWith(...childs);
+  });
 
-p.innerHTML = "<b><i>123</i></b><b>000</b><b><i>456</i></b>";
-res = serialize(p);
-expect((deserialize(...res)[0] as HTMLElement).innerHTML).toBe(p.innerHTML);
+  fathers = fathers.flatMap((item) => {
+    if (getTagName(item) === format) {
+      const childs = validChildNodes(item);
+      item.replaceWith(...childs);
+      return childs;
+    }
+    return item;
+  });
+  const [startContainer, startOffset] = getValidAdjacent(
+    fathers[0],
+    "beforebegin"
+  );
+  const [endContainer, endOffset] = getValidAdjacent(
+    fathers[fathers.length - 1],
+    "afterend"
+  );
+
+  range.setStart(startContainer, startOffset);
+  range.setEnd(endContainer, endOffset);
+  setRange(range);
+  return;
+}
 ```
 
-### 对行内块的序列化和反序列化
+对每一个被取消格式的节点，提前获取该位置的 Offset，可以用于 undo 操作。
 
-对公式等特殊的行内块元素，需要定制化的序列化反序列化方法，也需要一个统一的接口来处理。对此，约定所有行内块元素外由 label 包裹，并设置 `value` 和 `serializer` 属性，所有行内块元素需要以相应的 `serializer` 名称在 ohno 内部注册序列化和反序列化方法。这部分实现不涉及主要系统设计，略。
+### 父节点为待应用格式
 
-### 格式应用命令的设计
-
-在实现数据层和表达层的分离后，分析需求可以发现，对选中内容添加格式，相当于对所有的 Segment 在 format 的开始位置插入格式字符（wrap），取消格式则是删除开始位置的值（unwrap）：
+第一种情况没有考虑选中范围的父节点为待应用格式的情况： `<b>te|xt</b>`，这种情况可以通过下面的方法检测：
 
 ```ts
-const p = createElement("p");
-p.innerHTML = "<i>123</i><i>456</i>";
-const segs = serialize(...Array.from(p.childNodes));
-segs.map((item) => {
-  item.format.unshift("b");
-  item.index.unshift(0);
+const fmt = parentElementWithTag(
+  range.commonAncestorContainer,
+  format,
+  block.currentContainer()
+);
+```
+
+并通过类似的方式取消格式应用：
+
+```ts
+if (fmt) {
+  // deformat 2
+  // <b>te|xt</b>
+  // <b>te[x<i>te]xt</i>t</b>
+  const childs = validChildNodes(fmt);
+  fmt.replaceWith(...childs);
+  const [startContainer, startOffset] = getValidAdjacent(
+    childs[0],
+    "beforebegin"
+  );
+  const [endContainer, endOffset] = getValidAdjacent(
+    childs[childs.length - 1],
+    "afterend"
+  );
+
+  range.setStart(startContainer, startOffset);
+  range.setEnd(endContainer, endOffset);
+  setRange(range);
+  return;
+}
+```
+
+### 不存在待应用格式
+
+这种情况下，需要对所选范围应用该格式：
+
+```ts
+this.payload.undo_hint.op = "enformat";
+const wrap = createElement(format, {
+  children: fathers,
+  textContent: innerHTML(...fathers) === "" ? " " : undefined,
 });
-let wraped = deserialize(...segs);
-let tgt = "<b>" + p.innerHTML + "</b>";
-expect(innerHTML(...wraped)).toBe(tgt);
-segs.map((item) => {
-  item.format.shift();
-  item.index.shift();
-});
-wraped = deserialize(...segs);
-expect(innerHTML(...wraped)).toBe(p.innerHTML);
+addMarkdownHint(wrap);
+
+range.insertNode(wrap);
+this.payload.undo_hint.offsets.push(
+  elementOffset(block.currentContainer(), wrap)
+);
+setRange(offsetToRange(wrap, FULL_SELECTED)!);
+return;
 ```
 
-因此，应用格式的流程最终只需要简单的判断对选中文段是添加还是删除格式。最终的命令设计如下：
+# 小结
 
-```ts
-
-```
+> 到目前为止，单个 Block 内的所有基本操作就已经定义完成，大部分编辑行为的基本命令都已经实现，之后跨 Block 的相应操作同样可以用类似的方法拆解实现。接下来，整个框架基本进入细节完善阶段。

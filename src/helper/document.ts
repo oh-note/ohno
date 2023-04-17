@@ -8,10 +8,14 @@ export type EventAttribute = {
   [key in keyof HTMLElementEventMap]?: (e: HTMLElementEventMap[key]) => void;
 };
 
-export function createTextNode(text: string): Text {
+export function createTextNode(text?: string): Text {
+  text = text || "";
   return document.createTextNode(text);
 }
 
+export function createFlagNode(): HTMLElement {
+  return createElement("span");
+}
 export interface InlineBlock {
   serailizer: string;
   el: Node[];
@@ -103,39 +107,13 @@ export function createElement<K extends HTMLElementTagName>(
   return el;
 }
 
-// export function putContentItem(
-//   el: HTMLElement,
-//   contentItem: ContentItem | ContentItem[],
-//   refresh: boolean = true
-// ) {
-//   if (refresh) {
-//     el.innerHTML = "";
-//   }
-//   const [nodes, noticable] = createElement(contentItem);
-//   if (nodes) {
-//     nodes.forEach((c) => {
-//       el.appendChild(c);
-//     });
-//     noticable.forEach((c) => c.componentDidMount());
-//   }
-//   return [nodes, noticable];
-// }
-
-// export function insertContentItem(
-//   el: HTMLElement,
-//   contentItem: ContentItem | ContentItem[],
-//   range?: Range
-// ) {
-//   if (!range) {
-//     range = document.getSelection().getRangeAt(0);
-//   }
-
-//   const [nodes, noticable] = createElement(contentItem);
-//   if (nodes) {
-//     nodes.reverse().forEach((c) => {
-//       range.insertNode(c);
-//     });
-//     noticable.forEach((c) => c.componentDidMount());
-//   }
-//   return [nodes, noticable];
-// }
+export function getDefaultRange(raise: boolean = true): Range {
+  const sel = document.getSelection();
+  if (sel && sel.rangeCount > 0) {
+    return sel.getRangeAt(0);
+  }
+  if (raise) {
+    throw new Error("Besure to have range when call this method");
+  }
+  return null;
+}

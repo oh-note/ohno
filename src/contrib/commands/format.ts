@@ -1,23 +1,23 @@
-import { HTMLElementTagName } from "../../helper/document";
-import { createElement } from "../../helper/document";
-import { ValidNode, getTagName, innerHTML } from "../../helper/element";
-import { parentElementWithTag, validChildNodes } from "../../helper/element";
-import { addMarkdownHint } from "../../helper/markdown";
+import { HTMLElementTagName } from "@helper/document";
+import { createElement } from "@helper/document";
+import { ValidNode, getTagName, outerHTML } from "@helper/element";
+import { parentElementWithTag, validChildNodes } from "@helper/element";
+import { addMarkdownHint } from "@helper/markdown";
 import {
   FULL_BLOCK as FULL_SELECTED,
   Offset,
   elementOffset,
   offsetToRange,
-} from "../../system/position";
-import { AnyBlock } from "../../system/block";
-import { Command } from "../../system/history";
-import { Page } from "../../system/page";
+} from "@system/position";
+import { AnyBlock } from "@system/block";
+import { Command } from "@system/history";
+import { Page } from "@system/page";
 import {
   getValidAdjacent,
   nodesOfRange,
   normalizeRange,
   setRange,
-} from "../../system/range";
+} from "@system/range";
 
 export interface FormatPayload {
   page: Page;
@@ -40,6 +40,7 @@ export class FormatText extends Command<FormatPayload> {
     const range = offsetToRange(block.getContainer(offset.index!), offset)!;
     normalizeRange(range.commonAncestorContainer as Node, range);
 
+    // 1. 判断选中的子节点中是否有待应用格式
     let fathers: ValidNode[] = [];
     const related: HTMLElement[] = [];
     for (const child of nodesOfRange(range)) {
@@ -60,7 +61,7 @@ export class FormatText extends Command<FormatPayload> {
         related.push(node as HTMLElement);
       }
     }
-
+    // 2. 判断选中内容是否是待应用格式的子节点（1. 是遍历子节点，判断不出来）
     const fmt = parentElementWithTag(
       range.commonAncestorContainer,
       format,
@@ -70,6 +71,7 @@ export class FormatText extends Command<FormatPayload> {
     this.payload.undo_hint = { offsets: [] };
 
     if (
+      // 1. 导致的 deformat
       related.length > 0 ||
       fathers.filter((item) => getTagName(item) === format).length > 0
     ) {
@@ -106,6 +108,7 @@ export class FormatText extends Command<FormatPayload> {
       setRange(range);
       return;
     } else if (fmt) {
+      // 2. 导致的 deformat
       // deformat 2
       // <b>te|xt</b>
       // <b>te[x<i>te]xt</i>t</b>
@@ -130,11 +133,11 @@ export class FormatText extends Command<FormatPayload> {
       setRange(range);
       return;
     } else {
-      // enformat
+      // 排除 deformat 的情况， enformat 就是选中区域套一层
       this.payload.undo_hint.op = "enformat";
       const wrap = createElement(format, {
         children: fathers,
-        textContent: innerHTML(...fathers) === "" ? " " : undefined,
+        textContent: outerHTML(...fathers) === "" ? "" : undefined,
       });
       addMarkdownHint(wrap);
 

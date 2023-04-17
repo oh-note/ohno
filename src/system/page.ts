@@ -36,13 +36,17 @@ import {
   defaultAfterHandlers,
   defaultBeforeHandlers,
   defaultGlobalHandlers,
+  setAfterHandlers,
+  setBeforeHandlers,
+  setGlobalHandler as setGlobalHandler,
 } from "./handler";
-import { createOrder } from "../helper/order";
-import { LinkedDict } from "../struct/linkeddict";
+import { createOrderString } from "@helper/string";
+import { LinkedDict } from "@struct/linkeddict";
 import { AnyBlock, Block, Order } from "./block";
 import { OperationHandlerFn } from "./operation";
-import { Paragraph } from "../contrib/handlers/paragraph";
+import { Paragraph } from "@contrib/blocks/paragraph";
 import { Command, History, globalHistory } from "./history";
+import { ROOT_CLASS } from "./config";
 
 export class PageDispatch {
   beforeHandlerd: { [key: string]: Handler[] } = defaultBeforeHandlers;
@@ -165,7 +169,6 @@ export class PageDispatch {
     e: K,
     eventName: keyof HandlerMethods
   ) {
-    // console.log(block, eventName);
     if (this.beforeHandlerd[block.type]) {
       for (let i = 0; i < this.beforeHandlerd[block.type].length; i++) {
         const handler = this.beforeHandlerd[block.type][i];
@@ -209,6 +212,7 @@ export class PageDispatch {
     }
     this.sendEvent<ClipboardEvent>(block, e, "handleCopy");
   }
+
   handlePaste(e: ClipboardEvent): void | boolean {
     const block = this.findBlock(e.target);
     if (!block) {
@@ -216,6 +220,7 @@ export class PageDispatch {
     }
     this.sendEvent<ClipboardEvent>(block, e, "handlePaste");
   }
+
   handleBlur(e: FocusEvent): void | boolean {
     const block = this.findBlock(
       document.getSelection()?.getRangeAt(0).startContainer
@@ -225,6 +230,7 @@ export class PageDispatch {
     }
     this.sendEvent<FocusEvent>(block, e, "handleBlur");
   }
+
   handleFocus(e: FocusEvent): void | boolean {
     const sel = document.getSelection();
     if (sel && sel.rangeCount > 0) {
@@ -235,7 +241,10 @@ export class PageDispatch {
       this.sendEvent<FocusEvent>(block, e, "handleFocus");
     }
   }
+
   handleKeyDown(e: KeyboardEvent): void | boolean {
+    // TODO 处理跨 Block 选中
+    // 对跨 Block 选中的
     const block = this.findBlock(
       document.getSelection()?.getRangeAt(0).startContainer
     );
@@ -347,7 +356,7 @@ export class PageDispatch {
     if (!block) {
       return;
     }
-    this.sendEvent<Event>(block, e, "handleSelectStart");
+    // this.sendEvent<Event>(block, e, "handleSelectStart");
   }
   handleSelectionChange(e: Event): void | boolean {
     console.log(e);
@@ -358,7 +367,7 @@ export class PageDispatch {
     if (!block) {
       return;
     }
-    this.sendEvent<Event>(block, e, "handleSelectionChange");
+    // this.sendEvent<Event>(block, e, "handleSelectionChange");
   }
   handleSelect(e: Event): void | boolean {
     console.log(e);
@@ -369,7 +378,7 @@ export class PageDispatch {
     if (!block) {
       return;
     }
-    this.sendEvent<Event>(block, e, "handleSelect");
+    // this.sendEvent<Event>(block, e, "handleSelect");
   }
 
   handleCompositionEnd(e: CompositionEvent): void | boolean {
@@ -395,17 +404,47 @@ export class PageDispatch {
   }
 }
 
+export interface Handlers {
+  beforeHandler?: Handler;
+  afterHandler?: Handler;
+  globalHandler?: Handler;
+}
+export interface PageInit {
+  handlers?: Handlers[];
+}
+
+const defaultPageInit: PageInit = {};
+
 export class Page {
   handler: PageDispatch;
   opHandlers: { [key: string]: OperationHandlerFn } = {};
   blocks: LinkedDict<string, AnyBlock> = new LinkedDict();
   root: HTMLElement | null;
+  init: PageInit;
+  status: {
+    activeBlock?: AnyBlock;
+    activeLabel?: HTMLLabelElement;
+    selected?: AnyBlock[];
+  } = {};
   history: History = globalHistory;
-  constructor() {
+  constructor(init?: PageInit) {
+    this.init = Object.assign({}, defaultPageInit, init);
+    this.init.handlers?.forEach((item) => {
+      if (item.beforeHandler) {
+        setBeforeHandlers(item.beforeHandler);
+      }
+      if (item.afterHandler) {
+        setAfterHandlers(item.afterHandler);
+      }
+      if (item.globalHandler) {
+        setGlobalHandler(item.globalHandler);
+      }
+    });
+
     this.handler = new PageDispatch(this);
     this.root = null;
   }
-  emit(command: Command<any>, executed?: boolean) {
+  executeCommand(command: Command<any>, executed?: boolean) {
     if (executed) {
       this.history.append(command);
     } else {
@@ -443,7 +482,21 @@ export class Page {
       throw EvalError(`name ${name} not exists!`);
     }
     const [tgt, _] = result;
-    tgt.el.classList.add("oh-is-active");
+    if (this.status.activeBlock) {
+      this.status.activeBlock.deactivate();
+    }
+    this.status.activeBlock = tgt;
+    tgt.activate();
+  }
+
+  deactivate(name: Order) {
+    const result = this.blocks.find(name);
+    if (!result) {
+      throw EvalError(`name ${name} not exists!`);
+    }
+    const [tgt, _] = result;
+    this.status.activeBlock = undefined;
+    tgt.deactivate();
   }
 
   findBlock(order: Order): AnyBlock | null {
@@ -470,25 +523,18 @@ export class Page {
     return results[0];
   }
 
-  deactivate(name: Order) {
-    const result = this.blocks.find(name);
-    if (!result) {
-      throw EvalError(`name ${name} not exists!`);
-    }
-    const [tgt, _] = result;
-    tgt.el.classList.remove("oh-is-active");
-  }
-
   appendBlock(newBlock: AnyBlock) {
     const [tgt, _] = this.blocks.getLast();
+
     if (tgt) {
-      newBlock.assignOrder(createOrder(tgt.order));
+      newBlock.assignOrder(createOrderString(tgt.order));
       this.blocks.append(newBlock.order!, newBlock);
     } else {
-      newBlock.assignOrder(createOrder());
+      newBlock.assignOrder(createOrderString());
       this.blocks.append(newBlock.order!, newBlock);
     }
     this.root?.appendChild(newBlock.el);
+    newBlock.attached(this);
     return newBlock.order;
   }
 
@@ -501,10 +547,11 @@ export class Page {
     const prev = node.prev;
     const prevOrder = prev ? prev.value.order : "";
 
-    newBlock.assignOrder(createOrder(prevOrder, tgt.order));
+    newBlock.assignOrder(createOrderString(prevOrder, tgt.order));
     if (!this.blocks.insertBefore(tgt.order!, newBlock.order!, newBlock)) {
       throw EvalError(`insert before ${tgt.order} failed!`);
     }
+    newBlock.attached(this);
     tgt.el.insertAdjacentElement("beforebegin", newBlock.el);
   }
   insertBlockAfter(name: Order, newBlock: AnyBlock) {
@@ -516,10 +563,11 @@ export class Page {
     const next = node.next;
     const nextOrder = next ? next.value.order : "";
 
-    newBlock.assignOrder(createOrder(tgt.order, nextOrder));
+    newBlock.assignOrder(createOrderString(tgt.order, nextOrder));
     if (!this.blocks.insertAfter(tgt.order!, newBlock.order!, newBlock)) {
       throw EvalError(`insert before ${tgt.order} failed!`);
     }
+    newBlock.attached(this);
     tgt.el.insertAdjacentElement("afterend", newBlock.el);
   }
   removeBlock(name: Order): any {
@@ -528,6 +576,7 @@ export class Page {
       throw EvalError(`name ${name} not exists!`);
     }
     const [tgt, _] = result;
+    tgt.detached();
     tgt.el.remove();
   }
   replaceBlock(name: Order, newBlock: AnyBlock) {
@@ -537,6 +586,9 @@ export class Page {
     }
     const [tgt, node] = result;
     newBlock.assignOrder(tgt.order!);
+    tgt.detached();
+    newBlock.attached(this);
+
     node.value = newBlock;
     tgt.el.replaceWith(newBlock.el);
   }
@@ -545,7 +597,7 @@ export class Page {
     this.root = el;
 
     this.handler.bingEventListener(el);
-    el.classList.add("oh-editer-root");
+    el.classList.add(ROOT_CLASS);
     el.contentEditable = "true";
     if (!el.hasChildNodes()) {
       this.appendBlock(new Paragraph());
@@ -560,7 +612,7 @@ export class Page {
     if (removeElement) {
       this.root.remove();
     } else {
-      this.root.classList.remove("oh-editor-root");
+      this.root.classList.remove(ROOT_CLASS);
     }
     this.root = null;
   }

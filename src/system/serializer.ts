@@ -2,8 +2,8 @@ import {
   HTMLElementTagName,
   createElement,
   createTextNode,
-} from "../helper/document";
-import { getTagName, isHTMLElement, isTextNode } from "../helper/element";
+} from "@helper/document";
+import { getTagName, isHTMLElement, isTextNode } from "@helper/element";
 
 export interface Segment {
   value: string;
