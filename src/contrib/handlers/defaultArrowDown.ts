@@ -1,13 +1,5 @@
-import {
-  FIRST_POSITION,
-  LAST_POSITION,
-  rangeToOffset,
-} from "@system/position";
-import {
-  EventContext,
-  Handler,
-  KeyDispatchedHandler,
-} from "@system/handler";
+import { FIRST_POSITION, LAST_POSITION, rangeToOffset } from "@system/position";
+import { EventContext, Handler, KeyDispatchedHandler } from "@system/handler";
 
 export function defaultHandleArrowDown(
   handler: Handler,
@@ -18,10 +10,11 @@ export function defaultHandleArrowDown(
   if (!range) {
     return;
   }
+  const container = block.currentContainer();
   if (e.key === "ArrowUp") {
     if (block.isFirstLine(range)) {
-      const offset = rangeToOffset(block.currentContainer(), range);
-      const prevContainer = block.aboveContainer();
+      const offset = rangeToOffset(container, range);
+      const prevContainer = block.aboveContainer(container);
       if (prevContainer) {
         block.setInlinePositionAtLastLine(offset, prevContainer);
         return true;
@@ -31,9 +24,10 @@ export function defaultHandleArrowDown(
       if (prevBlock) {
         // 激活，并且光标位移到上一个 block 的最后一行
         page.activate(prevBlock.order);
-        prevBlock.setPosition(offset, prevBlock.lastContainer());
+        offset.index = -1;
+        prevBlock.setOffset(offset, { ...FIRST_POSITION, index: -1 });
       } else {
-        block.setPosition(FIRST_POSITION);
+        block.setOffset(FIRST_POSITION);
       }
       return true;
     }
@@ -42,7 +36,7 @@ export function defaultHandleArrowDown(
     if (block.isLastLine(range)) {
       const offset = rangeToOffset(block.currentContainer(), range);
       // const offset = block.getInlinePosition(range);
-      const nextContainer = block.belowContainer();
+      const nextContainer = block.belowContainer(container);
       if (nextContainer) {
         block.setPosition(offset, nextContainer);
         return true;
@@ -52,7 +46,8 @@ export function defaultHandleArrowDown(
       if (nextBlock) {
         // 激活，并且光标位移到上一个 block 的最后一行
         page.activate(nextBlock.order);
-        nextBlock.setPosition(offset, nextBlock.firstContainer());
+        offset.index = 0;
+        nextBlock.setOffset(offset, { ...LAST_POSITION, index: 0 });
       } else {
         block.setPosition(LAST_POSITION);
       }
@@ -99,7 +94,7 @@ export function defaultHandleArrowDown(
     } else {
       next = block.getNextRange(range);
     }
-
+    console.log(next);
     if (next) {
       block.setRange(next);
       return true;

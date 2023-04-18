@@ -9,12 +9,28 @@ export interface Payload {
   intime?: { [key: string]: any };
 }
 
+export interface ContainerPayload extends Payload {
+  container: HTMLElement;
+}
+
+export type CommandCallback<P> = (payload: P) => void;
+
 export abstract class Command<P> {
   payload: P;
   history?: History;
-  constructor(payload: P) {
+
+  afterUndo?: CommandCallback<P>;
+  afterExecute?: CommandCallback<P>;
+
+  constructor(
+    payload: P,
+    exeCallback?: CommandCallback<P>,
+    undoCallback?: CommandCallback<P>
+  ) {
     this.payload = payload;
     this.execute = this.ensureContext(this.execute.bind(this));
+    this.afterExecute = exeCallback;
+    this.afterUndo = undoCallback;
   }
 
   protected ensureContext(fn: () => any) {
@@ -34,6 +50,14 @@ export abstract class Command<P> {
     return false;
   }
 
+  public withExecuteCallback(afterExecute: CommandCallback<P>) {
+    this.afterExecute = afterExecute;
+    return this;
+  }
+  public withUndoCallback(afterUndo: CommandCallback<P>) {
+    this.afterUndo = afterUndo;
+    return this;
+  }
   public get label(): string {
     return "";
   }
@@ -65,6 +89,9 @@ export class History {
     console.log(command);
     command.history = this;
     command.execute();
+    if (command.afterExecute) {
+      command.afterExecute(command.payload);
+    }
     this.undo_commands.clear();
     this.append(command);
   }
@@ -74,6 +101,9 @@ export class History {
     // console.log(results);
     if (results) {
       results[0].undo();
+      if (results[0].afterUndo) {
+        results[0].afterUndo(results[0].payload);
+      }
       this.undo_commands.append(results[0]);
     }
   }
@@ -83,7 +113,11 @@ export class History {
     // console.log(results);
     if (results) {
       results[0].execute();
-      this.undo_commands.clear();
+      console.log("redo");
+      if (results[0].afterExecute) {
+        console.log("redo callback");
+        results[0].afterExecute(results[0].payload);
+      }
       this.commands.append(results[0]);
     }
   }

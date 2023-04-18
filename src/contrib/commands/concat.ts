@@ -1,4 +1,4 @@
-import { Command, Payload } from "@system/history";
+import { Command } from "@system/history";
 
 export type LazyCommand<T> = (
   payload: T,
@@ -30,20 +30,25 @@ class ListCommand<T> extends Command<T> {
     if (this.commands) {
       this.commands.forEach((item) => {
         item.execute();
+        if (item.afterExecute) {
+          item.afterExecute(item.payload);
+        }
       });
       return;
     }
     this.commands = [];
     const status = new Status();
-    for (let c of this.lazy) {
-      const command = c(this.payload, extra, status);
+    for (const cfn of this.lazy) {
+      const command = cfn(this.payload, extra, status);
       if (status.skiped || !command) {
         status.skiped = false;
         continue;
       }
       command.history = this.history;
-      console.log("execute", command);
       command.execute();
+      if (command.afterExecute) {
+        command.afterExecute(command.payload);
+      }
       if (status.prevented) {
         break;
       }
@@ -55,6 +60,9 @@ class ListCommand<T> extends Command<T> {
     for (let index = this.commands!.length - 1; index >= 0; index--) {
       const c = this.commands![index];
       c.undo();
+      if (c.afterUndo) {
+        c.afterUndo(c.payload);
+      }
       console.log("undo", c);
     }
   }

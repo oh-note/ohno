@@ -77,14 +77,13 @@ body {
   background-color: white;
 }
 
-.oh-is-root * {
+.oh-is-root>* {
   min-height: 1.5em;
   white-space: pre-wrap;
 }
 
-.oh-is-root p {
+.oh-is-root {
   width: 500px;
-  background-color: #fff;
 }
 
 .oh-is-root blockquote {
@@ -94,6 +93,10 @@ body {
   border-left: 0.25em solid #d0d7de;
 }
 
+.oh-is-root label {
+  margin-left: 0.25em;
+  margin-right: 0.25em;
+}
 
 .oh-is-root h1,
 h2,

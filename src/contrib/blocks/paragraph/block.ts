@@ -21,7 +21,7 @@ export class Paragraph extends Block<ParagraphInit> {
     if (init.children) {
       init.children.forEach((item) => {
         if (item) {
-          init!.el?.appendChild(item);
+          init!.el?.appendChild(item.cloneNode(true));
         }
       });
     }

@@ -25,6 +25,7 @@ import {
 } from "@system/range";
 import { getTagName } from "@helper/element";
 import { FIRST_POSITION, elementOffset } from "@system/position";
+import { IBlockRemove } from "@contrib/commands/inlineblock";
 
 export class DefaultBlockHandler
   extends Handler
@@ -50,6 +51,13 @@ export class DefaultBlockHandler
       console.log(bound, e.clientX);
       range.collapse(e.clientX < bound);
     }
+  }
+  handleHomeDown(e: KeyboardEvent, { block }: EventContext): boolean | void {
+    // 设置 soft start，判断在 soft start 后再设置 block start
+    getDefaultRange;
+  }
+  handleEndDown(e: KeyboardEvent, { block }: EventContext): boolean | void {
+    // 设置 soft end
   }
   handleContextMenu(e: MouseEvent, context: EventContext): boolean | void {}
   handleMouseLeave(e: MouseEvent, context: EventContext): boolean | void {}
@@ -112,12 +120,22 @@ export class DefaultBlockHandler
           ))
         ) {
           const format = getTagName(hint) as HTMLElementTagName;
-          const command = new FormatText({
-            block,
-            page,
-            format,
-            offset: elementOffset(block.currentContainer(), hint),
-          });
+          if (format === "label") {
+            const offset = block.getOffset();
+            command = new IBlockRemove({
+              page,
+              block,
+              label: hint as HTMLLabelElement,
+              offset,
+            });
+          } else {
+            command = new FormatText({
+              block,
+              page,
+              format,
+              offset: elementOffset(block.currentContainer(), hint),
+            });
+          }
           page.executeCommand(command);
 
           return true;

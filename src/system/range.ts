@@ -115,7 +115,7 @@ export function isLastLine(root: HTMLElement, range: Range) {
   }
   range = range.cloneRange();
   const test = createElement("span", {
-    textContent: " ",
+    textContent: "|",
   });
   root.appendChild(test);
   const first = test.getClientRects();

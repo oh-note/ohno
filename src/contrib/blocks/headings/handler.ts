@@ -5,8 +5,8 @@ import {
   KeyDispatchedHandler,
   dispatchKeyDown,
 } from "@system/handler";
-import { FIRST_POSITION } from "@system/position";
-import { BlockCreate, BlockReplace } from "@contrib/commands/block";
+import { FIRST_POSITION, offsetToRange } from "@system/position";
+import { BlockCreate, BlockReplace, defaultAfterBlockCreateExecute } from "@contrib/commands/block";
 import { containHTMLElement } from "@helper/element";
 import {
   Paragraph,
@@ -25,7 +25,7 @@ export class HeadingsHandler extends Handler implements KeyDispatchedHandler {
     { page, block }: EventContext
   ): boolean | void {
     const range = getDefaultRange();
-    if (!block.isRight(range)) {
+    if (!block.isLeft(range) || !range.collapsed) {
       return;
     }
     const nextBlock = page.getNextBlock(block);
@@ -56,13 +56,6 @@ export class HeadingsHandler extends Handler implements KeyDispatchedHandler {
     if (!block.isLeft(range)) {
       return;
     }
-    const prevBlock = page.getPrevBlock(block);
-    if (!prevBlock) {
-      // 在左上方，不做任何操作
-      e.preventDefault();
-      e.stopPropagation();
-      return true;
-    }
 
     const command = new BlockReplace({
       block,
@@ -91,14 +84,17 @@ export class HeadingsHandler extends Handler implements KeyDispatchedHandler {
         const paragraph = new Paragraph({
           innerHTML: innerHTML,
         });
-        return new BlockCreate({
-          block: block,
-          newBlock: paragraph,
-          offset: oldOffset,
-          newOffset: FIRST_POSITION,
-          where: "after",
-          page: page,
-        });
+        return new BlockCreate(
+          {
+            block: block,
+            newBlock: paragraph,
+            offset: oldOffset,
+            newOffset: FIRST_POSITION,
+            where: "after",
+            page: page,
+          },
+          defaultAfterBlockCreateExecute
+        );
       }) // 将新文本添加到
       .build();
 

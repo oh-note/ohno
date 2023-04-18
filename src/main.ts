@@ -15,6 +15,7 @@ import {
   ParagraphHandlers,
 } from "./contrib/blocks";
 import { DefaultBlockHandler } from "./contrib";
+import { List, ListHandlers } from "@contrib/blocks/list";
 
 const page = new Page({
   handlers: [
@@ -22,6 +23,7 @@ const page = new Page({
     ParagraphHandlers,
     HeadingHandlers,
     BlockquoteHandlers,
+    ListHandlers,
   ],
 });
 
@@ -43,15 +45,24 @@ const wrap = makeInlineBlock({
 let innerHTML =
   "Lor<i>em ipsum</i> ipsum <b>dolor <i>sit <code>amet</code></i></b>, consectetur adipiscing elit, sed do eiusmod <code>tempor <b><i><code>incididunt</code></i></b></code> ut labore et dolore magna aliqua.";
 
-innerHTML = "012<b>456</b>89<i>012</i>";
-
 page.appendBlock(new Paragraph({ innerHTML, children: [wrap] }));
 page.appendBlock(new Headings({ level: 1, innerHTML: "Heading 1" }));
 page.appendBlock(new Paragraph({ innerHTML, children: [wrap] }));
 page.appendBlock(new Paragraph({}));
+innerHTML = "012<b>456</b>89<i>012</i>";
 page.appendBlock(new Paragraph({ innerHTML, children: [wrap] }));
 page.appendBlock(new Paragraph({ innerHTML, children: [wrap] }));
 page.appendBlock(new Blockquote({ innerHTML, children: [wrap] }));
+page.appendBlock(new List({ firstLiInnerHTML: innerHTML }));
+page.appendBlock(
+  new List({
+    children: [
+      createElement("li", { textContent: "0" }),
+      createElement("li", { textContent: "1" }),
+      createElement("li", { textContent: "2" }),
+    ],
+  })
+);
 innerHTML = "";
 page.appendBlock(new Blockquote({ innerHTML, children: [wrap] }));
 // page.appendBlock(new ParagraphQuote(undefined, undefined, "hello"));

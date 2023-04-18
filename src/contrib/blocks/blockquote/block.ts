@@ -4,6 +4,7 @@ import { Block, BlockInit } from "@system/block";
 export interface BlockQuoteInit extends BlockInit {
   innerHTML?: string;
   children?: HTMLElement[];
+  level?: number; // 用 level 模拟 blockquote 深度
 }
 
 export class Blockquote extends Block<BlockQuoteInit> {
@@ -20,7 +21,7 @@ export class Blockquote extends Block<BlockQuoteInit> {
     if (init.children) {
       init.children.forEach((item) => {
         if (item) {
-          init!.el?.appendChild(item);
+          init!.el?.appendChild(item.cloneNode(true));
         }
       });
     }

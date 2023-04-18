@@ -10,7 +10,7 @@ import {
   offsetToRange,
 } from "@system/position";
 import { AnyBlock } from "@system/block";
-import { Command } from "@system/history";
+import { Command, CommandCallback } from "@system/history";
 import { Page } from "@system/page";
 import {
   getValidAdjacent,
@@ -22,16 +22,17 @@ import {
 export interface BlockCreatePayload {
   page: Page;
   block: AnyBlock;
-  offset: Offset;
   where: "after" | "tail" | "head" | "before";
   newBlock: AnyBlock;
+
+  offset: Offset;
   newOffset: Offset;
 }
 
 export interface BlockRemovePayload {
   page: Page;
   block: AnyBlock;
-  offset: Offset;
+  beforeOffset: Offset;
   undo_hint?: {
     nextBlock: AnyBlock | null;
   };
@@ -74,13 +75,13 @@ export class BlockRemove extends Command<BlockRemovePayload> {
     page.removeBlock(block.order);
   }
   undo(): void {
-    const { page, block, offset } = this.payload;
+    const { page, block } = this.payload;
+    console.log("page");
     if (this.payload.undo_hint!.nextBlock) {
       page.insertBlockBefore(this.payload.undo_hint!.nextBlock.order, block);
     } else {
       page.appendBlock(block);
     }
-    block.setOffset(offset);
   }
 }
 
@@ -95,13 +96,27 @@ export class BlockActive extends Command<BlockActivePayload> {
     }
   }
   undo(): void {
-    this.payload.block.setOffset(this.payload.offset)
+    this.payload.block.setOffset(this.payload.offset);
   }
 }
 
+export const defaultAfterBlockCreateExecute: CommandCallback<
+  BlockCreatePayload
+> = ({ block, newBlock, offset, newOffset }) => {
+  const range = offsetToRange(newBlock.getContainer(offset.index!), newOffset)!;
+  block.setRange(range);
+  console.log(range);
+};
+export const defaultAfterBlockCreateUndo: CommandCallback<
+  BlockCreatePayload
+> = ({ block, newBlock, offset, newOffset }) => {
+  const range = offsetToRange(block.getContainer(offset.index!), offset)!;
+  setRange(range);
+};
+
 export class BlockCreate extends Command<BlockCreatePayload> {
   execute(): void {
-    const { where, page, block, newBlock, offset, newOffset } = this.payload;
+    const { where, page, block, newBlock } = this.payload;
 
     if (where === "after") {
       page.insertBlockAfter(block.order, newBlock);
@@ -116,19 +131,9 @@ export class BlockCreate extends Command<BlockCreatePayload> {
     } else if (where === "tail") {
       page.appendBlock(newBlock);
     }
-    console.log(newBlock);
-    const range = offsetToRange(
-      newBlock.getContainer(offset.index!),
-      newOffset
-    )!;
-    setRange(range);
-    // normalizeRange(range.commonAncestorContainer as Node, range);
   }
   undo(): void {
     const { page, block, newBlock, offset } = this.payload;
     page.removeBlock(newBlock.order);
-    console.log(newBlock);
-    const range = offsetToRange(block.getContainer(offset.index!), offset)!;
-    setRange(range);
   }
 }

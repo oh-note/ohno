@@ -78,19 +78,13 @@ export function makeNode({
 
 export class TextInsert extends Command<TextInsertPayload> {
   execute(): void {
-    let range: Range;
-
     let { insertOffset, block, afterOffset } = this.payload;
-    range = offsetToRange(
+    const range = offsetToRange(
       block.getContainer(insertOffset.index!),
       insertOffset
     )!;
     insertOffset = block.correctOffset(insertOffset);
     this.payload.insertOffset = insertOffset;
-    // block.correctOffset()
-    // 将 Offset 转换为正值的责任在 Command 而不是 handler
-    // handler 调用时不需要考虑 -1 标识位置导致的 bug
-    // 但是 block 可以提供默认行为来帮助 offset 的位置正确
 
     const nodes = innerHTMLToNodeList(this.payload.innerHTML) as ValidNode[];
     addMarkdownHint(...nodes);

@@ -18,12 +18,12 @@ import {
 } from "./range";
 import { getDefaultRange } from "@helper/document";
 import { Page } from "./page";
+import { BLOCK_CLASS } from "./config";
 
 export type Order = string;
 
 export interface BlockInit {
   order?: Order;
-  type?: string;
   el?: HTMLElement;
 }
 
@@ -32,23 +32,28 @@ export interface BlockInit {
  */
 export class Block<T extends BlockInit> {
   el: HTMLElement;
-  type: string;
+  type: string = "";
   init?: T;
   page?: Page;
   multiContainer: boolean = false;
+  mergeable: boolean = true; // 表格、图片、公式复杂组件等视为独立的 unmergeable
   order: Order = "";
   constructor(init?: T) {
-    const { el, type, order } = init as BlockInit;
+    const { el, order } = init as BlockInit;
     if (!el) {
       throw new Error("root el should be created befire constructor");
     }
+    if (this.type === "") {
+      this.type = el.tagName.toLowerCase();
+    }
 
     this.el = el;
-    el.classList.add("oh-is-block");
-    this.type = type || el.tagName.toLowerCase();
+    el.classList.add(BLOCK_CLASS);
+
     if (order) {
       this.order = order;
     }
+
     this.init = init;
     addMarkdownHint(el);
   }
@@ -105,32 +110,40 @@ export class Block<T extends BlockInit> {
     return this.el;
   }
 
-  getContainer(index?: number) {
+  getContainer(index?: number): HTMLElement {
     return this.el;
   }
 
-  leftContainer(el?: HTMLElement) {
+  leftContainer(el?: HTMLElement): HTMLElement | null {
     return null;
   }
-  rightContainer(el?: HTMLElement) {
+  rightContainer(el?: HTMLElement): HTMLElement | null {
     return null;
   }
-  aboveContainer(el?: HTMLElement) {
+  aboveContainer(el?: HTMLElement): HTMLElement | null {
     return null;
   }
-  belowContainer(el?: HTMLElement) {
+  belowContainer(el?: HTMLElement): HTMLElement | null {
     return null;
   }
 
-  firstContainer() {
+  firstContainer(): HTMLElement {
     return this.el;
   }
-  lastContainer() {
+  lastContainer(): HTMLElement {
     return this.el;
   }
   containers(): HTMLElement[] {
     return [this.el];
   }
+
+  getIndexOfContainer(container: HTMLElement, reversde?: boolean): number {
+    if (reversde) {
+      return -1;
+    }
+    return 0;
+  }
+
   isLeft(range: Range, container?: HTMLElement): boolean {
     if (!container) {
       container = this.currentContainer();
@@ -161,13 +174,6 @@ export class Block<T extends BlockInit> {
     }
 
     return isLastLine(container, range);
-  }
-
-  getIndexOfContainer(container: HTMLElement, reversde?: boolean): number {
-    if (reversde) {
-      return -1;
-    }
-    return 0;
   }
 
   getPrevWordPosition(range: Range, container?: HTMLElement): Range | null {
@@ -239,17 +245,36 @@ export class Block<T extends BlockInit> {
   setRange(range: Range) {
     setRange(range);
   }
+  getIndex(container?: HTMLElement): number {
+    if (!container) {
+      container = this.currentContainer();
+    }
+    return this.getIndexOfContainer(container);
+  }
   getOffset(): Offset {
     const root = this.currentContainer();
     const range = getDefaultRange();
     if (!range) {
       throw new Error("Cannot calculate offset without focus");
     }
-    return rangeToOffset(root, range);
+    const offset = rangeToOffset(root, range);
+    offset.index = this.getIndex(root);
+    return offset;
   }
-  setOffset(offset: Offset) {
+  setOffset(offset: Offset, error?: Offset) {
     const container = this.getContainer(offset.index);
-    const range = offsetToRange(container, offset)!;
+    if (!container) {
+      throw new Error(
+        `${offset.index} can not specify a container in ${this.el}`
+      );
+    }
+    let range = offsetToRange(container, offset);
+    if (!range) {
+      if (!error) {
+        throw new Error("Cannot get range by given offset and container");
+      }
+      range = offsetToRange(container, error)!;
+    }
     this.setRange(range);
   }
 
@@ -258,10 +283,14 @@ export class Block<T extends BlockInit> {
    */
   correctOffset(offset: Offset): Offset {
     this.getContainer(offset.index);
+    const container = this.getContainer(offset.index);
+    if (!container) {
+      throw new Error("container not found");
+    }
     return {
       ...offset,
-      start: makeBiasPos(this.getContainer(offset.index), offset.start)!,
-      end: makeBiasPos(this.getContainer(offset.index), offset.end),
+      start: makeBiasPos(container, offset.start)!,
+      end: makeBiasPos(container, offset.end),
     };
   }
 }

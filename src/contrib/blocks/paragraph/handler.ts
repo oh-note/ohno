@@ -16,6 +16,7 @@ import {
   BlockCreate,
   BlockRemove,
   BlockReplace,
+  defaultAfterBlockCreateExecute,
 } from "@contrib/commands/block";
 import { outerHTML } from "@helper/element";
 import { ListCommandBuilder } from "@contrib/commands/concat";
@@ -26,6 +27,7 @@ import { Paragraph } from "./block";
 import { AnyBlock } from "@system/block";
 import { createRange } from "@system/range";
 import { Blockquote } from "../blockquote";
+import { List } from "../list";
 
 export interface DeleteContext extends EventContext {
   nextBlock: AnyBlock;
@@ -50,11 +52,15 @@ export function prepareDeleteCommand({
       return null;
     })
     .withLazyCommand(() => {
-      return new BlockRemove({
-        page,
-        block: nextBlock,
-        offset: FIRST_POSITION,
-      });
+      return new BlockRemove(
+        {
+          page,
+          block: nextBlock,
+          beforeOffset: FIRST_POSITION,
+        },
+        undefined,
+        undefined
+      );
     });
   return builder;
 }
@@ -154,7 +160,7 @@ export class ParagraphHandler extends Handler implements KeyDispatchedHandler {
     { block, page }: EventContext
   ): boolean | void {
     const range = getDefaultRange();
-    if (!block.isLeft(range)) {
+    if (!block.isLeft(range) || !range.collapsed) {
       return;
     }
     const prevBlock = page.getPrevBlock(block);
@@ -172,7 +178,13 @@ export class ParagraphHandler extends Handler implements KeyDispatchedHandler {
     // 对 List，还需要额外分析退格的 Container Index，并额外的创建 1 或 2 个 BlockCreate 命令
     const command = new ListCommandBuilder({ page, block })
       .withLazyCommand(() => {
-        return new BlockRemove({ page, block, offset: FIRST_POSITION });
+        return new BlockRemove(
+          { page, block, beforeOffset: FIRST_POSITION },
+          undefined,
+          ({ block, beforeOffset: offset }) => {
+            block.setOffset(offset);
+          }
+        );
       })
       .withLazyCommand(({ page, block }, extra, status) => {
         if (block.el.innerHTML.length > 0) {
@@ -214,14 +226,17 @@ export class ParagraphHandler extends Handler implements KeyDispatchedHandler {
         const paragraph = new Paragraph({
           innerHTML: innerHTML,
         });
-        return new BlockCreate({
-          block: block,
-          newBlock: paragraph,
-          offset: oldOffset,
-          newOffset: FIRST_POSITION,
-          where: "after",
-          page: page,
-        });
+        return new BlockCreate(
+          {
+            block: block,
+            newBlock: paragraph,
+            offset: oldOffset,
+            newOffset: FIRST_POSITION,
+            where: "after",
+            page: page,
+          },
+          defaultAfterBlockCreateExecute
+        );
       }) // 将新文本添加到
       .build();
 
@@ -254,10 +269,10 @@ export class ParagraphHandler extends Handler implements KeyDispatchedHandler {
         newOffset,
         newBlock,
       });
-    } else if ((matchRes = prefix.match(/^>([!? ])?/))) {
+    } else if ((matchRes = prefix.match(/^[>》]([!? ])?/))) {
       const offset = block.getOffset();
       const newBlock = new Blockquote({
-        innerHTML: block.el.innerHTML.replace(/^&gt;([!? ])?/, ""),
+        innerHTML: block.el.innerHTML.replace(/^(》|&gt;)([!? ])?/, ""),
       });
       const newOffset = FIRST_POSITION;
       command = new BlockReplace({
@@ -267,10 +282,23 @@ export class ParagraphHandler extends Handler implements KeyDispatchedHandler {
         newOffset,
         newBlock,
       });
-    } else if (prefix.match(/^ *(-*) *$/)) {
-      console.log("To List");
+    } else if (prefix.match(/^ *(-*) */)) {
+      const offset = block.getOffset();
+      const newBlock = new List({
+        firstLiInnerHTML: block.el.innerHTML.replace(/^ *(-*) */, ""),
+      });
+      const newOffset = FIRST_POSITION;
+      command = new BlockReplace({
+        page,
+        block,
+        offset,
+        newOffset,
+        newBlock,
+      });
     } else if (prefix.match(/^ *([0-9]+\.) *$/)) {
       console.log("To Ordered List");
+    } else if (prefix.match(/^( *- *)?(【】|\[\]|\[ \])*$/)) {
+      console.log("To Todo List");
     } else if (prefix.match(/^`{3}.*$/)) {
       console.log("To Code");
     } else {
