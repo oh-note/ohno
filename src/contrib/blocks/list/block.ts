@@ -15,9 +15,9 @@
  *  - 先降级，再退回 p，可能有分隔 li -> For
  *
  */
-import { createElement, getDefaultRange } from "@helper/document";
-import { indexOfNode, parentElementWithTag } from "@helper/element";
-import { Block, BlockInit } from "@system/block";
+import { createElement, getDefaultRange } from "@/helper/document";
+import { indexOfNode, parentElementWithTag } from "@/helper/element";
+import { Block, BlockInit } from "@/system/block";
 
 export interface ListInit extends BlockInit {
   firstLiInnerHTML?: string;
@@ -55,7 +55,6 @@ export class List extends Block<ListInit> {
     if (init.firstLiInnerHTML) {
       firstChild.innerHTML = init.firstLiInnerHTML;
     }
-    console.log(init);
     if (init.firstLiChildren) {
       init.firstLiChildren.forEach((item) => {
         if (item) {
@@ -76,7 +75,7 @@ export class List extends Block<ListInit> {
     // document.getSelection().focusNode
     const range = getDefaultRange();
 
-    const li = parentElementWithTag(range.startContainer, "li", this.el);
+    const li = parentElementWithTag(range.startContainer, "li", this.root);
     if (!li) {
       throw new Error(
         "Error when get currentContainer: focus are not in li element"
@@ -84,18 +83,21 @@ export class List extends Block<ListInit> {
     }
     return li;
   }
-
+  findContainer(node: Node): HTMLElement | null {
+    const tgt = parentElementWithTag(node, "li", this.root);
+    return tgt;
+  }
   getContainer(index?: number) {
     if (!index) {
-      return this.el.firstChild! as HTMLElement;
+      return this.root.firstChild! as HTMLElement;
     }
     if (index < 0) {
-      return this.el.querySelector(
+      return this.root.querySelector(
         `li:nth-last-child(${-index})`
       ) as HTMLElement;
     }
     // selector 从 1 开始，index 从 0 开始
-    return this.el.querySelector(`li:nth-child(${index + 1})`) as HTMLElement;
+    return this.root.querySelector(`li:nth-child(${index + 1})`) as HTMLElement;
   }
 
   leftContainer(el?: HTMLElement) {
@@ -110,21 +112,27 @@ export class List extends Block<ListInit> {
   belowContainer(el?: HTMLElement) {
     return this.rightContainer(el);
   }
+  prevContainer(el?: HTMLElement | undefined): HTMLElement | null {
+    return this.aboveContainer(el);
+  }
+  nextContainer(el?: HTMLElement | undefined): HTMLElement | null {
+    return this.belowContainer(el);
+  }
 
   firstContainer() {
-    return this.el.firstChild as HTMLElement;
+    return this.root.firstChild as HTMLElement;
   }
   lastContainer() {
-    return this.el.lastChild as HTMLElement;
+    return this.root.lastChild as HTMLElement;
   }
   containers(): HTMLElement[] {
-    return Array.from(this.el.querySelectorAll("li"));
+    return Array.from(this.root.querySelectorAll("li"));
   }
 
   getIndexOfContainer(container: HTMLElement, reverse?: boolean): number {
     let index = indexOfNode(container, "li");
     if (reverse) {
-      index = index - this.el.childNodes.length - 1;
+      index = index - this.root.childNodes.length - 1;
     }
     return index;
   }

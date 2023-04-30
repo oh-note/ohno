@@ -1,5 +1,4 @@
 import { OH_INLINEBLOCK } from "./consts";
-import { validChildNodes } from "./element";
 
 export type HTMLElementTagName = keyof HTMLElementTagNameMap;
 export type ElementTagName = keyof HTMLElementTagNameMap | "#text";
@@ -11,6 +10,13 @@ export type EventAttribute = {
 export function createTextNode(text?: string): Text {
   text = text || "";
   return document.createTextNode(text);
+}
+
+export const UNIQUE_SPACE = createTextNode(" ");
+
+export function splitUniqueSpace() {
+  UNIQUE_SPACE.splitText(1);
+  UNIQUE_SPACE.remove();
 }
 
 export function createFlagNode(): HTMLElement {
@@ -34,9 +40,16 @@ export function makeInlineBlock(inline: InlineBlock) {
   return res;
 }
 
-export function innerHTMLToNodeList(innerHTML: string): Node[] {
+export function innerHTMLToNodeList(
+  innerHTML: string,
+  plain?: boolean
+): Node[] {
   const wrap = createElement("span");
-  wrap.innerHTML = innerHTML;
+  if (plain) {
+    wrap.textContent = innerHTML;
+  } else {
+    wrap.innerHTML = innerHTML;
+  }
   return Array.from(wrap.childNodes);
 }
 
@@ -60,25 +73,39 @@ export function createInlineBlock(
 export function createElement<K extends HTMLElementTagName>(
   tagName: K,
   props?: {
+    id?: string;
     className?: string;
     textContent?: string;
+    innerHTML?: string;
     attributes?: { [key: string]: any };
     eventHandler?: EventAttribute;
     children?: Node[];
-    style?: {
-      [key in keyof CSSStyleDeclaration]?: CSSStyleDeclaration[keyof CSSStyleDeclaration];
-    };
+    style?: Style;
   }
 ): HTMLElementTagNameMap[K] {
-  const { className, textContent, attributes, eventHandler, children, style } =
-    props || {};
+  const {
+    id,
+    className,
+    textContent,
+    attributes,
+    eventHandler,
+    children,
+    style,
+    innerHTML,
+  } = props || {};
 
   const el = document.createElement(tagName);
+  if (id) {
+    el.id = id;
+  }
   if (className) {
     el.className = className;
   }
   if (textContent) {
     el.textContent = textContent;
+  }
+  if (innerHTML) {
+    el.innerHTML = innerHTML;
   }
   if (attributes) {
     for (let key in attributes) {
@@ -107,13 +134,20 @@ export function createElement<K extends HTMLElementTagName>(
   return el;
 }
 
-export function getDefaultRange(raise: boolean = true): Range {
+export function getDefaultRange(): Range {
   const sel = document.getSelection();
   if (sel && sel.rangeCount > 0) {
     return sel.getRangeAt(0);
   }
-  if (raise) {
-    throw new Error("Besure to have range when call this method");
+
+  throw new NoRangeError();
+}
+
+export function tryGetDefaultRange(): Range | null {
+  const sel = document.getSelection();
+  if (sel && sel.rangeCount > 0) {
+    return sel.getRangeAt(0);
   }
+
   return null;
 }

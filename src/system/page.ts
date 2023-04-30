@@ -1,60 +1,74 @@
-/**
- * 事件类型：
- *
- * dom event:
- *  - key event
- *  - mouse event
- *  - input/copy/paste event
- *  - other event
- *
- * editor event:
- *  - key enter -> new block event (by page/block)
- *  - key backspace/delete -> delete/merge block event (by block-extra-handler)
- *  - key backspace/space -> change block event (by block-extra-handler)
- *  - key enter/backspace -> inner edit event (list/orderedlist, by block)
- *  - key arrow -> move cursor event (by page/block)
- *  - drag/drop event -> move block event (by page)
- *  - click event -> delete block event (by page)
- *  - click event -> format event (by general)
- *
- * global handler:
- *
- *  - beforeHandler[blockType].handleX(e)
- *  - pageHandler.handleX(e)
- *  - afterHandler[blockType].handleX(e)
- *
- * operation Handler:
- *  - handleOperation(name)
- *  -
- */
-
 import {
   EventContext,
   Handler,
   HandlerMethod,
   HandlerMethods,
-  defaultAfterHandlers,
-  defaultBeforeHandlers,
-  defaultGlobalHandlers,
-  setAfterHandlers,
-  setBeforeHandlers,
-  setGlobalHandler as setGlobalHandler,
+  MultiBlockEventContext,
+  MultiBlockHandlerMethod,
+  RangedEventContext,
 } from "./handler";
-import { createOrderString } from "@helper/string";
-import { LinkedDict } from "@struct/linkeddict";
-import { AnyBlock, Block, Order } from "./block";
-import { OperationHandlerFn } from "./operation";
-import { Paragraph } from "@contrib/blocks/paragraph";
+import { createOrderString } from "@/helper/string";
+import { LinkedDict } from "@/struct/linkeddict";
+import { AnyBlock, Order } from "./block";
+import { Paragraph } from "@/contrib/blocks/paragraph";
 import { Command, History, globalHistory } from "./history";
 import { ROOT_CLASS } from "./config";
+import { createElement, getDefaultRange } from "@/helper/document";
+import { Inline, InlineHandler } from "./inline";
 
-export class PageDispatch {
-  beforeHandlerd: { [key: string]: Handler[] } = defaultBeforeHandlers;
-  afterHandlerd: { [key: string]: Handler[] } = defaultAfterHandlers;
-  handlers: Handler[] = defaultGlobalHandlers;
+export class PageHandler {
+  pluginHandlers: Handler[] = [];
+  multiBlockHandlers: Handler[] = [];
+  startHandlers: Handler[] = [];
+  beforeHandlers: { [key: string]: Handler[] } = {};
+  handlers: Handler[] = [];
+  afterHandlers: { [key: string]: Handler[] } = {};
+  inlineHandler: { [key: string]: Handler[] } = {};
+
   page: Page;
   constructor(page: Page) {
     this.page = page;
+  }
+
+  registerHandler({
+    startHandler,
+    blockHandler: beforeHandler,
+    pluginHandler,
+    multiBlockHandler,
+    globalHandler,
+    afterHandler,
+    inlineHandler,
+  }: HandlerEntry) {
+    if (startHandler) {
+      this.startHandlers.push(startHandler);
+    }
+    if (beforeHandler) {
+      if (!this.beforeHandlers[beforeHandler.name]) {
+        this.beforeHandlers[beforeHandler.name] = [];
+      }
+      this.beforeHandlers[beforeHandler.name].push(beforeHandler);
+    }
+    if (pluginHandler) {
+      this.pluginHandlers.push(pluginHandler);
+    }
+    if (multiBlockHandler) {
+      this.multiBlockHandlers.push(multiBlockHandler);
+    }
+    if (globalHandler) {
+      this.handlers.push(globalHandler);
+    }
+    if (afterHandler) {
+      if (!this.afterHandlers[afterHandler.name]) {
+        this.afterHandlers[afterHandler.name] = [];
+      }
+      this.afterHandlers[afterHandler.name].push(afterHandler);
+    }
+    if (inlineHandler) {
+      if (!this.inlineHandler[inlineHandler.name]) {
+        this.inlineHandler[inlineHandler.name] = [];
+      }
+      this.inlineHandler[inlineHandler.name].push(inlineHandler);
+    }
   }
 
   removeEventListener(el: HTMLElement) {
@@ -92,6 +106,7 @@ export class PageDispatch {
     );
     return el;
   }
+
   bingEventListener(el: HTMLElement) {
     el.addEventListener("copy", this.handleCopy.bind(this));
     el.addEventListener("paste", this.handlePaste.bind(this));
@@ -131,20 +146,44 @@ export class PageDispatch {
     el.addEventListener("compositionend", this.handleCompositionEnd.bind(this));
     return el;
   }
-  registerBeforeHandler(name: string, handler: Handler) {
-    if (!this.beforeHandlerd[name]) {
-      this.beforeHandlerd[name] = [];
+
+  getContextFromRange(range: Range): EventContext {
+    let blockContext = this.getContext(range.startContainer);
+    if (!blockContext) {
+      if (range.startContainer === this.page.blockRoot) {
+        const blockEl = range.startContainer.childNodes[range.startOffset];
+        blockContext = this.getContext(blockEl);
+        if (blockContext) {
+          range.setStart(blockEl, 0);
+        }
+      }
+      if (!blockContext) {
+        throw new Error("sanity check");
+      }
     }
-    this.beforeHandlerd[name].push(handler);
+    const endBlock = range.collapsed
+      ? undefined
+      : this.findBlock(range.endContainer)!;
+    blockContext.endBlock = endBlock;
+    blockContext.range = range;
+    return blockContext;
   }
-  registerHandler(handler: Handler) {
-    this.handlers.push(handler);
-  }
-  registerAfterHandler(name: string, handler: Handler) {
-    if (!this.afterHandlerd[name]) {
-      this.afterHandlerd[name] = [];
+
+  getContext(
+    target: EventTarget | Node | null | undefined
+  ): EventContext | null {
+    if (!target) {
+      return null;
     }
-    this.afterHandlerd[name].push(handler);
+    let el = target as Element;
+    while (el && (el.nodeType != 1 || !el.classList.contains("oh-is-block"))) {
+      el = el.parentElement!;
+    }
+    if (el) {
+      const block = this.page.blockChain.find(el.getAttribute("order")!)![0];
+      return { block, page: this.page };
+    }
+    return null;
   }
 
   findBlock(target: EventTarget | Node | null | undefined): AnyBlock | null {
@@ -156,294 +195,398 @@ export class PageDispatch {
       el = el.parentElement!;
     }
     if (el) {
-      return this.page.blocks.find(el.getAttribute("order")!)![0];
+      const block = this.page.blockChain.find(el.getAttribute("order")!)![0];
+      return block;
     }
-    return el;
-  }
-  makeContext(block: AnyBlock): EventContext {
-    return { block: block, page: this.page };
+    return null;
   }
 
-  sendEvent<K extends Event>(
-    block: AnyBlock,
+  _dispatchEvent<K extends Event>(
+    handlers: Handler[],
+    context: EventContext | RangedEventContext | MultiBlockEventContext,
     e: K,
     eventName: keyof HandlerMethods
   ) {
-    if (this.beforeHandlerd[block.type]) {
-      for (let i = 0; i < this.beforeHandlerd[block.type].length; i++) {
-        const handler = this.beforeHandlerd[block.type][i];
-        const method = handler[eventName] as HandlerMethod<K>;
-        if (method.call(handler, e, this.makeContext(block))) {
-          e.stopPropagation();
-          e.preventDefault();
-          return;
-        }
-      }
-    }
-
-    for (let i = 0; i < this.handlers.length; i++) {
-      const handler = this.handlers[i];
+    for (let i = 0; i < handlers.length; i++) {
+      const handler = handlers[i];
       const method = handler[eventName] as HandlerMethod<K>;
-      const res = method.call(handler, e, this.makeContext(block));
-      // console.log([method, res]);
+      const res = method.call(handler, e, context);
       if (res) {
+        console.log("Stoped", handler, eventName);
         e.stopPropagation();
         e.preventDefault();
-        return;
+        return true;
       }
     }
-    if (this.afterHandlerd[block.type]) {
-      for (let i = 0; i < this.afterHandlerd[block.type].length; i++) {
-        const handler = this.afterHandlerd[block.type][i];
-        const method = handler[eventName] as HandlerMethod<K>;
-        if (method.call(handler, e, this.makeContext(block))) {
-          e.stopPropagation();
-          e.preventDefault();
-          return;
+    return false;
+  }
+
+  dispatchEvent<K extends Event>(
+    context: EventContext,
+    e: K,
+    eventName: keyof HandlerMethods
+  ) {
+    const { block, endBlock, range } = context;
+    if (this._dispatchEvent(this.pluginHandlers, context, e, eventName)) {
+      return;
+    }
+
+    if (endBlock && endBlock !== block) {
+      const blocks = [block];
+      let cur = block;
+      while ((cur = this.page.getNextBlock(cur)!)) {
+        blocks.push(cur);
+        if (cur.order === endBlock.order) {
+          break;
         }
       }
+      if (!range) {
+        throw new NoRangeError();
+      }
+      const mbContext = {
+        block,
+        endBlock,
+        blocks: blocks, //TODO
+        page: this.page,
+        range,
+      };
+      this._dispatchEvent(this.multiBlockHandlers, mbContext, e, eventName);
+      return;
+    }
+
+    if (this._dispatchEvent(this.startHandlers, context, e, eventName)) {
+      return;
+    }
+    const beforeHandlers = this.beforeHandlers[block.type] || [];
+    if (this._dispatchEvent(beforeHandlers, context, e, eventName)) {
+      return;
+    }
+    if (this._dispatchEvent(this.handlers, context, e, eventName)) {
+      return;
+    }
+    const afterHandlers = this.afterHandlers[block.type] || [];
+    if (this._dispatchEvent(afterHandlers, context, e, eventName)) {
+      return;
     }
   }
 
   handleCopy(e: ClipboardEvent): void | boolean {
-    const block = this.findBlock(e.target);
-    if (!block) {
+    const blocks = this.getContextFromRange(getDefaultRange());
+    if (!blocks.block) {
       return;
     }
-    this.sendEvent<ClipboardEvent>(block, e, "handleCopy");
+    this.dispatchEvent<ClipboardEvent>(blocks, e, "handleCopy");
   }
 
   handlePaste(e: ClipboardEvent): void | boolean {
-    const block = this.findBlock(e.target);
-    if (!block) {
+    const blocks = this.getContextFromRange(getDefaultRange());
+    if (!blocks.block) {
       return;
     }
-    this.sendEvent<ClipboardEvent>(block, e, "handlePaste");
+    this.dispatchEvent<ClipboardEvent>(blocks, e, "handlePaste");
   }
 
   handleBlur(e: FocusEvent): void | boolean {
-    const block = this.findBlock(
-      document.getSelection()?.getRangeAt(0).startContainer
-    );
-    if (!block) {
+    const blocks = this.getContextFromRange(getDefaultRange());
+    if (!blocks.block) {
       return;
     }
-    this.sendEvent<FocusEvent>(block, e, "handleBlur");
+    this.dispatchEvent<FocusEvent>(blocks, e, "handleBlur");
   }
 
   handleFocus(e: FocusEvent): void | boolean {
     const sel = document.getSelection();
     if (sel && sel.rangeCount > 0) {
-      const block = this.findBlock(sel.getRangeAt(0).startContainer);
-      if (!block) {
+      const context = this.getContext(sel.getRangeAt(0).startContainer);
+      if (!context) {
         return;
       }
-      this.sendEvent<FocusEvent>(block, e, "handleFocus");
+      this.dispatchEvent<FocusEvent>(context, e, "handleFocus");
     }
   }
 
   handleKeyDown(e: KeyboardEvent): void | boolean {
-    // TODO 处理跨 Block 选中
-    // 对跨 Block 选中的
-    const block = this.findBlock(
-      document.getSelection()?.getRangeAt(0).startContainer
-    );
-
-    if (!block) {
+    const context = this.getContextFromRange(getDefaultRange());
+    if (!context.block) {
       return;
     }
-    this.sendEvent<KeyboardEvent>(block, e, "handleKeyDown");
+    this.dispatchEvent<KeyboardEvent>(context, e, "handleKeyDown");
   }
   handleKeyPress(e: KeyboardEvent): void | boolean {
-    const block = this.findBlock(
-      document.getSelection()?.getRangeAt(0).startContainer
-    );
-    if (!block) {
+    const context = this.getContextFromRange(getDefaultRange());
+    if (!context.block) {
       return;
     }
-    this.sendEvent<KeyboardEvent>(block, e, "handleKeyPress");
+    this.dispatchEvent<KeyboardEvent>(context, e, "handleKeyPress");
   }
   handleKeyUp(e: KeyboardEvent): void | boolean {
-    const block = this.findBlock(
-      document.getSelection()?.getRangeAt(0).startContainer
-    );
-
-    if (!block) {
+    const context = this.getContextFromRange(getDefaultRange());
+    if (!context.block) {
       return;
     }
-    this.sendEvent<KeyboardEvent>(block, e, "handleKeyUp");
+    this.dispatchEvent<KeyboardEvent>(context, e, "handleKeyUp");
   }
   handleMouseDown(e: MouseEvent): void | boolean {
-    const block = this.findBlock(
+    const context = this.getContext(
       document.elementFromPoint(e.clientX, e.clientY)
     );
-    if (!block) {
+    if (!context) {
       return;
     }
-    this.sendEvent<MouseEvent>(block, e, "handleMouseDown");
+    this.dispatchEvent<MouseEvent>(context, e, "handleMouseDown");
   }
   handleMouseEnter(e: MouseEvent): void | boolean {
-    const block = this.findBlock(
+    const context = this.getContext(
       document.elementFromPoint(e.clientX, e.clientY)
     );
-    if (!block) {
+    if (!context) {
       return;
     }
-    this.sendEvent<MouseEvent>(block, e, "handleMouseEnter");
+    this.dispatchEvent<MouseEvent>(context, e, "handleMouseEnter");
   }
   handleMouseMove(e: MouseEvent): void | boolean {
-    const block = this.findBlock(
-      document.elementFromPoint(e.clientX, e.clientY)
-    );
-    if (!block) {
+    const context =
+      e.button === 1
+        ? this.getContextFromRange(getDefaultRange())
+        : this.getContext(document.elementFromPoint(e.clientX, e.clientY));
+    if (!context) {
       return;
     }
-    this.sendEvent<MouseEvent>(block, e, "handleMouseMove");
+
+    this.dispatchEvent<MouseEvent>(context, e, "handleMouseMove");
   }
   handleMouseLeave(e: MouseEvent): void | boolean {
-    const block = this.findBlock(e.target);
-    if (!block) {
+    const context = this.getContext(e.target);
+    if (!context) {
       return;
     }
-    this.sendEvent<MouseEvent>(block, e, "handleMouseLeave");
+    this.dispatchEvent<MouseEvent>(context, e, "handleMouseLeave");
   }
   handleMouseUp(e: MouseEvent): void | boolean {
-    const block = this.findBlock(e.target);
-    if (!block) {
+    const context = this.getContextFromRange(getDefaultRange());
+    if (!context.block) {
       return;
     }
-    this.sendEvent<MouseEvent>(block, e, "handleMouseUp");
+    this.dispatchEvent<MouseEvent>(context, e, "handleMouseUp");
   }
   handleClick(e: MouseEvent): void | boolean {
-    const block = this.findBlock(e.target);
-    if (!block) {
+    const context = this.getContextFromRange(getDefaultRange());
+    if (!context) {
       return;
     }
-    this.sendEvent<MouseEvent>(block, e, "handleClick");
+    this.dispatchEvent<MouseEvent>(context, e, "handleClick");
   }
   handleContextMenu(e: MouseEvent): void | boolean {
-    const block = this.findBlock(e.target);
-    if (!block) {
+    const blocks = this.getContextFromRange(getDefaultRange());
+    if (!blocks.block) {
       return;
     }
-    this.sendEvent<MouseEvent>(block, e, "handleContextMenu");
+    this.dispatchEvent<MouseEvent>(blocks, e, "handleContextMenu");
   }
   handleInput(e: Event): void | boolean {
-    const block = this.findBlock(
-      document.getSelection()?.getRangeAt(0).startContainer
-    );
-
-    if (!block) {
+    const blocks = this.getContextFromRange(getDefaultRange());
+    if (!blocks.block) {
       return;
     }
-    this.sendEvent<Event>(block, e, "handleInput");
+    this.dispatchEvent<Event>(blocks, e, "handleInput");
   }
   handleBeforeInput(e: InputEvent): void | boolean {
-    const block = this.findBlock(
-      document.getSelection()?.getRangeAt(0).startContainer
-    );
-    if (!block) {
+    const blocks = this.getContextFromRange(getDefaultRange());
+    if (!blocks.block) {
       return;
     }
-    this.sendEvent<InputEvent>(block, e, "handleBeforeInput");
+    this.dispatchEvent<InputEvent>(blocks, e, "handleBeforeInput");
   }
   handleSelectStart(e: Event): void | boolean {
     console.log(e);
     return;
-    const block = this.findBlock(
-      document.getSelection()?.getRangeAt(0).startContainer
-    );
-    if (!block) {
-      return;
-    }
-    // this.sendEvent<Event>(block, e, "handleSelectStart");
+    // const block = this.getContext(
+    //   document.getSelection()?.getRangeAt(0).startContainer
+    // );
+    // if (!block) {
+    //   return;
+    // }
+    // this.sendEventV2<Event>({block}, e, "handleSelectStart");
   }
   handleSelectionChange(e: Event): void | boolean {
     console.log(e);
     return;
-    const block = this.findBlock(
-      document.getSelection()?.getRangeAt(0).startContainer
-    );
-    if (!block) {
-      return;
-    }
-    // this.sendEvent<Event>(block, e, "handleSelectionChange");
+    // const block = this.getContext(
+    //   document.getSelection()?.getRangeAt(0).startContainer
+    // );
+    // if (!block) {
+    //   return;
+    // }
+    // this.sendEventV2<Event>({block}, e, "handleSelectionChange");
   }
   handleSelect(e: Event): void | boolean {
     console.log(e);
     return;
-    const block = this.findBlock(
-      document.getSelection()?.getRangeAt(0).startContainer
-    );
-    if (!block) {
-      return;
-    }
-    // this.sendEvent<Event>(block, e, "handleSelect");
+    // const block = this.getContext(
+    //   document.getSelection()?.getRangeAt(0).startContainer
+    // );
+    // if (!block) {
+    //   return;
+    // }
+    // this.sendEventV2<Event>({block}, e, "handleSelect");
   }
 
   handleCompositionEnd(e: CompositionEvent): void | boolean {
-    const block = this.findBlock(e.target);
-    if (!block) {
+    const blocks = this.getContextFromRange(getDefaultRange());
+    if (!blocks.block) {
       return;
     }
-    this.sendEvent<CompositionEvent>(block, e, "handleCompositionEnd");
+    this.dispatchEvent<CompositionEvent>(blocks, e, "handleCompositionEnd");
   }
   handleCompositionStart(e: CompositionEvent): void | boolean {
-    const block = this.findBlock(e.target);
-    if (!block) {
+    const blocks = this.getContextFromRange(getDefaultRange());
+    if (!blocks.block) {
       return;
     }
-    this.sendEvent<CompositionEvent>(block, e, "handleCompositionStart");
+    this.dispatchEvent<CompositionEvent>(blocks, e, "handleCompositionStart");
   }
   handleCompositionUpdate(e: CompositionEvent): void | boolean {
-    const block = this.findBlock(e.target);
-    if (!block) {
+    const blocks = this.getContextFromRange(getDefaultRange());
+    if (!blocks.block) {
       return;
     }
-    this.sendEvent<CompositionEvent>(block, e, "handleCompositionUpdate");
+    this.dispatchEvent<CompositionEvent>(blocks, e, "handleCompositionUpdate");
   }
 }
 
-export interface Handlers {
-  beforeHandler?: Handler;
+export interface HandlerEntry {
+  pluginHandler?: Handler;
+  multiBlockHandler?: Handler;
+  startHandler?: Handler;
+  blockHandler?: Handler;
   afterHandler?: Handler;
+  //
   globalHandler?: Handler;
+  // 不在 page 中调用，由 core 中的 GlobalInlineHandler 分发
+  inlineHandler?: Handler;
 }
+
+export interface BlockEntry {
+  name: string;
+  handler: Handler;
+  blockType: new () => AnyBlock;
+}
+
+export type PluginEntryFn = (init: any) => PluginEntry;
+export type BlockEntryFn = (init: any) => BlockEntry;
+
+export interface PluginEntry {
+  name: string;
+  instance: PagePluginInstance;
+  handler: Handler;
+}
+
+export interface InlineEntry {
+  name: string;
+  instance: Inline<any>;
+  handler: InlineHandler;
+}
+
 export interface PageInit {
-  handlers?: Handlers[];
+  handlers?: HandlerEntry[];
+  plugins?: PluginEntry[];
+  blocks?: BlockEntry[];
+  inlines?: InlineEntry[];
+}
+
+export interface PagePluginInstance {
+  assignPage(page: Page): void;
 }
 
 const defaultPageInit: PageInit = {};
 
+export interface PageStatus {
+  activeInline?: HTMLElement;
+  activeBlock?: AnyBlock;
+  activeLabel?: HTMLLabelElement;
+  selected?: AnyBlock[];
+  selectionDir?: "prev" | "next";
+  [key: string]: any;
+}
+
 export class Page {
-  handler: PageDispatch;
-  opHandlers: { [key: string]: OperationHandlerFn } = {};
-  blocks: LinkedDict<string, AnyBlock> = new LinkedDict();
-  root: HTMLElement | null;
+  handler: PageHandler;
+  blockChain: LinkedDict<string, AnyBlock> = new LinkedDict();
+  root: HTMLElement;
+  pluginRoot: HTMLElement;
+  blockRoot: HTMLElement;
   init: PageInit;
-  status: {
-    activeBlock?: AnyBlock;
-    activeLabel?: HTMLLabelElement;
-    selected?: AnyBlock[];
-  } = {};
+  status: PageStatus = {};
+  // 一个 Page 由 plugin、block、inline 三部分组成
+  // plugin 指的是拖动、toolbar、dropdown 等，仅为了增加编辑体验的组件
+  // block 指各种编辑类型的基本单位，如 Paragraph、List、Table
+  // 每个 block 有 editable container 和 functional container，editable 和其他 editable 相连，可以由鼠标控制
+  // functional container 用来放按钮、其他文本等
+  // plugin、block、inline 可以看成是三种组件，每种组件都各自注册各自类型的 handlers
+  // 每个组件都可以注册多个 handlers （比如 Headings 可以注册 Paragraph 的 Handler）
+  // handler 的生命周期/调用流程为：
+  // plugin -> multiblock ->  global -> block -> global -> block
+  // inline 指block 中 editable container 的额外组成单位，除了默认的 text、b、i、code、em 之外的元素，由 label 包裹
+  //
+  // Dropdown、toolbar、侧边评论、block 的拖动条，都是 plugin
+  // plugin 同样接收 page handler 分发的所有事件，事件分发的优先级大于所有 handler
+  // 但 plugin 应该遵循非必要不处理、不强占 range、不另设焦点的要求
+  private plugins: { [key: string]: PluginEntry } = {};
+  private blocks: { [key: string]: BlockEntry } = {};
+  private inlines: { [key: string]: InlineEntry } = {};
+  namespace: { [key: string]: any } = {};
+
   history: History = globalHistory;
   constructor(init?: PageInit) {
+    this.handler = new PageHandler(this);
+    this.blockRoot = createElement("div");
+    this.root = createElement("div", { className: "oh-is-root" });
+    this.pluginRoot = createElement("div", { className: "oh-is-plugin" });
+    this.root.append(this.pluginRoot, this.blockRoot);
+    this.blockRoot.classList.add(ROOT_CLASS);
+    this.blockRoot.contentEditable = "true";
+    this.handler.bingEventListener(this.blockRoot);
+    if (!this.blockRoot.hasChildNodes()) {
+      this.appendBlock(new Paragraph());
+    }
+
     this.init = Object.assign({}, defaultPageInit, init);
-    this.init.handlers?.forEach((item) => {
-      if (item.beforeHandler) {
-        setBeforeHandlers(item.beforeHandler);
-      }
-      if (item.afterHandler) {
-        setAfterHandlers(item.afterHandler);
-      }
-      if (item.globalHandler) {
-        setGlobalHandler(item.globalHandler);
+    // 初始化顺序：plugin -> block -> handler
+    // block 初始化时，可以尝试向插件注册自己的组件
+    this.init.plugins?.forEach((item) => {
+      this.plugins[item.name] = item;
+      if (item.handler) {
+        this.handler.registerHandler({ pluginHandler: item.handler });
+        item.instance.assignPage(this);
       }
     });
 
-    this.handler = new PageDispatch(this);
-    this.root = null;
+    this.init.blocks?.forEach((item) => {
+      if (item.handler) {
+        this.handler.registerHandler({ blockHandler: item.handler });
+        this.blocks[item.name] = item;
+      }
+    });
+
+    this.init.handlers?.forEach((item) => {
+      this.handler.registerHandler(item);
+    });
+
+    this.init.inlines?.forEach((item) => {
+      this.inlines[item.name] = item;
+      if (item.handler) {
+        this.handler.registerHandler({ inlineHandler: item.handler });
+        item.instance.assignPage(this);
+      }
+    });
   }
+
+  getPlugin(name: string): PluginEntry {
+    // 这里不做空处理，理论上所有的 Plugin 都只由自己的 handler 调用，不存在空的情况
+    // 特殊的 hack 处理碰到了再说
+    return this.plugins[name];
+  }
+
   executeCommand(command: Command<any>, executed?: boolean) {
     if (executed) {
       this.history.append(command);
@@ -451,33 +594,55 @@ export class Page {
       this.history.execute(command);
     }
   }
-  registerOp(type: string, handlerFn: OperationHandlerFn) {
-    this.opHandlers[type] = handlerFn;
-  }
 
   hover(name: Order) {
-    const result = this.blocks.find(name);
+    const result = this.blockChain.find(name);
     if (!result) {
       throw EvalError(`name ${name} not exists!`);
     }
     const [tgt, _] = result;
-    tgt.el.classList.add("oh-is-hover");
+    tgt.root.classList.add("oh-is-hover");
   }
   unhover(name: Order) {
-    const result = this.blocks.find(name);
+    const result = this.blockChain.find(name);
     if (!result) {
       throw EvalError(`name ${name} not exists!`);
     }
     const [tgt, _] = result;
-    tgt.el.classList.remove("oh-is-hover");
+    tgt.root.classList.remove("oh-is-hover");
   }
+
+  activateInline(node: HTMLElement) {
+    if (this.status.activeInline === node) {
+      return;
+    }
+    if (this.status.activeInline) {
+      this.deactivateInline(this.status.activeInline);
+    }
+    this.status.activeInline = node;
+    // node.contentEditable = "false";
+    node.classList.add("active");
+  }
+  deactivateInline(node?: HTMLElement) {
+    if (!node && this.status.activeInline) {
+      node = this.status.activeInline;
+    }
+    if (this.status.activeInline === node) {
+      this.status.activeInline = undefined;
+    }
+    if (node) {
+      // node.removeAttribute("contenteditable");
+      node.classList.remove("active");
+    }
+  }
+
   /**
    * 在 attribution 上进行改变，并在 page 的变量上进行记录
    * 在光标上不做任何处理，由 handler 内部消化
    * @param name
    */
   activate(name: Order) {
-    const result = this.blocks.find(name);
+    const result = this.blockChain.find(name);
     if (!result) {
       throw EvalError(`name ${name} not exists!`);
     }
@@ -490,7 +655,7 @@ export class Page {
   }
 
   deactivate(name: Order) {
-    const result = this.blocks.find(name);
+    const result = this.blockChain.find(name);
     if (!result) {
       throw EvalError(`name ${name} not exists!`);
     }
@@ -500,7 +665,7 @@ export class Page {
   }
 
   findBlock(order: Order): AnyBlock | null {
-    const results = this.blocks.find(order);
+    const results = this.blockChain.find(order);
     if (!results) {
       return null;
     }
@@ -508,7 +673,7 @@ export class Page {
   }
 
   getPrevBlock(block: AnyBlock): AnyBlock | null {
-    const results = this.blocks.previous(block.order!);
+    const results = this.blockChain.previous(block.order!);
     if (!results) {
       return null;
     }
@@ -516,7 +681,7 @@ export class Page {
   }
 
   getNextBlock(block: AnyBlock): AnyBlock | null {
-    let results = this.blocks.next(block.order!);
+    let results = this.blockChain.next(block.order!);
     if (!results) {
       return null;
     }
@@ -524,22 +689,22 @@ export class Page {
   }
 
   appendBlock(newBlock: AnyBlock) {
-    const [tgt, _] = this.blocks.getLast();
+    const [tgt, _] = this.blockChain.getLast();
 
     if (tgt) {
       newBlock.assignOrder(createOrderString(tgt.order));
-      this.blocks.append(newBlock.order!, newBlock);
+      this.blockChain.append(newBlock.order!, newBlock);
     } else {
       newBlock.assignOrder(createOrderString());
-      this.blocks.append(newBlock.order!, newBlock);
+      this.blockChain.append(newBlock.order!, newBlock);
     }
-    this.root?.appendChild(newBlock.el);
+    this.blockRoot?.appendChild(newBlock.root);
     newBlock.attached(this);
     return newBlock.order;
   }
 
   insertBlockBefore(name: Order, newBlock: AnyBlock) {
-    const result = this.blocks.find(name);
+    const result = this.blockChain.find(name);
     if (!result) {
       throw EvalError(`name ${name} not exists!`);
     }
@@ -548,14 +713,14 @@ export class Page {
     const prevOrder = prev ? prev.value.order : "";
 
     newBlock.assignOrder(createOrderString(prevOrder, tgt.order));
-    if (!this.blocks.insertBefore(tgt.order!, newBlock.order!, newBlock)) {
+    if (!this.blockChain.insertBefore(tgt.order!, newBlock.order!, newBlock)) {
       throw EvalError(`insert before ${tgt.order} failed!`);
     }
     newBlock.attached(this);
-    tgt.el.insertAdjacentElement("beforebegin", newBlock.el);
+    tgt.root.insertAdjacentElement("beforebegin", newBlock.root);
   }
   insertBlockAfter(name: Order, newBlock: AnyBlock) {
-    const result = this.blocks.find(name);
+    const result = this.blockChain.find(name);
     if (!result) {
       throw EvalError(`name ${name} not exists!`);
     }
@@ -564,23 +729,24 @@ export class Page {
     const nextOrder = next ? next.value.order : "";
 
     newBlock.assignOrder(createOrderString(tgt.order, nextOrder));
-    if (!this.blocks.insertAfter(tgt.order!, newBlock.order!, newBlock)) {
+    if (!this.blockChain.insertAfter(tgt.order!, newBlock.order!, newBlock)) {
       throw EvalError(`insert before ${tgt.order} failed!`);
     }
     newBlock.attached(this);
-    tgt.el.insertAdjacentElement("afterend", newBlock.el);
+    tgt.root.insertAdjacentElement("afterend", newBlock.root);
   }
+
   removeBlock(name: Order): any {
-    const result = this.blocks.pop(name);
+    const result = this.blockChain.pop(name);
     if (!result) {
       throw EvalError(`name ${name} not exists!`);
     }
     const [tgt, _] = result;
     tgt.detached();
-    tgt.el.remove();
+    tgt.root.remove();
   }
   replaceBlock(name: Order, newBlock: AnyBlock) {
-    const result = this.blocks.find(name);
+    const result = this.blockChain.find(name);
     if (!result) {
       throw EvalError(`name ${name} not exists!`);
     }
@@ -590,30 +756,22 @@ export class Page {
     newBlock.attached(this);
 
     node.value = newBlock;
-    tgt.el.replaceWith(newBlock.el);
+    tgt.root.replaceWith(newBlock.root);
   }
 
   render(el: HTMLElement) {
-    this.root = el;
-
-    this.handler.bingEventListener(el);
-    el.classList.add(ROOT_CLASS);
-    el.contentEditable = "true";
-    if (!el.hasChildNodes()) {
-      this.appendBlock(new Paragraph());
-    }
+    el.appendChild(this.root);
   }
 
   dismiss(removeElement?: boolean) {
-    if (!this.root) {
+    if (!this.blockRoot) {
       return;
     }
-    this.handler.removeEventListener(this.root);
+    this.handler.removeEventListener(this.blockRoot);
     if (removeElement) {
-      this.root.remove();
+      this.blockRoot.remove();
     } else {
-      this.root.classList.remove(ROOT_CLASS);
+      this.blockRoot.classList.remove(ROOT_CLASS);
     }
-    this.root = null;
   }
 }

@@ -1,9 +1,21 @@
-# Why Yet another Editor
+#  ohno
+
+`<o>hn</o>`
+
+
+## Why Yet another Editor
+
+
 
 - Heavy initialization
 - <!-- https://necolas.github.io/normalize.css/ -->
 - <!-- css module -->
 <!-- eslint prettier -->
+
+features：
+
+- 无重复渲染，无事件处理部分的 element 和 preview 完全一致
+- Markdown-style hint + Markdown-Format
 
 # 开发文档
 
@@ -15,4 +27,5 @@
 
 # Reference
 
+- [@floating-ui](https://github.com/floating-ui/floating-ui)
 - https://d-toybox.com/studio/lib/input_event_viewer.html

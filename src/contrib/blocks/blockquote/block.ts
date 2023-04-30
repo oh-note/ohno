@@ -1,5 +1,5 @@
-import { createElement } from "@helper/document";
-import { Block, BlockInit } from "@system/block";
+import { createElement } from "@/helper/document";
+import { Block, BlockInit } from "@/system/block";
 
 export interface BlockQuoteInit extends BlockInit {
   innerHTML?: string;

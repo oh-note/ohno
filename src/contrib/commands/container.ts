@@ -4,19 +4,19 @@ import {
   elementOffset,
   getTokenSize,
   offsetToRange,
-} from "@system/position";
-import { AnyBlock } from "@system/block";
-import { Command, Payload } from "@system/history";
-import { Page } from "@system/page";
-import { nodesOfRange, setRange } from "@system/range";
-import { addMarkdownHint } from "@helper/markdown";
-import { ValidNode, calcDepths } from "@helper/element";
+} from "@/system/position";
+import { AnyBlock } from "@/system/block";
+import { Command, CommandBuffer, Payload } from "@/system/history";
+import { Page } from "@/system/page";
+import { nodesOfRange, setRange } from "@/system/range";
+import { addMarkdownHint } from "@/helper/markdown";
+import { ValidNode, calcDepths } from "@/helper/element";
 import {
   createElement,
   createFlagNode,
   createTextNode,
   innerHTMLToNodeList,
-} from "@helper/document";
+} from "@/helper/document";
 
 export interface ContainerInsertPayload {
   page: Page;
@@ -34,11 +34,12 @@ export interface ContainerInsertPayload {
 export interface ContainerRemovePayload extends Payload {
   page: Page;
   block: AnyBlock;
-  beforeOffset?: Offset;
+  // beforeOffset?: Offset;
+
   index: number[];
-  undo_hint?: {
-    deletedContainer: HTMLElement[];
-  };
+  // undo_hint?: {
+  //   deletedContainer: HTMLElement[];
+  // };
 }
 
 export function makeNode({
@@ -106,38 +107,97 @@ export class ContainerInsert extends Command<ContainerInsertPayload> {
 }
 
 export class ContainerRemove extends Command<ContainerRemovePayload> {
+  declare buffer: {
+    deletedContainer: HTMLElement[];
+  };
   execute(): void {
     let { block, index } = this.payload;
-    this.payload.index = index.slice().sort().reverse();
-    if (!this.payload.beforeOffset) {
-      this.payload.beforeOffset = block.getOffset();
-    }
-    this.payload.undo_hint = {
-      deletedContainer: this.payload.index
-        .map((item) => {
-          const container = block.getContainer(item);
-          container.remove();
-          return container.cloneNode(true) as HTMLElement;
-        })
-        .reverse(),
+    // 逆序删除，顺序添加
+    const deletedContainer = index
+      .slice()
+      .sort()
+      .reverse()
+      .map((item) => {
+        const container = block.getContainer(item);
+        container.remove();
+        return container.cloneNode(true) as HTMLElement;
+      })
+      .reverse();
+    this.buffer = {
+      deletedContainer,
     };
   }
   undo(): void {
-    const { undo_hint, block, index, beforeOffset } = this.payload;
-    // 删掉原来的 common 部分
+    const { block, index } = this.payload;
+    // 顺序添加
+    index.forEach((item, ind) => {
+      const container = this.buffer.deletedContainer[ind];
+      let cur;
+      if ((cur = block.getContainer(item))) {
+        cur.insertAdjacentElement("beforebegin", container);
+      } else {
+        block.root.appendChild(container);
+      }
+    });
+  }
+}
+export interface SetAttributePayload {
+  block: AnyBlock;
+  index: number;
+  name: string;
+  value: string;
+  // type: "int" | "string" | "boolean";
+}
 
-    index
-      .slice()
-      .reverse()
-      .forEach((item, ind) => {
-        console.log("undo remove container", [item, ind]);
-        const container = undo_hint!.deletedContainer[ind];
-        let cur;
-        if ((cur = block.getContainer(item))) {
-          cur.insertAdjacentElement("beforebegin", container);
-        } else {
-          block.el.appendChild(container);
-        }
-      });
+export interface UpdateStylePayload {
+  block: AnyBlock;
+  index: number;
+  style: Style;
+}
+
+export class UpdateContainerStyle extends Command<UpdateStylePayload> {
+  declare buffer: {
+    oldStyle: Style;
+  };
+  execute(): void {
+    const { block, index, style } = this.payload;
+    const container = block.getContainer(index);
+
+    const oldStyle: Style = {};
+    for (const item in style) {
+      oldStyle[item] = container.style[item];
+    }
+    this.buffer.oldStyle = oldStyle;
+    Object.assign(container.style, style);
+  }
+  undo(): void {
+    const { block, index } = this.payload;
+    const container = block.getContainer(index);
+    Object.assign(container.style, this.buffer.oldStyle);
+  }
+}
+
+export class SetContainerAttribute extends Command<SetAttributePayload> {
+  declare buffer: {
+    oldValue: string | null;
+  };
+  execute(): void {
+    const { block, index, name, value } = this.payload;
+    const container = block.getContainer(index);
+
+    this.buffer = {
+      oldValue: container.getAttribute(name),
+    };
+    container.setAttribute(name, value);
+  }
+  undo(): void {
+    const { block, index, name } = this.payload;
+    const { oldValue } = this.buffer;
+    const container = block.getContainer(index);
+    if (!oldValue) {
+      container.removeAttribute(name);
+    } else {
+      container.setAttribute(name, oldValue);
+    }
   }
 }

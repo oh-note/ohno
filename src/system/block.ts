@@ -1,44 +1,59 @@
-import { addMarkdownHint } from "@helper/markdown";
+import { addMarkdownHint } from "@/helper/markdown";
 import {
   Offset,
+  biasToLocation,
+  locationToBias,
   makeBiasPos,
+  offsetAfter,
   offsetToRange,
   rangeToOffset,
   setOffset,
+  tokenBetweenRange,
 } from "./position";
-import { OperationHandlerFn } from "./operation";
 import {
+  createRange,
   getNextRange,
+  getNextWordLocation,
   getNextWordRange,
+  getPrevLocation,
   getPrevRange,
   getPrevWordRange,
+  getSoftLineHead,
+  getSoftLineTail,
   isFirstLine,
   isLastLine,
+  locationInFirstLine,
+  locationInLastLine,
+  normalizeRange,
   setRange,
 } from "./range";
-import { getDefaultRange } from "@helper/document";
+import { getDefaultRange } from "@/helper/document";
 import { Page } from "./page";
 import { BLOCK_CLASS } from "./config";
+import { ValidNode, isParent } from "@/helper/element";
+import { getNextLocation } from "./range";
+import { getPrevWordLocation } from "./range";
 
 export type Order = string;
 
 export interface BlockInit {
   order?: Order;
   el?: HTMLElement;
+  raw?: boolean;
 }
 
 /**
  * Block 会默认对所有 children 添加 markdown hint
  */
 export class Block<T extends BlockInit> {
-  el: HTMLElement;
+  root: HTMLElement;
   type: string = "";
-  init?: T;
+  init: T;
   page?: Page;
   multiContainer: boolean = false;
-  mergeable: boolean = true; // 表格、图片、公式复杂组件等视为独立的 unmergeable
+  mergeable: boolean = true; // 表格、图片、公式复杂组件等视为独立的 unmergeable，multiblock 下只删除内容，不删除 container
   order: Order = "";
-  constructor(init?: T) {
+  constructor(init: T) {
     const { el, order } = init as BlockInit;
     if (!el) {
       throw new Error("root el should be created befire constructor");
@@ -47,7 +62,7 @@ export class Block<T extends BlockInit> {
       this.type = el.tagName.toLowerCase();
     }
 
-    this.el = el;
+    this.root = el;
     el.classList.add(BLOCK_CLASS);
 
     if (order) {
@@ -55,8 +70,15 @@ export class Block<T extends BlockInit> {
     }
 
     this.init = init;
-    addMarkdownHint(el);
+    if (!init?.raw) {
+      addMarkdownHint(el);
+    }
   }
+
+  public get edit_root(): HTMLElement {
+    return this.root;
+  }
+
   /**
    * attached 表示 block 已渲染
    * @param page
@@ -72,13 +94,13 @@ export class Block<T extends BlockInit> {
     if (page) {
       this.page = page;
     }
-    this.el.classList.add("active");
+    this.root.classList.add("active");
   }
   /**
    * 表示 block 已失去焦点
    */
   deactivate() {
-    this.el.classList.remove("active");
+    this.root.classList.remove("active");
   }
   /**
    * 表示 block 已不可见，但内部元素仍然还存在
@@ -89,7 +111,7 @@ export class Block<T extends BlockInit> {
   }
 
   equals(block: Block<T>) {
-    return block.el === this.el;
+    return block.root === this.root;
   }
 
   assignOrder(order: Order, left?: string, right?: string) {
@@ -102,16 +124,20 @@ export class Block<T extends BlockInit> {
       return;
     }
     this.order = order;
-    this.el.setAttribute("order", order);
+    this.root.setAttribute("order", order);
   }
 
   currentContainer() {
     // document.getSelection().focusNode
-    return this.el;
+    return this.edit_root;
+  }
+
+  findContainer(node: Node): HTMLElement | null {
+    return this.edit_root;
   }
 
   getContainer(index?: number): HTMLElement {
-    return this.el;
+    return this.edit_root;
   }
 
   leftContainer(el?: HTMLElement): HTMLElement | null {
@@ -126,15 +152,21 @@ export class Block<T extends BlockInit> {
   belowContainer(el?: HTMLElement): HTMLElement | null {
     return null;
   }
+  nextContainer(el?: HTMLElement): HTMLElement | null {
+    return null;
+  }
+  prevContainer(el?: HTMLElement): HTMLElement | null {
+    return null;
+  }
 
   firstContainer(): HTMLElement {
-    return this.el;
+    return this.edit_root;
   }
   lastContainer(): HTMLElement {
-    return this.el;
+    return this.edit_root;
   }
   containers(): HTMLElement[] {
-    return [this.el];
+    return [this.edit_root];
   }
 
   getIndexOfContainer(container: HTMLElement, reversde?: boolean): number {
@@ -162,18 +194,36 @@ export class Block<T extends BlockInit> {
     }
     return true;
   }
+
   isFirstLine(range: Range, container?: HTMLElement): boolean {
     if (!container) {
       container = this.currentContainer();
     }
     return isFirstLine(container, range);
   }
+
   isLastLine(range: Range, container?: HTMLElement): boolean {
     if (!container) {
       container = this.currentContainer();
     }
 
     return isLastLine(container, range);
+  }
+
+  locationInFirstLine(cur: Node, curOffset: number) {
+    const container = this.findContainer(cur);
+    if (!container) {
+      throw new EditableNotFound(cur, this.order);
+    }
+    return locationInFirstLine(container, cur, curOffset);
+  }
+
+  locationInLastLine(cur: Node, curOffset: number) {
+    const container = this.findContainer(cur);
+    if (!container) {
+      throw new EditableNotFound(cur, this.order);
+    }
+    return locationInLastLine(container, cur, curOffset);
   }
 
   getPrevWordPosition(range: Range, container?: HTMLElement): Range | null {
@@ -191,6 +241,36 @@ export class Block<T extends BlockInit> {
     return getNextWordRange(range, container);
   }
 
+  getPrevLocation(cur: Node, curOffset: number) {
+    const container = this.findContainer(cur);
+    if (!container) {
+      throw new EditableNotFound(cur, this.order);
+    }
+    return getPrevLocation(cur, curOffset, container);
+  }
+  getNextLocation(cur: Node, curOffset: number) {
+    const container = this.findContainer(cur);
+    if (!container) {
+      throw new EditableNotFound(cur, this.order);
+    }
+    return getNextLocation(cur, curOffset, container);
+  }
+
+  getPrevWordLocation(cur: Node, curOffset: number) {
+    const container = this.findContainer(cur);
+    if (!container) {
+      throw new EditableNotFound(cur, this.order);
+    }
+    return getPrevWordLocation(cur, curOffset, container);
+  }
+  getNextWordLocation(cur: Node, curOffset: number) {
+    const container = this.findContainer(cur);
+    if (!container) {
+      throw new EditableNotFound(cur, this.order);
+    }
+    return getNextWordLocation(cur, curOffset, container);
+  }
+
   getPrevRange(range: Range, container?: HTMLElement): Range | null {
     if (!container) {
       container = this.currentContainer();
@@ -200,80 +280,242 @@ export class Block<T extends BlockInit> {
   }
   getNextRange(range: Range, container?: HTMLElement): Range | null {
     if (!container) {
-      container = this.currentContainer();
+      container = this.findContainer(range.startContainer)!;
+      if (!container) {
+        throw new Error("Sanity check");
+      }
     }
     return getNextRange(range, container);
   }
   getTokenSize(): number {
     return 0;
   }
-  getPosition(
-    range: Range,
-    reversed?: boolean,
-    container?: HTMLElement
-  ): Offset {
-    if (!container) {
-      container = this.currentContainer();
-    }
 
-    const offset = rangeToOffset(container, range);
-    offset.index = this.getIndexOfContainer(container);
-    if (reversed) {
-      return offset; // TODO should be reversed
-    } else {
-      return offset;
-    }
-  }
-  getInlinePosition(range: Range, container?: HTMLElement): Offset {
-    if (!container) {
-      container = this.currentContainer();
-    }
-    return { start: 0 };
-  }
-
-  setInlinePositionAtLastLine(offset: Offset, container?: HTMLElement) {
-    if (!container) {
-      container = this.currentContainer();
-    }
-  }
-  setPosition(offset: Offset, container?: HTMLElement) {
-    if (!container) {
-      container = this.currentContainer();
-    }
-    setOffset(container, offset);
-  }
   setRange(range: Range) {
     setRange(range);
   }
+
   getIndex(container?: HTMLElement): number {
     if (!container) {
       container = this.currentContainer();
     }
     return this.getIndexOfContainer(container);
   }
-  getOffset(): Offset {
-    const root = this.currentContainer();
-    const range = getDefaultRange();
-    if (!range) {
-      throw new Error("Cannot calculate offset without focus");
+
+  getRange(offset: Offset) {
+    const container = this.getContainer(offset.index);
+    return offsetToRange(container, offset);
+  }
+
+  getLocation(
+    bias: number,
+    { index, container }: { index?: number; container?: HTMLElement }
+  ): [Node, number] | null {
+    if (!container) {
+      container = this.getContainer(index);
     }
-    const offset = rangeToOffset(root, range);
-    offset.index = this.getIndex(root);
+    if (!container) {
+      throw new EditableNotFound();
+    }
+
+    const result = biasToLocation(container, bias);
+    if (!result) {
+      return null;
+    }
+    return result;
+  }
+
+  getBias(cur: Node, curOffset: number): number {
+    const container = this.findContainer(cur);
+    if (!container) {
+      throw new EditableNotFound(cur, this.order);
+    }
+    return locationToBias(container, cur as ValidNode, curOffset);
+  }
+
+  getLocalBias = this.getBias;
+
+  getGlobalBias(cur: ValidNode, curOffset: number): number {
+    return locationToBias(this.edit_root, cur, curOffset);
+  }
+
+  getSoftLineBias(cur: Node, curOffset: number): number {
+    const container = this.findContainer(cur)!;
+    if (!container) {
+      throw new EditableNotFound(cur, this.order);
+    }
+
+    const [node, offset] = getSoftLineHead(cur, curOffset, container)!;
+    const toHeadRange = createRange(node, offset, cur, curOffset);
+    return tokenBetweenRange(toHeadRange);
+  }
+
+  getSoftLineHead(cur: Node, curOffset: number): [Node, number] {
+    const container = this.findContainer(cur);
+    if (!container) {
+      throw new EditableNotFound(cur, this.order);
+    }
+
+    return getSoftLineHead(cur, curOffset, container);
+  }
+
+  getSoftLineTail(cur: Node, curOffset: number): [Node, number] {
+    const container = this.findContainer(cur);
+    if (!container) {
+      throw new EditableNotFound(cur, this.order);
+    }
+
+    return getSoftLineTail(cur, curOffset, container);
+  }
+
+  getSoftLineLocation(
+    anchor: Node,
+    anchorOffset: number,
+    bias: number
+  ): [Node, number] | null {
+    const container = this.findContainer(anchor);
+    if (!container) {
+      throw new EditableNotFound(anchor, this.order);
+    }
+    const [node, offset] = getSoftLineHead(anchor, anchorOffset, container)!;
+
+    const [tgt, tgtOffset] = offsetAfter(node as ValidNode, offset, bias);
+    if (!isParent(tgt, container)) {
+      return null;
+    }
+    return [tgt, tgtOffset];
+  }
+
+  // setSoftLine(cur: Node, curOffset: number, bias: number) {}
+
+  // getLocation(offset:Offset){
+
+  // }
+
+  // 设置当前行的第 n 个
+  setSoftLineWithRange(range: Range, bias: number) {
+    if (!range) {
+      range = getDefaultRange();
+    }
+    if (!range) {
+      throw new NoRangeError();
+    }
+    const container = this.findContainer(range.commonAncestorContainer)!;
+    if (!container) {
+      throw new Error(
+        "should not getOffset in block when range expands multi container."
+      );
+    }
+
+    const [node, offset] = getSoftLineHead(
+      range.startContainer,
+      range.startOffset,
+      container
+    )!;
+
+    const [tgt, tgtOffset] = offsetAfter(node as ValidNode, offset, bias);
+    if (!isParent(tgt, container)) {
+      setOffset(container, { start: -1 });
+    } else {
+      const tgtRange = createRange(tgt, tgtOffset);
+      setRange(tgtRange);
+    }
+  }
+
+  getSoftLineBiasWithRange(range?: Range): number {
+    if (!range) {
+      range = getDefaultRange();
+    }
+    if (!range) {
+      throw new NoRangeError();
+    }
+    const container = this.findContainer(range.commonAncestorContainer)!;
+    if (!container) {
+      throw new Error(
+        "should not getOffset in block when range expands multi container."
+      );
+    }
+
+    const [node, offset] = getSoftLineHead(
+      range.startContainer,
+      range.startOffset,
+      container
+    )!;
+    // const index = this.getIndexOfContainer(container);
+    const toHeadRange = createRange(
+      node,
+      offset,
+      range.startContainer,
+      range.startOffset
+    );
+    return tokenBetweenRange(toHeadRange);
+  }
+
+  getGlobalOffset(range?: Range) {
+    if (!range) {
+      range = getDefaultRange();
+    }
+    if (!range) {
+      throw new NoRangeError();
+    }
+    const offset = rangeToOffset(this.edit_root, range);
     return offset;
   }
-  setOffset(offset: Offset, error?: Offset) {
+  getOffset(range?: Range): Offset {
+    if (!range) {
+      range = getDefaultRange();
+    }
+    if (!range) {
+      throw new NoRangeError();
+    }
+    const container = this.findContainer(range.commonAncestorContainer);
+    if (!container) {
+      throw new Error(
+        "should not getOffset in block when range expands multi container."
+      );
+    }
+    const index = this.getIndexOfContainer(container);
+
+    const offset = rangeToOffset(container, range);
+    offset.index = index;
+    return offset;
+  }
+
+  setGlobalOffset(offset: Offset) {
+    setOffset(this.edit_root, offset);
+  }
+
+  setLocalOffset(
+    container: HTMLElement,
+    offset: Offset,
+    defaultOffset?: Offset
+  ) {
+    if (!isParent(container, this.edit_root)) {
+      throw new Error("Container is not child of block root.");
+    }
+    let range = offsetToRange(container, offset);
+    if (!range) {
+      if (!defaultOffset) {
+        throw new Error("Cannot get range by given offset and container");
+      }
+      range = offsetToRange(container, defaultOffset)!;
+    }
+    setRange(range);
+  }
+
+  setOffset(offset: Offset, defaultOffset?: Offset) {
     const container = this.getContainer(offset.index);
     if (!container) {
       throw new Error(
-        `${offset.index} can not specify a container in ${this.el}`
+        `${offset.index} can not specify a container in ${this.edit_root}`
       );
     }
     let range = offsetToRange(container, offset);
     if (!range) {
-      if (!error) {
+      if (!defaultOffset) {
         throw new Error("Cannot get range by given offset and container");
       }
-      range = offsetToRange(container, error)!;
+      range = offsetToRange(container, defaultOffset)!;
     }
     this.setRange(range);
   }
@@ -296,5 +538,3 @@ export class Block<T extends BlockInit> {
 }
 
 export type AnyBlock = Block<any>;
-
-export type BlockOperations = { [key: string]: OperationHandlerFn };

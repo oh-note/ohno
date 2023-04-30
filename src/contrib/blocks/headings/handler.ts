@@ -1,23 +1,28 @@
-import { getDefaultRange } from "@helper/document";
+import { getDefaultRange } from "@/helper/document";
 import {
   EventContext,
   Handler,
   KeyDispatchedHandler,
+  RangedEventContext,
   dispatchKeyDown,
-} from "@system/handler";
-import { FIRST_POSITION, offsetToRange } from "@system/position";
-import { BlockCreate, BlockReplace, defaultAfterBlockCreateExecute } from "@contrib/commands/block";
-import { containHTMLElement } from "@helper/element";
+} from "@/system/handler";
+import { FIRST_POSITION, offsetToRange } from "@/system/position";
+import { BlockCreate, BlockReplace } from "@/contrib/commands/block";
+import { containHTMLElement } from "@/helper/element";
 import {
   Paragraph,
   prepareDeleteCommand,
   prepareEnterCommand,
 } from "../paragraph";
+import { Headings } from "./block";
 
 export class HeadingsHandler extends Handler implements KeyDispatchedHandler {
-  block_type: string = "headings";
-  handleKeyPress(e: KeyboardEvent, context: EventContext): boolean | void {}
-  handleKeyDown(e: KeyboardEvent, context: EventContext): boolean | void {
+  name: string = "headings";
+  handleKeyPress(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): boolean | void {}
+  handleKeyDown(e: KeyboardEvent, context: RangedEventContext): boolean | void {
     return dispatchKeyDown(this, e, context);
   }
   handleDeleteDown(
@@ -61,7 +66,7 @@ export class HeadingsHandler extends Handler implements KeyDispatchedHandler {
       block,
       page,
       offset: FIRST_POSITION,
-      newBlock: new Paragraph({ innerHTML: block.el.innerHTML }),
+      newBlock: new Paragraph({ innerHTML: block.root.innerHTML }),
       newOffset: FIRST_POSITION,
     });
     page.executeCommand(command);
@@ -71,66 +76,69 @@ export class HeadingsHandler extends Handler implements KeyDispatchedHandler {
 
   handleEnterDown(
     e: KeyboardEvent,
-    { page, block }: EventContext
+    { page, block, range }: EventContext
   ): boolean | void {
     e.stopPropagation();
     e.preventDefault();
 
-    const command = prepareEnterCommand({ page, block })
-      .withLazyCommand(({ block, page }, { innerHTML, oldOffset }) => {
-        if (innerHTML === undefined || !oldOffset) {
+    const command = prepareEnterCommand({ page, block, range })
+      .withLazyCommand(({ block, page }, { innerHTML, offset }) => {
+        if (innerHTML === undefined || !offset) {
           throw new Error("sanity check");
         }
         const paragraph = new Paragraph({
           innerHTML: innerHTML,
         });
-        return new BlockCreate(
-          {
-            block: block,
-            newBlock: paragraph,
-            offset: oldOffset,
-            newOffset: FIRST_POSITION,
-            where: "after",
-            page: page,
-          },
-          defaultAfterBlockCreateExecute
-        );
+        return new BlockCreate({
+          block: block,
+          newBlock: paragraph,
+          offset: offset,
+          newOffset: FIRST_POSITION,
+          where: "after",
+          page: page,
+        });
       }) // 将新文本添加到
       .build();
 
     page.executeCommand(command);
   }
-  handleSpaceDown(e: KeyboardEvent, context: EventContext): boolean | void {
-    const { block } = context;
-    const range = document.getSelection()?.getRangeAt(0);
-    if (!range) {
-      console.log("have no range");
-      return;
-    }
-    // 只在最右侧空格时触发 Block change 事件
-    if (!block.isRight(range)) {
-      console.log("is not Right");
-      return;
-    }
-    // 存在 HTMLElement 取消判定
-    if (containHTMLElement(block.el)) {
-      console.log("is not pure text");
-      return;
-    }
-    const prefix = block.el.textContent || "";
-    if (prefix.match(/^#{1,6} *$/)) {
-      console.log("To Heading");
-    } else if (prefix.match(/^ *(-*) *$/)) {
-      console.log("To List");
-    } else if (prefix.match(/^ *([0-9]+\.) *$/)) {
-      console.log("To Ordered List");
-    } else if (prefix.match(/^`{3}.*$/)) {
-      console.log("To Ordered List");
-    } else {
-      return;
-    }
+  handleSpaceDown(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): boolean | void {
+    const { page, block, range } = context;
 
-    e.stopPropagation();
-    e.preventDefault();
+    const prefixRange = offsetToRange(block.currentContainer(), { start: 0 })!;
+    prefixRange.setEnd(range.endContainer, range.endOffset);
+
+    const prefix = prefixRange.cloneContents().textContent!;
+    let matchRes, command;
+    // debugger;
+    if ((matchRes = prefix.match(/^(#{1,6})/))) {
+      const offset = block.getOffset();
+      const level = matchRes[1].length as 1 | 2 | 3 | 4 | 5 | 6;
+      // if(level)
+      let newBlock;
+      if ((block as Headings).init.level === level) {
+        newBlock = new Paragraph({
+          innerHTML: block.root.innerHTML.replace(/^#+/, ""),
+        });
+      } else {
+        newBlock = new Headings({
+          level,
+          innerHTML: block.root.innerHTML.replace(/^#+/, ""),
+        });
+      }
+      const newOffset = FIRST_POSITION;
+      command = new BlockReplace({
+        page,
+        block,
+        offset,
+        newOffset,
+        newBlock,
+      });
+      page.executeCommand(command);
+      return true;
+    }
   }
 }

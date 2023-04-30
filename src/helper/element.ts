@@ -1,4 +1,9 @@
-import { OH_INLINEBLOCK, OH_MDHINT } from "./consts";
+import {
+  OH_INLINEBLOCK,
+  OH_MDHINT,
+  OH_MDHINT_LEFT,
+  OH_MDHINT_RIGHT,
+} from "./consts";
 import { ElementTagName, createElement } from "./document";
 
 export type ValidNode = Text | HTMLElement;
@@ -19,18 +24,29 @@ export function getTagName(el: Node): ElementTagName {
 export function isTag(el: Node, name: ElementTagName) {
   return getTagName(el) === name;
 }
-export function isHTMLElement(el: Node) {
-  return el && el.nodeType === Node.ELEMENT_NODE;
+export function isHTMLElement(el?: Node | null): boolean {
+  if (el && el.nodeType === Node.ELEMENT_NODE) {
+    return true;
+  }
+  return false;
 }
 
 export function isTokenHTMLElement(el: Node) {
-  return (
-    isHTMLElement(el) && (el as HTMLElement).classList.contains(OH_INLINEBLOCK)
-  );
+  return isHTMLElement(el) && el instanceof HTMLLabelElement;
 }
 
-export function isHintHTMLElement(el: Node) {
-  return isHTMLElement(el) && (el as HTMLElement).classList.contains(OH_MDHINT);
+export function isHintLeft(el: HTMLElement) {
+  return el.classList.contains(OH_MDHINT_LEFT);
+}
+export function isHintRight(el: HTMLElement) {
+  return el.classList.contains(OH_MDHINT_RIGHT);
+}
+export function isHintHTMLElement(el?: Node | null): boolean {
+  return (
+    isHTMLElement(el) &&
+    ((el as HTMLElement).classList.contains(OH_MDHINT_LEFT) ||
+      (el as HTMLElement).classList.contains(OH_MDHINT_RIGHT))
+  );
 }
 
 export function isTextNode(el: Node) {
@@ -182,6 +198,9 @@ export function parentElementWithTag(
       break;
     }
   }
+  if (cur && isTag(cur, name)) {
+    return cur;
+  }
   return null;
 }
 
@@ -249,6 +268,18 @@ export function outerHTML(...node: Node[]): string {
   return wrap.innerHTML;
 }
 
+export function mergeAroundLeft(el: Node) {
+  while (el instanceof Text && el.previousSibling instanceof Text) {
+    el.textContent = el.previousSibling.textContent! + el.textContent;
+    el.previousSibling.remove();
+  }
+}
+export function mergeAroundRight(el: Node) {
+  while (el instanceof Text && el.nextSibling instanceof Text) {
+    el.textContent = el.textContent + el.nextSibling.textContent!;
+    el.nextSibling.remove();
+  }
+}
 export function tryConcatLeft(el: ValidNode): ValidNode {
   if (el instanceof Text) {
     let prev = prevValidSibling(el);

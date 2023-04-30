@@ -1,4 +1,5 @@
 import "./style.css";
+import "./inlineStyle.css";
 import { Page } from "./system/page";
 import {
   createElement,
@@ -8,22 +9,77 @@ import {
 import katex from "katex";
 import {
   Blockquote,
-  BlockquoteHandlers,
-  HeadingHandlers,
+  BlockquoteBlockEntry,
   Headings,
+  HeadingsBlockEntry,
   Paragraph,
-  ParagraphHandlers,
+  ParagraphBlockEntry,
 } from "./contrib/blocks";
-import { DefaultBlockHandler } from "./contrib";
-import { List, ListHandlers } from "@contrib/blocks/list";
+// import { DefaultBlockHandler, CompositionHandler } from "./contrib";
+// import { MultiBlockHandler } from "./contrib/handlers";
+
+import { List, ListBlockEntry } from "@/contrib/blocks/list";
+import dropdown from "./contrib/plugins/dropdown";
+import math from "./contrib/inlines/math";
+
+import { BlockCreate } from "./contrib/commands/block";
+import {
+  OrderedList,
+  OrderedListBlockEntry,
+} from "./contrib/blocks/orderedList";
+import { Code, CodeBlockEntry } from "./contrib/blocks/code";
+import { Table, TableBlockEntry } from "./contrib/blocks/table";
+import { Figure, FigureBlockEntry } from "./contrib/blocks/figure";
+import { Equation } from "./contrib/blocks/equation";
 
 const page = new Page({
   handlers: [
-    { globalHandler: new DefaultBlockHandler() },
-    ParagraphHandlers,
-    HeadingHandlers,
-    BlockquoteHandlers,
-    ListHandlers,
+    {
+      globalHandler: new DefaultBlockHandler(),
+      startHandler: new CompositionHandler(),
+    },
+    // { }
+    // {globalHandler:}
+    // ParagraphHandlers,
+    // HeadingHandlers,
+    // BlockquoteHandlers,
+    // ListHandlers,
+    // { pluginHandler: new InlineTest() },
+    { multiBlockHandler: new MultiBlockHandler() },
+  ],
+  blocks: [
+    CodeBlockEntry,
+    OrderedListBlockEntry,
+    ParagraphBlockEntry,
+    HeadingsBlockEntry,
+    ListBlockEntry,
+    BlockquoteBlockEntry,
+    TableBlockEntry,
+    FigureBlockEntry,
+  ],
+  plugins: [
+    dropdown([
+      {
+        plain: "Heading 1",
+        type: "plain",
+        filter: "Heading 1",
+        onSelect: ({ page, block }) => {
+          const newBlock = new Headings();
+          const command = new BlockCreate({
+            block,
+            page,
+            newBlock,
+            where: "after",
+          });
+          page.executeCommand(command);
+        },
+      },
+      { plain: "Heading 2", type: "plain", filter: "Heading 2" },
+      { plain: "Heading 3", type: "plain", filter: "Heading 3" },
+      { plain: "Heading 4", type: "plain", filter: "Heading 4" },
+      { plain: "Heading 5", type: "plain", filter: "Heading 5" },
+    ]),
+    math(),
   ],
 });
 
@@ -43,23 +99,38 @@ const wrap = makeInlineBlock({
 });
 
 let innerHTML =
-  "Lor<i>em ipsum</i> ipsum <b>dolor <i>sit <code>amet</code></i></b>, consectetur adipiscing elit, sed do eiusmod <code>tempor <b><i><code>incididunt</code></i></b></code> ut labore et dolore magna aliqua.";
+  "Lor<em>em ipsum</em> ipsum <b>dolor <i>sit <code>amet</code></i></b>, consectetur adipiscing elit, sed do eiusmod <code>tempor <b><i>code incididunt code</i></b></code> ut labore et dolore magna aliqua.";
 
 page.appendBlock(new Paragraph({ innerHTML, children: [wrap] }));
 page.appendBlock(new Headings({ level: 1, innerHTML: "Heading 1" }));
 page.appendBlock(new Paragraph({ innerHTML, children: [wrap] }));
 page.appendBlock(new Paragraph({}));
 innerHTML = "012<b>456</b>89<i>012</i>";
+page.appendBlock(new Paragraph({ children: [wrap] }));
 page.appendBlock(new Paragraph({ innerHTML, children: [wrap] }));
 page.appendBlock(new Paragraph({ innerHTML, children: [wrap] }));
+page.appendBlock(new Code({ code: "print('hello world!')" }));
+page.appendBlock(new Table({ shape: { row: 3, col: 3 } }));
 page.appendBlock(new Blockquote({ innerHTML, children: [wrap] }));
+page.appendBlock(new Equation({ src: "f(a) = a^2 + bx" }));
+page.appendBlock(
+  new Paragraph({ innerHTML: Array(20).fill("long text ").join(" ") })
+);
+
+page.appendBlock(new Figure({ src: "/vite.svg" }));
+page.appendBlock(new OrderedList({ firstLiInnerHTML: innerHTML }));
 page.appendBlock(new List({ firstLiInnerHTML: innerHTML }));
 page.appendBlock(
   new List({
     children: [
-      createElement("li", { textContent: "0" }),
-      createElement("li", { textContent: "1" }),
-      createElement("li", { textContent: "2" }),
+      createElement("li", { innerHTML: "012<b>345</b>6" }),
+      createElement("li", { innerHTML: "123<b>456</b>7" }),
+      createElement("li", { innerHTML: "234<b>567</b>8" }),
+      createElement("li", { innerHTML: "2345678" }),
+      createElement("li", {
+        innerHTML: Array(20).fill("long text ").join(" "),
+      }),
+      createElement("li", { innerHTML: "2345678" }),
     ],
   })
 );

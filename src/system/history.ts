@@ -1,11 +1,11 @@
-import { LinkedList } from "@struct/linkedlist";
+import { LinkedList } from "@/struct/linkedlist";
 import { AnyBlock, Block } from "./block";
 import { Page } from "./page";
 
 export interface Payload {
   page: Page;
   block: AnyBlock;
-  undo_hint?: { [key: string]: any };
+  // undo_hint?: { [key: string]: any };
   intime?: { [key: string]: any };
 }
 
@@ -13,14 +13,25 @@ export interface ContainerPayload extends Payload {
   container: HTMLElement;
 }
 
-export type CommandCallback<P> = (payload: P) => void;
+export interface CommandBuffer {
+  [key: string]: any;
+}
+
+export type CommandCallback<P> = (payload: P, buffer: any) => void;
+export type CommandCallbackWithBuffer<P, B> = (payload: P, buffer: B) => void;
 
 export abstract class Command<P> {
   payload: P;
   history?: History;
 
-  afterUndo?: CommandCallback<P>;
-  afterExecute?: CommandCallback<P>;
+  // 存储 execute 过程中产生的值，用于设置执行后的光标或 undo
+  // 对于 offset 类的 buffer 可以减少重复计算；
+  // 对于 node 类的 reference 类的 buffer 每次必须重新设置
+  // TODO 逐步废弃 payload 中的 undo_hint，替换成使用 buffer
+  // buffer 会在 callback 中作为第二个参数传递
+  buffer: CommandBuffer = {};
+  onUndoFn?: CommandCallback<P>;
+  onExecuteFn?: CommandCallback<P>;
 
   constructor(
     payload: P,
@@ -29,8 +40,8 @@ export abstract class Command<P> {
   ) {
     this.payload = payload;
     this.execute = this.ensureContext(this.execute.bind(this));
-    this.afterExecute = exeCallback;
-    this.afterUndo = undoCallback;
+    this.onExecuteFn = exeCallback;
+    this.onUndoFn = undoCallback;
   }
 
   protected ensureContext(fn: () => any) {
@@ -46,16 +57,21 @@ export abstract class Command<P> {
 
   abstract execute(): void;
   abstract undo(): void;
+
+  removeCallback() {
+    return this.onExecute().onUndo();
+  }
+
   tryMerge(command: Command<any>) {
     return false;
   }
 
-  public withExecuteCallback(afterExecute: CommandCallback<P>) {
-    this.afterExecute = afterExecute;
+  public onExecute(onExecuteFn?: CommandCallback<P>) {
+    this.onExecuteFn = onExecuteFn;
     return this;
   }
-  public withUndoCallback(afterUndo: CommandCallback<P>) {
-    this.afterUndo = afterUndo;
+  public onUndo(onUndoFn?: CommandCallback<P>) {
+    this.onUndoFn = onUndoFn;
     return this;
   }
   public get label(): string {
@@ -78,9 +94,11 @@ export class History {
   append(command: Command<any>) {
     if (this.commands.last) {
       if (!this.commands.last.value.tryMerge(command)) {
+        command.history = this;
         this.commands.append(command);
       }
     } else {
+      command.history = this;
       this.commands.append(command);
     }
   }
@@ -89,8 +107,8 @@ export class History {
     console.log(command);
     command.history = this;
     command.execute();
-    if (command.afterExecute) {
-      command.afterExecute(command.payload);
+    if (command.onExecuteFn) {
+      command.onExecuteFn(command.payload, command.buffer);
     }
     this.undo_commands.clear();
     this.append(command);
@@ -100,11 +118,12 @@ export class History {
     const results = this.commands.popLast();
     // console.log(results);
     if (results) {
-      results[0].undo();
-      if (results[0].afterUndo) {
-        results[0].afterUndo(results[0].payload);
+      const command = results[0];
+      command.undo();
+      if (command.onUndoFn) {
+        command.onUndoFn(command.payload, command.buffer);
       }
-      this.undo_commands.append(results[0]);
+      this.undo_commands.append(command);
     }
   }
 
@@ -112,13 +131,14 @@ export class History {
     const results = this.undo_commands.popLast();
     // console.log(results);
     if (results) {
-      results[0].execute();
+      const command = results[0];
+      command.execute();
       console.log("redo");
-      if (results[0].afterExecute) {
+      if (command.onExecuteFn) {
         console.log("redo callback");
-        results[0].afterExecute(results[0].payload);
+        command.onExecuteFn(command.payload, command.buffer);
       }
-      this.commands.append(results[0]);
+      this.commands.append(command);
     }
   }
 }

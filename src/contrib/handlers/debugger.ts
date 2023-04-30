@@ -1,4 +1,4 @@
-import { EventContext, Handler } from "@system/handler";
+import { EventContext, Handler } from "@/system/handler";
 
 export class DebuggerHandler extends Handler {
   handleCopy(e: ClipboardEvent, context: EventContext): void | boolean {

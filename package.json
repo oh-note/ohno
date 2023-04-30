@@ -1,7 +1,11 @@
 {
   "name": "ohno",
+  "author": {
+    "name": "haozhe",
+    "email": "sailist@outlook.com"
+  },
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -28,6 +32,7 @@
     "vitest": "^0.29.8"
   },
   "dependencies": {
+    "@floating-ui/dom": "^1.2.6",
     "highlight.js": "^11.7.0",
     "katex": "^0.16.4"
   }

@@ -1,17 +1,39 @@
-import { AnyBlock, Block, BlockOperations } from "./block";
+import { AnyBlock, Block } from "./block";
 import { Page } from "./page";
 
-export class HandlerOption {}
+export interface HandlerOption {
+  [key: string]: any;
+}
 
 export interface EventContext {
   page: Page;
   block: AnyBlock;
+  endBlock?: AnyBlock;
+  range?: Range;
+}
+
+export interface RangedEventContext extends EventContext {
+  range: Range;
+}
+
+export interface MultiBlockEventContext extends EventContext {
+  // page: Page;
+  // block: AnyBlock;
+  endBlock: AnyBlock;
+  range: Range;
+  blocks: AnyBlock[];
 }
 
 export type HandlerMethod<K> = (
   this: Handler,
   e: K,
   context: EventContext
+) => boolean | void;
+
+export type MultiBlockHandlerMethod<K> = (
+  this: Handler,
+  e: K,
+  context: MultiBlockEventContext
 ) => boolean | void;
 
 export interface HandlerMethods {
@@ -33,7 +55,10 @@ export interface HandlerMethods {
   handleClick(e: MouseEvent, context: EventContext): void | boolean;
   handleContextMenu(e: MouseEvent, context: EventContext): void | boolean;
   handleInput(e: Event, context: EventContext): void | boolean;
-  handleBeforeInput(e: InputEvent, context: EventContext): void | boolean;
+  handleBeforeInput(
+    e: InputEvent,
+    context: RangedEventContext
+  ): void | boolean;
   handleCompositionEnd(
     e: CompositionEvent,
     context: EventContext
@@ -48,8 +73,8 @@ export interface HandlerMethods {
   ): void | boolean;
 }
 
-export class Handler implements HandlerMethods, KeyDispatchedHandler {
-  block_type: string = "abc";
+export class Handler implements HandlerMethods {
+  name: string = "abc";
   option: HandlerOption;
   constructor(option?: any) {
     if (!option) {
@@ -65,114 +90,241 @@ export class Handler implements HandlerMethods, KeyDispatchedHandler {
   handlePaste(e: ClipboardEvent, context: EventContext): void | boolean {}
   handleBlur(e: FocusEvent, context: EventContext): void | boolean {}
   handleFocus(e: FocusEvent, context: EventContext): void | boolean {}
-  handleKeyDown(e: KeyboardEvent, context: EventContext): void | boolean {}
-  handleKeyPress(e: KeyboardEvent, context: EventContext): void | boolean {}
-  handleKeyUp(e: KeyboardEvent, context: EventContext): void | boolean {}
+  handleKeyDown(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): void | boolean {}
+  handleKeyPress(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): void | boolean {}
+  handleKeyUp(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): void | boolean {}
   handleMouseDown(e: MouseEvent, context: EventContext): void | boolean {}
   handleMouseEnter(e: MouseEvent, context: EventContext): void | boolean {}
   handleMouseLeave(e: MouseEvent, context: EventContext): void | boolean {}
   handleMouseUp(e: MouseEvent, context: EventContext): void | boolean {}
   handleMouseMove(e: MouseEvent, context: EventContext): void | boolean {}
   handleClick(e: MouseEvent, context: EventContext): void | boolean {}
-  handleContextMenu(e: MouseEvent, context: EventContext): void | boolean {}
-  handleInput(e: Event, context: EventContext): void | boolean {}
-  handleBeforeInput(e: InputEvent, context: EventContext): void | boolean {}
+  handleContextMenu(
+    e: MouseEvent,
+    context: EventContext
+  ): void | boolean {}
+  handleInput(e: TypedInputEvent, context: EventContext): void | boolean {}
+  handleBeforeInput(
+    e: TypedInputEvent,
+    context: RangedEventContext
+  ): void | boolean {}
   handleCompositionEnd(
     e: CompositionEvent,
-    context: EventContext
+    context: RangedEventContext
   ): void | boolean {}
   handleCompositionStart(
     e: CompositionEvent,
-    context: EventContext
+    context: RangedEventContext
   ): void | boolean {}
   handleCompositionUpdate(
     e: CompositionEvent,
-    context: EventContext
+    context: RangedEventContext
   ): void | boolean {}
 }
 
 export interface KeyDispatchedHandler {
-  handleKeyDown(e: KeyboardEvent, context: EventContext): void | boolean;
-  handleKeyUp(e: KeyboardEvent, context: EventContext): void | boolean;
+  handleKeyDown(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): void | boolean;
+  handleKeyUp(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): void | boolean;
 
-  handleEnterDown?(e: KeyboardEvent, context: EventContext): void | boolean;
-  handleSpaceDown?(e: KeyboardEvent, context: EventContext): void | boolean;
-  handleTabDown?(e: KeyboardEvent, context: EventContext): void | boolean;
-  handleArrowKeyDown?(e: KeyboardEvent, context: EventContext): void | boolean;
-  handleDeleteDown?(e: KeyboardEvent, context: EventContext): void | boolean;
-  handleBackspaceDown?(e: KeyboardEvent, context: EventContext): void | boolean;
-  handleEscapeDown?(e: KeyboardEvent, context: EventContext): void | boolean;
-  handleHomeDown?(e: KeyboardEvent, context: EventContext): void | boolean;
-  handleEndDown?(e: KeyboardEvent, context: EventContext): void | boolean;
-  handlePageUpDown?(e: KeyboardEvent, context: EventContext): void | boolean;
-  handlePageDownDown?(e: KeyboardEvent, context: EventContext): void | boolean;
+  handleEnterDown?(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): void | boolean;
+  handleSpaceDown?(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): void | boolean;
+  handleTabDown?(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): void | boolean;
+  handleArrowKeyDown?(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): void | boolean;
+  handleDeleteDown?(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): void | boolean;
+  handleBackspaceDown?(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): void | boolean;
+  handleEscapeDown?(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): void | boolean;
+  handleHomeDown?(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): void | boolean;
+  handleEndDown?(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): void | boolean;
+  handlePageUpDown?(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): void | boolean;
+  handlePageDownDown?(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): void | boolean;
 
-  handleEnterUp?(e: KeyboardEvent, context: EventContext): void | boolean;
-  handleSpaceUp?(e: KeyboardEvent, context: EventContext): void | boolean;
-  handleTabUp?(e: KeyboardEvent, context: EventContext): void | boolean;
-  handleArrowKeyUp?(e: KeyboardEvent, context: EventContext): void | boolean;
-  handleDeleteUp?(e: KeyboardEvent, context: EventContext): void | boolean;
-  handleBackspaceUp?(e: KeyboardEvent, context: EventContext): void | boolean;
-  handleEscapeUp?(e: KeyboardEvent, context: EventContext): void | boolean;
-  handleHomeUp?(e: KeyboardEvent, context: EventContext): void | boolean;
-  handleEndUp?(e: KeyboardEvent, context: EventContext): void | boolean;
-  handlePageUpUp?(e: KeyboardEvent, context: EventContext): void | boolean;
-  handlePageDownUp?(e: KeyboardEvent, context: EventContext): void | boolean;
+  handleEnterUp?(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): void | boolean;
+  handleSpaceUp?(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): void | boolean;
+  handleTabUp?(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): void | boolean;
+  handleArrowKeyUp?(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): void | boolean;
+  handleDeleteUp?(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): void | boolean;
+  handleBackspaceUp?(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): void | boolean;
+  handleEscapeUp?(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): void | boolean;
+  handleHomeUp?(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): void | boolean;
+  handleEndUp?(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): void | boolean;
+  handlePageUpUp?(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): void | boolean;
+  handlePageDownUp?(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): void | boolean;
 }
 
 export function dispatchKeyDown(
   handler: KeyDispatchedHandler,
   e: KeyboardEvent,
-  context: EventContext
+  context: RangedEventContext
 ): boolean | void {
-  if (e.key == "Enter" && handler.handleEnterDown) {
-    return handler.handleEnterDown(e, context);
-  } else if (e.key == " " && handler.handleSpaceDown) {
-    return handler.handleSpaceDown(e, context);
-  } else if (e.key == "Tab" && handler.handleTabDown) {
-    return handler.handleTabDown(e, context);
-  } else if (e.key.startsWith("Arrow") && handler.handleArrowKeyDown) {
-    return handler.handleArrowKeyDown(e, context);
-  } else if (e.key == "Delete" && handler.handleDeleteDown) {
-    return handler.handleDeleteDown(e, context);
-  } else if (e.key == "Backspace" && handler.handleBackspaceDown) {
-    return handler.handleBackspaceDown(e, context);
-  } else if (e.key == "Escape" && handler.handleEscapeDown) {
-    return handler.handleEscapeDown(e, context);
-  } else if (e.key == "Home" && handler.handleHomeDown) {
-    return handler.handleHomeDown(e, context);
-  } else if (e.key == "End" && handler.handleEndDown) {
-    return handler.handleEndDown(e, context);
-  } else if (e.key == "PageUp" && handler.handlePageUpDown) {
-    return handler.handlePageUpDown(e, context);
-  } else if (e.key == "PageDown" && handler.handlePageDownDown) {
-    return handler.handlePageDownDown(e, context);
+  if (e.type === "keyup") {
+    if (e.key == "Enter" && handler.handleEnterUp) {
+      return handler.handleEnterUp(e, context);
+    } else if (e.key == " " && handler.handleSpaceUp) {
+      return handler.handleSpaceUp(e, context);
+    } else if (e.key == "Tab" && handler.handleTabUp) {
+      return handler.handleTabUp(e, context);
+    } else if (e.key.startsWith("Arrow") && handler.handleArrowKeyUp) {
+      return handler.handleArrowKeyUp(e, context);
+    } else if (e.key == "Delete" && handler.handleDeleteUp) {
+      return handler.handleDeleteUp(e, context);
+    } else if (e.key == "Backspace" && handler.handleBackspaceUp) {
+      return handler.handleBackspaceUp(e, context);
+    } else if (e.key == "Escape" && handler.handleEscapeUp) {
+      return handler.handleEscapeUp(e, context);
+    } else if (e.key == "Home" && handler.handleHomeUp) {
+      return handler.handleHomeUp(e, context);
+    } else if (e.key == "End" && handler.handleEndUp) {
+      return handler.handleEndUp(e, context);
+    } else if (e.key == "PageUp" && handler.handlePageUpUp) {
+      return handler.handlePageUpUp(e, context);
+    } else if (e.key == "PageDown" && handler.handlePageDownUp) {
+      return handler.handlePageDownUp(e, context);
+    }
+    return false;
+  } else if (e.type === "keydown") {
+    if (e.key == "Enter" && handler.handleEnterDown) {
+      return handler.handleEnterDown(e, context);
+    } else if (e.key == " " && handler.handleSpaceDown) {
+      return handler.handleSpaceDown(e, context);
+    } else if (e.key == "Tab" && handler.handleTabDown) {
+      return handler.handleTabDown(e, context);
+    } else if (e.key.startsWith("Arrow") && handler.handleArrowKeyDown) {
+      return handler.handleArrowKeyDown(e, context);
+    } else if (e.key == "Delete" && handler.handleDeleteDown) {
+      return handler.handleDeleteDown(e, context);
+    } else if (e.key == "Backspace" && handler.handleBackspaceDown) {
+      return handler.handleBackspaceDown(e, context);
+    } else if (e.key == "Escape" && handler.handleEscapeDown) {
+      return handler.handleEscapeDown(e, context);
+    } else if (e.key == "Home" && handler.handleHomeDown) {
+      return handler.handleHomeDown(e, context);
+    } else if (e.key == "End" && handler.handleEndDown) {
+      return handler.handleEndDown(e, context);
+    } else if (e.key == "PageUp" && handler.handlePageUpDown) {
+      return handler.handlePageUpDown(e, context);
+    } else if (e.key == "PageDown" && handler.handlePageDownDown) {
+      return handler.handlePageDownDown(e, context);
+    }
+    return false;
   }
-  return false;
 }
 
+// 只有当执行了跨 Block 区域的操作时才需要 pageHandlers
+export const defaultMultiBlockHandlers: Handler[] = [];
 export const defaultBeforeHandlers: { [key: string]: Handler[] } = {};
+export const defaultStartHandlers: Handler[] = [];
 export const defaultGlobalHandlers: Handler[] = [];
 export const defaultAfterHandlers: { [key: string]: Handler[] } = {};
 
 export function setBeforeHandlers(handler: Handler) {
-  if (!defaultBeforeHandlers[handler.block_type]) {
-    defaultBeforeHandlers[handler.block_type] = [];
+  if (!defaultBeforeHandlers[handler.name]) {
+    defaultBeforeHandlers[handler.name] = [];
   }
   // console.log(["Register before handler", handler]);
-  defaultBeforeHandlers[handler.block_type].push(handler);
+  defaultBeforeHandlers[handler.name].push(handler);
 }
 
 export function setGlobalHandler(handler: Handler) {
   // console.log(["Register global handler", handler]);
-  console.log(handler)
+  console.log(handler);
   defaultGlobalHandlers.push(handler);
+}
+export function setStartHandler(handler: Handler) {
+  // console.log(["Register global handler", handler]);
+  console.log(handler);
+  defaultStartHandlers.push(handler);
+}
+
+export function setMultiBlockHandler(handler: Handler) {
+  // console.log(["Register global handler", handler]);
+  defaultMultiBlockHandlers.push(handler);
 }
 
 export function setAfterHandlers(handler: Handler) {
-  if (!defaultAfterHandlers[handler.block_type]) {
-    defaultAfterHandlers[handler.block_type] = [];
+  if (!defaultAfterHandlers[handler.name]) {
+    defaultAfterHandlers[handler.name] = [];
   }
   console.log(["Register after handler", handler]);
-  defaultAfterHandlers[handler.block_type].push(handler);
+  defaultAfterHandlers[handler.name].push(handler);
 }

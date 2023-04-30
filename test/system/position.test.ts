@@ -3,16 +3,19 @@ import {
   createTextNode,
   innerHTMLToNodeList,
   makeInlineBlock,
-} from "@helper/document";
-import { ValidNode, getTagName, outerHTML } from "@helper/element";
-import { addMarkdownHint } from "@helper/markdown";
+} from "@/helper/document";
+import { ValidNode, getTagName, outerHTML } from "@/helper/element";
+import { addMarkdownHint } from "@/helper/markdown";
 import {
   offsetToRange,
   getTokenSize,
   rangeToOffset,
   FIRST_POSITION,
   LAST_POSITION,
-} from "@system/position";
+  offsetAfter,
+  locationToBias,
+  biasToLocation,
+} from "@/system/position";
 import { describe, expect, test } from "vitest";
 import katex from "katex";
 import {
@@ -20,7 +23,7 @@ import {
   getNextLocation,
   getPrevLocation,
   setRange,
-} from "@system/range";
+} from "@/system/range";
 
 function tryThis(p: ValidNode) {
   const size = getTokenSize(p);
@@ -40,6 +43,54 @@ function tryThis(p: ValidNode) {
   }
   expect(res).toBe(p.textContent);
 }
+
+describe("offsetAfter", () => {
+  test("|text", () => {
+    const p = createElement("p", { textContent: "0123" });
+    let [container, offset] = offsetAfter(p, 0, 3);
+    expect(container.textContent).toBe("0123");
+    expect(offset).toBe(3);
+  });
+
+  test("|<b>1234</b>", () => {
+    const p = createElement("p");
+    p.innerHTML = "<b>1234</b>";
+    let container, offset;
+    [container, offset] = offsetAfter(p, 0, 3);
+    expect(locationToBias(p, container, offset)).toBe(3);
+    [container, offset] = offsetAfter(p, 0, 1);
+    expect(locationToBias(p, container, offset)).toBe(1);
+    addMarkdownHint(p);
+    [container, offset] = offsetAfter(p, 0, 1);
+    expect(locationToBias(p, container, offset)).toBe(1);
+  });
+
+  test("|<b><i></i></b>1234", () => {
+    const p = createElement("p");
+    p.innerHTML = "<b><i></i></b>1234";
+    const n = getTokenSize(p);
+
+    const [container, offset] = offsetAfter(p, 0, 5);
+    expect(locationToBias(p, container, offset)).toBe(5);
+    for (let i = 0; i < n; i++) {
+      const [container, offset] = offsetAfter(p, 0, i);
+      expect(locationToBias(p, container, offset)).toBe(i);
+    }
+  });
+
+  test("0123<b>456</b>78<i>90</i>123", () => {
+    const p = createElement("p");
+    p.innerHTML = "0123<b>456</b>78<i>90</i>123";
+    addMarkdownHint(p);
+    const n = getTokenSize(p);
+    const [container, offset] = offsetAfter(p, 0, 5);
+    expect(locationToBias(p, container, offset)).toBe(5);
+    for (let i = 0; i < n; i++) {
+      const [container, offset] = offsetAfter(p, 0, i);
+      expect(locationToBias(p, container, offset)).toBe(i);
+    }
+  });
+});
 
 describe("position", () => {
   test("getPrevOffset/getNextOffset", () => {
@@ -310,5 +361,21 @@ describe("rangeToOffset", () => {
     //   0 1   2  3 4   5 6 7      8 9 0 1       2 3    4  5
     addMarkdownHint(p);
     tryThis();
+  });
+});
+
+describe("getTokenSize", () => {
+  test("with_root", () => {
+    const p = createElement("p");
+    p.innerHTML = "<b><i></i></b>";
+    addMarkdownHint(p);
+    expect(getTokenSize(p.firstChild as ValidNode, true)).toBe(4);
+  });
+});
+
+describe("locationToBias", () => {
+  test("raw text", () => {
+    const text = createTextNode("0123456789");
+    locationToBias(text, text, 3);
   });
 });

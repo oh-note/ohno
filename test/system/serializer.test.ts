@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
-import { createElement, innerHTMLToNodeList } from "@helper/document";
+import { createElement, innerHTMLToNodeList } from "@/helper/document";
 import { Segment, deserialize, serialize } from "../../src/system/serializer";
-import { outerHTML } from "@helper/element";
+import { outerHTML } from "@/helper/element";
 
 describe("test tokenizer", () => {
   test("format and deformat", () => {

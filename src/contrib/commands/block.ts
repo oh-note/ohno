@@ -1,120 +1,131 @@
-import { HTMLElementTagName } from "@helper/document";
-import { createElement } from "@helper/document";
-import { ValidNode, getTagName, outerHTML } from "@helper/element";
-import { parentElementWithTag, validChildNodes } from "@helper/element";
-import { addMarkdownHint } from "@helper/markdown";
-import {
-  FULL_BLOCK as FULL_SELECTED,
-  Offset,
-  elementOffset,
-  offsetToRange,
-} from "@system/position";
-import { AnyBlock } from "@system/block";
-import { Command, CommandCallback } from "@system/history";
-import { Page } from "@system/page";
-import {
-  getValidAdjacent,
-  nodesOfRange,
-  normalizeRange,
-  setRange,
-} from "@system/range";
+import { Offset, offsetToRange } from "@/system/position";
+import { AnyBlock } from "@/system/block";
+import { Command, CommandCallback } from "@/system/history";
+import { Page } from "@/system/page";
+import { setRange } from "@/system/range";
 
 export interface BlockCreatePayload {
   page: Page;
   block: AnyBlock;
-  where: "after" | "tail" | "head" | "before";
   newBlock: AnyBlock;
+  where: "after" | "tail" | "head" | "before";
 
-  offset: Offset;
-  newOffset: Offset;
+  offset?: Offset;
+  newOffset?: Offset;
 }
 
 export interface BlockRemovePayload {
   page: Page;
   block: AnyBlock;
-  beforeOffset: Offset;
-  undo_hint?: {
-    nextBlock: AnyBlock | null;
-  };
+}
+export interface BlocksRemovePayload {
+  page: Page;
+  blocks: AnyBlock[];
 }
 
 export interface BlockReplacePayload {
   page: Page;
   block: AnyBlock;
-  offset: Offset;
   newBlock: AnyBlock;
-  newOffset: Offset;
+
+  offset?: Offset;
+  newOffset?: Offset;
 }
 
-export interface BlockActivePayload {
-  page: Page;
-  block: AnyBlock;
-  offset: Offset;
-  newBlock?: AnyBlock;
-  newOffset: Offset;
-}
 export class BlockReplace extends Command<BlockReplacePayload> {
+  onExecuteFn: CommandCallback<BlockReplacePayload> = ({
+    newBlock,
+    newOffset,
+  }) => {
+    if (newOffset) {
+      newBlock.setOffset(newOffset);
+    }
+  };
+
+  onUndoFn: CommandCallback<BlockReplacePayload> = ({ block, offset }) => {
+    if (offset) {
+      block.setOffset(offset);
+    }
+  };
+
   execute(): void {
-    const { page, block, newBlock, newOffset } = this.payload;
+    this.onExecuteFn;
+    const { page, block, newBlock } = this.payload;
     page.replaceBlock(block.order, newBlock);
-    newBlock.setOffset(newOffset);
+  }
+
+  undo(): void {
+    const { page, block, newBlock } = this.payload;
+    page.replaceBlock(newBlock.order, block);
+  }
+}
+
+export class BlocksRemove extends Command<BlocksRemovePayload> {
+  declare buffer: {
+    // 待删除的最后一个 Block 的下一个 Block，可以为空
+    endBlock: AnyBlock | null;
+  };
+  execute(): void {
+    const { page, blocks } = this.payload;
+    this.buffer = {
+      endBlock: page.getNextBlock(blocks[blocks.length - 1]),
+    };
+    blocks.forEach((item) => {
+      page.removeBlock(item.order);
+    });
   }
   undo(): void {
-    const { page, block, newBlock, offset } = this.payload;
-    page.replaceBlock(newBlock.order, block);
-    block.setOffset(offset);
+    const { page, blocks } = this.payload;
+    let cur = this.buffer.endBlock;
+    blocks
+      .slice()
+      .reverse()
+      .forEach((block) => {
+        if (cur) {
+          page.insertBlockBefore(cur.order, block);
+        } else {
+          page.appendBlock(block);
+        }
+        cur = block;
+      });
   }
 }
 
 export class BlockRemove extends Command<BlockRemovePayload> {
+  declare buffer: {
+    nextBlock: AnyBlock | null;
+  };
   execute(): void {
     const { page, block } = this.payload;
-    this.payload.undo_hint = {
+    this.buffer = {
       nextBlock: page.getNextBlock(block),
     };
     page.removeBlock(block.order);
   }
   undo(): void {
     const { page, block } = this.payload;
-    console.log("page");
-    if (this.payload.undo_hint!.nextBlock) {
-      page.insertBlockBefore(this.payload.undo_hint!.nextBlock.order, block);
+    if (this.buffer.nextBlock) {
+      page.insertBlockBefore(this.buffer.nextBlock.order, block);
     } else {
       page.appendBlock(block);
     }
   }
 }
 
-export class BlockActive extends Command<BlockActivePayload> {
-  execute(): void {
-    const { newBlock, newOffset } = this.payload;
-    if (newBlock) {
-      newBlock.setOffset(newOffset);
-    } else {
-      this.payload.newBlock = this.payload.block;
-      this.payload.newBlock.setOffset(newOffset);
-    }
-  }
-  undo(): void {
-    this.payload.block.setOffset(this.payload.offset);
-  }
-}
-
-export const defaultAfterBlockCreateExecute: CommandCallback<
-  BlockCreatePayload
-> = ({ block, newBlock, offset, newOffset }) => {
-  const range = offsetToRange(newBlock.getContainer(offset.index!), newOffset)!;
-  block.setRange(range);
-  console.log(range);
-};
-export const defaultAfterBlockCreateUndo: CommandCallback<
-  BlockCreatePayload
-> = ({ block, newBlock, offset, newOffset }) => {
-  const range = offsetToRange(block.getContainer(offset.index!), offset)!;
-  setRange(range);
-};
-
 export class BlockCreate extends Command<BlockCreatePayload> {
+  onExecuteFn: CommandCallback<BlockCreatePayload> = ({
+    newBlock,
+    newOffset,
+  }) => {
+    if (newOffset) {
+      newBlock.setOffset(newOffset);
+    }
+  };
+  onUndoFn: CommandCallback<BlockCreatePayload> = ({ block, offset }) => {
+    if (offset) {
+      block.setOffset(offset);
+    }
+  };
   execute(): void {
     const { where, page, block, newBlock } = this.payload;
 
@@ -123,8 +134,8 @@ export class BlockCreate extends Command<BlockCreatePayload> {
     } else if (where === "before") {
       page.insertBlockBefore(block.order, newBlock);
     } else if (where === "head") {
-      if (page.blocks.first) {
-        page.insertBlockBefore(page.blocks.first.name!, newBlock);
+      if (page.blockChain.first) {
+        page.insertBlockBefore(page.blockChain.first.name!, newBlock);
       } else {
         page.appendBlock(newBlock);
       }

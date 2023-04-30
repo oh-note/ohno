@@ -8,19 +8,8 @@ export const isDev = process.env.__DEV__ === "true";
 export default defineConfig({
   plugins: [],
   resolve: {
-    // alias: [
-    //   {
-    //     find: /^@(.+)/,
-    //     replacement: (match, p1) => path.resolve(__dirname, "src", p1),
-    //   },
-    // ],
-
     alias: {
-      "@": "src/",
-      "@helper": resolve(root, "helper"),
-      "@struct": resolve(root, "struct"),
-      "@system": resolve(root, "system"),
-      "@contrib": resolve(root, "contrib"),
+      "@": path.resolve(__dirname, "src"),
     },
   },
   test: {

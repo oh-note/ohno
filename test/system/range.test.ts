@@ -3,9 +3,9 @@ import {
   createElement,
   getDefaultRange,
   innerHTMLToNodeList,
-} from "@helper/document";
-import { getTagName, outerHTML } from "@helper/element";
-import { addMarkdownHint } from "@helper/markdown";
+} from "@/helper/document";
+import { getTagName, outerHTML } from "@/helper/element";
+import { addMarkdownHint } from "@/helper/markdown";
 import {
   createRange,
   getNextLocation,
@@ -13,8 +13,8 @@ import {
   getPrevLocation,
   setRange,
   tryGetBoundsRichNode,
-} from "@system/range";
-import { offsetToRange, setOffset } from "@system/position";
+} from "@/system/range";
+import { offsetToRange, setOffset } from "@/system/position";
 
 describe("range.ts", () => {
   test("getNextOffset/getPrefOffset", () => {

@@ -19,13 +19,9 @@
     "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@*": [
+      "@/*": [
         "src/*"
       ],
-      // "@helper/*": ["src/helper/*"],
-      // "@contrib/*": ["src/contrib/*"],
-      // "@struct/*": ["src/struct/*"],
-      // "@system/*": ["src/system/*"],
       "virtual:reload-on-update-in-background-script": [
         "./src/global.d.ts"
       ],

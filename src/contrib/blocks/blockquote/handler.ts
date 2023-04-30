@@ -1,18 +1,15 @@
-import { getDefaultRange } from "@helper/document";
+import { getDefaultRange } from "@/helper/document";
 import {
   EventContext,
   Handler,
   KeyDispatchedHandler,
+  RangedEventContext,
   dispatchKeyDown,
   setBeforeHandlers,
-} from "@system/handler";
-import { FIRST_POSITION, offsetToRange } from "@system/position";
-import {
-  BlockCreate,
-  BlockReplace,
-  defaultAfterBlockCreateExecute,
-} from "@contrib/commands/block";
-import { containHTMLElement } from "@helper/element";
+} from "@/system/handler";
+import { FIRST_POSITION, offsetToRange } from "@/system/position";
+import { BlockCreate, BlockReplace } from "@/contrib/commands/block";
+import { containHTMLElement } from "@/helper/element";
 import {
   Paragraph,
   prepareDeleteCommand,
@@ -21,16 +18,19 @@ import {
 import { Blockquote } from "./block";
 
 export class BlockQuoteHandler extends Handler implements KeyDispatchedHandler {
-  block_type: string = "blockquote";
+  name: string = "blockquote";
   handleKeyPress(e: KeyboardEvent, context: EventContext): boolean | void {}
-  handleKeyDown(e: KeyboardEvent, context: EventContext): boolean | void {
+  handleKeyDown(e: KeyboardEvent, context: RangedEventContext): boolean | void {
     return dispatchKeyDown(this, e, context);
   }
   handleDeleteDown(
     e: KeyboardEvent,
-    { page, block }: EventContext
+    { page, block, range }: EventContext
   ): boolean | void {
-    const range = getDefaultRange();
+    if (!range) {
+      throw new NoRangeError();
+    }
+
     if (!block.isRight(range)) {
       return;
     }
@@ -66,7 +66,7 @@ export class BlockQuoteHandler extends Handler implements KeyDispatchedHandler {
       block,
       page,
       offset: FIRST_POSITION,
-      newBlock: new Paragraph({ innerHTML: block.el.innerHTML }),
+      newBlock: new Paragraph({ innerHTML: block.root.innerHTML }),
       newOffset: FIRST_POSITION,
     });
     page.executeCommand(command);
@@ -76,53 +76,47 @@ export class BlockQuoteHandler extends Handler implements KeyDispatchedHandler {
 
   handleEnterDown(
     e: KeyboardEvent,
-    { page, block }: EventContext
+    { page, block, range }: EventContext
   ): boolean | void {
     e.stopPropagation();
     e.preventDefault();
 
-    const command = prepareEnterCommand({ page, block })
-      .withLazyCommand(({ block, page }, { innerHTML, oldOffset }) => {
-        if (innerHTML === undefined || !oldOffset) {
+    const command = prepareEnterCommand({ page, block, range })
+      .withLazyCommand(({ block, page }, { innerHTML, offset }) => {
+        if (innerHTML === undefined || !offset) {
           throw new Error("sanity check");
         }
         const blockquote = new Blockquote({
           innerHTML: innerHTML,
         });
-        return new BlockCreate(
-          {
-            block: block,
-            newBlock: blockquote,
-            offset: oldOffset,
-            newOffset: FIRST_POSITION,
-            where: "after",
-            page: page,
-          },
-          defaultAfterBlockCreateExecute
-        );
+        return new BlockCreate({
+          block: block,
+          newBlock: blockquote,
+          offset: offset,
+          newOffset: FIRST_POSITION,
+          where: "after",
+          page: page,
+        });
       }) // 将新文本添加到
       .build();
 
     page.executeCommand(command);
   }
   handleSpaceDown(e: KeyboardEvent, context: EventContext): boolean | void {
-    const { block } = context;
-    const range = document.getSelection()?.getRangeAt(0);
+    const { block, range } = context;
     if (!range) {
-      console.log("have no range");
-      return;
+      throw new NoRangeError();
     }
     // 只在最右侧空格时触发 Block change 事件
     if (!block.isRight(range)) {
-      console.log("is not Right");
       return;
     }
     // 存在 HTMLElement 取消判定
-    if (containHTMLElement(block.el)) {
-      console.log("is not pure text");
+    if (containHTMLElement(block.root)) {
       return;
     }
-    const prefix = block.el.textContent || "";
+
+    const prefix = block.root.textContent || "";
     if (prefix.match(/^#{1,6} *$/)) {
       console.log("To Heading");
     } else if (prefix.match(/^ *(-*) *$/)) {

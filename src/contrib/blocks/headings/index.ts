@@ -1,10 +1,17 @@
 export * from "./handler";
-import { Handlers } from "@system/page";
+import { BlockEntry, HandlerEntry } from "@/system/page";
 import { HeadingsHandler } from "./handler";
+import { Headings } from "./block";
 
 export * from "./handler";
 export * from "./block";
 
-export const HeadingHandlers: Handlers = {
-  beforeHandler: new HeadingsHandler(),
+export const HeadingHandlers: HandlerEntry = {
+  blockHandler: new HeadingsHandler(),
+};
+
+export const HeadingsBlockEntry: BlockEntry = {
+  name: "headings",
+  blockType: Headings,
+  handler: new HeadingsHandler(),
 };

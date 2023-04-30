@@ -1,19 +1,19 @@
 import { describe, expect, test } from "vitest";
 
-import { createElement, getDefaultRange } from "@helper/document";
+import { createElement, getDefaultRange } from "@/helper/document";
 
-import { Page } from "@system/page";
+import { Page } from "@/system/page";
 import { FormatText } from "../../../src/contrib/commands/format";
-import { addMarkdownHint, removeMarkdownHint } from "@helper/markdown";
-import { normalizeRange, setRange } from "@system/range";
-import { ValidNode, innerHTML, outerHTML } from "@helper/element";
+import { addMarkdownHint, removeMarkdownHint } from "@/helper/markdown";
+import { normalizeRange, setRange } from "@/system/range";
+import { ValidNode, innerHTML, outerHTML } from "@/helper/element";
 
 function makeFakePage() {
   const page = new Page();
   const root = createElement("div");
   document.body.appendChild(root);
   page.render(root);
-  page.blocks.first!.value.el.innerHTML = "Ohno World!";
+  page.blockChain.first!.value.root.innerHTML = "Ohno World!";
   return page;
 }
 
@@ -21,9 +21,9 @@ describe("FormatText", () => {
   test("<i>te|xt</i>", () => {
     const page = makeFakePage();
     let block = page.findBlock("n")!;
-    block.el.innerHTML = "<i>1234</i>";
-    addMarkdownHint(block.el);
-    expect(block.el.textContent).toBe("*1234*");
+    block.root.innerHTML = "<i>1234</i>";
+    addMarkdownHint(block.root);
+    expect(block.root.textContent).toBe("*1234*");
     block.setOffset({ start: 3 });
     // "<i>12|34</i>";
 
@@ -34,8 +34,8 @@ describe("FormatText", () => {
       offset: { start: 3 },
     });
     page.executeCommand(command);
-    console.log(block.el.innerHTML);
-    const clone = block.el.cloneNode(true) as HTMLElement;
+    console.log(block.root.innerHTML);
+    const clone = block.root.cloneNode(true) as HTMLElement;
     removeMarkdownHint(clone as ValidNode);
     expect(innerHTML(clone)).toBe("<i>12<b></b>34</i>");
     page.history.undo();
@@ -44,20 +44,20 @@ describe("FormatText", () => {
   test("*[*text*]*", () => {
     const page = makeFakePage();
     let block = page.findBlock("n")!;
-    block.el.innerHTML = "<b>1234</b>";
-    addMarkdownHint(block.el);
-    expect(block.el.textContent).toBe("**1234**");
+    block.root.innerHTML = "<b>1234</b>";
+    addMarkdownHint(block.root);
+    expect(block.root.textContent).toBe("**1234**");
 
-    const boldEl = block.el.firstChild!;
+    const boldEl = block.root.firstChild!;
     const range = document.createRange();
     range.setStart(boldEl.firstChild!.firstChild!, 1);
     range.setEnd(boldEl.lastChild!.firstChild!, 1);
     setRange(range);
 
     expect(range.cloneContents().textContent!).toBe("*1234*");
-    normalizeRange(block.el, range);
+    normalizeRange(block.root, range);
     setRange(range);
-    page.root?.dispatchEvent(new InputEvent("formatBold"));
+    page.blockRoot?.dispatchEvent(new InputEvent("formatBold"));
     // *[*text*]*
     // 需要先检测光标位于 span，并解决光标偏移的问题（通过 selectionchange？有这个事件吗？）
     // TODO
@@ -67,7 +67,7 @@ describe("FormatText", () => {
   test("[<b>text</b>]", () => {
     const page = makeFakePage();
     const block = page.findBlock("n")!;
-    block.el.innerHTML = "<b>1234</b>";
+    block.root.innerHTML = "<b>1234</b>";
 
     let command = new FormatText({
       block: block,
@@ -77,7 +77,7 @@ describe("FormatText", () => {
     });
 
     page.executeCommand(command);
-    expect(block.el.textContent).toBe("1234");
+    expect(block.root.textContent).toBe("1234");
     // [**1234**] -> [1234]
     // [**1234*]* / *[*1234**] -> [1234]
   });
@@ -86,7 +86,7 @@ describe("FormatText", () => {
   test("<b>te|xt</b>", () => {
     const page = makeFakePage();
     let block = page.findBlock("n")!;
-    block.el.innerHTML = "<b>Ohno World!</b>";
+    block.root.innerHTML = "<b>Ohno World!</b>";
     let command = new FormatText({
       block: block,
       offset: { start: 1 },
@@ -95,7 +95,7 @@ describe("FormatText", () => {
     });
 
     page.executeCommand(command);
-    expect(block.el.textContent).toBe("Ohno World!");
+    expect(block.root.textContent).toBe("Ohno World!");
     const range = getDefaultRange();
     // **xx|x** -> [Ohno World!]
     expect(range.cloneContents().textContent).toBe("Ohno World!");
@@ -104,7 +104,7 @@ describe("FormatText", () => {
   test("pl|ain", () => {
     const page = makeFakePage();
     let block = page.findBlock("n")!;
-    expect(block.el.textContent).toBe("Ohno World!");
+    expect(block.root.textContent).toBe("Ohno World!");
     let command = new FormatText({
       block: block,
       offset: { start: 0 },
@@ -113,7 +113,7 @@ describe("FormatText", () => {
     });
 
     page.executeCommand(command);
-    expect(block.el.textContent).toBe("****Ohno World!");
+    expect(block.root.textContent).toBe("****Ohno World!");
     // **[ ]**Ohno World!
     const range = getDefaultRange();
     expect(range.cloneContents().textContent).toBe("");
@@ -122,10 +122,10 @@ describe("FormatText", () => {
   test("|", () => {
     const page = makeFakePage();
     let block = page.findBlock("n")!;
-    block.el.childNodes.forEach((item) => {
+    block.root.childNodes.forEach((item) => {
       item.remove();
     });
-    expect(block.el.textContent).toBe("");
+    expect(block.root.textContent).toBe("");
     let command = new FormatText({
       block: block,
       offset: { start: 0 },
@@ -134,7 +134,7 @@ describe("FormatText", () => {
     });
 
     page.executeCommand(command);
-    expect(block.el.textContent).toBe("****");
+    expect(block.root.textContent).toBe("****");
     const range = getDefaultRange();
     // **[ ]**
     expect(range.cloneContents().textContent).toBe("");
@@ -143,7 +143,7 @@ describe("FormatText", () => {
   test("<i>01[2</i>3]45", () => {
     const page = makeFakePage();
     let block = page.findBlock("n")!;
-    block.el.innerHTML = "<i>012</i>345";
+    block.root.innerHTML = "<i>012</i>345";
     let command = new FormatText({
       block: block,
       offset: { start: 3, end: 6 },

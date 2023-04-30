@@ -1,5 +1,5 @@
-import { createElement } from "@helper/document";
-import { Block, BlockInit } from "@system/block";
+import { createElement } from "@/helper/document";
+import { Block, BlockInit } from "@/system/block";
 export interface HeadingsInit extends BlockInit {
   innerHTML?: string;
   level: 1 | 2 | 3 | 4 | 5 | 6;
