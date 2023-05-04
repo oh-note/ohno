@@ -1,6 +1,7 @@
 import {
   EventContext,
   Handler,
+  HandlerOption,
   KeyDispatchedHandler,
   RangedEventContext,
   dispatchKeyDown,
@@ -8,17 +9,33 @@ import {
 import { getPrevLocation } from "@/system/range";
 import { NodeInsert } from "@/contrib/commands/html";
 import { ListCommandBuilder } from "@/contrib/commands/concat";
-import { TextDeleteSelection } from "@/contrib/commands/text";
+
 import {
   parentElementWithFilter,
   parentElementWithTag,
 } from "@/helper/element";
+import { TextDelete } from "@/contrib/commands";
 // import { InlineHandler } from "@/system/inline";
+
+export type beforeInputHandler = (
+  handler: InlineActivateHandler,
+  e: TypedInputEvent,
+  context: RangedEventContext
+) => boolean;
+
+export interface InlineHandlerOption {
+  beforeInputHandler: beforeInputHandler[];
+}
 
 export class InlineActivateHandler
   extends Handler
   implements KeyDispatchedHandler
 {
+  declare option: InlineHandlerOption;
+  constructor(option?: InlineHandlerOption) {
+    super(option);
+  }
+
   handleKeyDown(e: KeyboardEvent, context: RangedEventContext): boolean | void {
     return dispatchKeyDown(this, e, context);
   }
@@ -34,14 +51,17 @@ export class InlineActivateHandler
     e: KeyboardEvent,
     context: RangedEventContext
   ): boolean | void {
-    const { range } = context;
+    const { range, block } = context;
     let inline;
 
     if (
       range.collapsed &&
-      (inline = this.findInlineBlock(range.startContainer))
+      (inline = this.findInlineBlock(
+        range.startContainer,
+        block.findEditable(range.startContainer)!
+      ))
     ) {
-      // TODO 
+      // TODO
       // this.instance.edit(context, inline);
       return true;
     }
@@ -53,13 +73,13 @@ export class InlineActivateHandler
       if (this.instance.findInline(range.startContainer)) {
         return true;
       } else {
-        this.instance.deactivate();
+        page.setActiveInline();
       }
     }
   }
 
   handleMouseDown(e: MouseEvent, context: EventContext): boolean | void {
-    // Find instance ，get Handler 
+    // Find instance ，get Handler
     this.instance.hide();
   }
 
@@ -78,12 +98,12 @@ export class InlineActivateHandler
     e: KeyboardEvent,
     context: RangedEventContext
   ): boolean | void {
-    const { range } = context;
+    const { range, page } = context;
     let inline;
     if ((inline = this.instance.findInline(range.startContainer))) {
       this.instance.activate(context, inline);
     } else {
-      this.instance.deactivate();
+      page.setActiveInline();
     }
   }
 
@@ -109,29 +129,32 @@ export class InlineActivateHandler
           matchIndex + 1,
           range.startOffset
         );
-        const node = this.instance.create(text);
-        const offset = block.getOffset();
+        // const manager = page.getInlineManager<InlineMath>("inline_math")
+        // const node = manager.create(text);
+        // const offset = block.getOffset();
         // const offset.
-        const command = new ListCommandBuilder({ block, page, node, offset })
-          .withLazyCommand(({ page, block, offset }) => {
-            return new TextDeleteSelection({
+        // const editable = block.findEditable(range.startContainer)!;
+        const index = block.findEditableIndex(range.startContainer);
+        const start =
+          block.getBias([range.startContainer, range.startOffset]) -
+          text.length -
+          1;
+        const command = new ListCommandBuilder({ block, page, node })
+          .withLazyCommand(({ page, block }) => {
+            return new TextDelete({
               page,
               block,
-              delOffset: {
-                start: offset.start - text.length - 1,
-                end: offset.start,
-                index: offset.index,
-              },
-            });
+              start,
+              index,
+              token_number: text.length + 1,
+            }).onExecute();
           })
-          .withLazyCommand(({ page, block, offset, node }) => {
+          .withLazyCommand(({ page, block, node }) => {
             return new NodeInsert({
               page,
               block,
-              insertOffset: {
-                start: offset.start - text.length - 1,
-                index: offset.index,
-              },
+              start,
+              index,
               node,
             });
           })

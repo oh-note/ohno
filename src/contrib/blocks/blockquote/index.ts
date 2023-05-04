@@ -1,16 +1,15 @@
-import { BlockEntry, HandlerEntry } from "@/system/page";
+import { BlockComponent, HandlerEntry } from "@/system/page";
 import { BlockQuoteHandler } from "./handler";
 import { Blockquote } from "./block";
 
 export * from "./handler";
 export * from "./block";
 
-export const BlockquoteHandlers: HandlerEntry = {
-  blockHandler: new BlockQuoteHandler(),
-};
-
-export const BlockquoteBlockEntry: BlockEntry = {
-  name: "blockquote",
-  blockType: Blockquote,
-  handler: new BlockQuoteHandler(),
-};
+export function BlockQuoteBlock(): BlockComponent {
+  return {
+    blockType: Blockquote,
+    handlers: {
+      blocks: { blockquote: new BlockQuoteHandler() },
+    },
+  };
+}

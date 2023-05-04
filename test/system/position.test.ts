@@ -7,9 +7,9 @@ import {
 import { ValidNode, getTagName, outerHTML } from "@/helper/element";
 import { addMarkdownHint } from "@/helper/markdown";
 import {
-  offsetToRange,
+  intervalToRange,
   getTokenSize,
-  rangeToOffset,
+  rangeToInterval,
   FIRST_POSITION,
   LAST_POSITION,
   offsetAfter,
@@ -28,15 +28,15 @@ import {
 function tryThis(p: ValidNode) {
   const size = getTokenSize(p);
   for (let i = 0; i < size; i++) {
-    const range = offsetToRange(p, { start: i })!;
-    const rerange = offsetToRange(p, { start: i - size - 1 })!;
+    const range = intervalToRange(p, { start: i })!;
+    const rerange = intervalToRange(p, { start: i - size - 1 })!;
     expect(range.startContainer).toStrictEqual(rerange.startContainer);
     expect(range.startOffset).toBe(rerange.startOffset);
   }
   let res = "";
   for (let i = 0; i < size; i++) {
     const offset = { start: i, end: i + 1 };
-    const range = offsetToRange(p, offset)!;
+    const range = intervalToRange(p, offset)!;
     try {
       res += range.cloneContents().textContent;
     } catch {}
@@ -97,7 +97,7 @@ describe("position", () => {
     const p = createElement("p");
     p.innerHTML = "L<b>d<i>i<code>c</code></i></b>";
     addMarkdownHint(p);
-    let init = offsetToRange(p, { start: 8, end: 9 })!;
+    let init = intervalToRange(p, { start: 8, end: 9 })!;
     expect(getPrevLocation(init.endContainer, init.endOffset)).toStrictEqual([
       init.startContainer,
       init.startOffset,
@@ -107,7 +107,7 @@ describe("position", () => {
     const size = getTokenSize(p);
     for (let i = 0; i < size; i++) {
       const offset = { start: i, end: i + 1 };
-      init = offsetToRange(p, offset)!;
+      init = intervalToRange(p, offset)!;
       expect(
         getNextLocation(init.startContainer, init.startOffset)
       ).toStrictEqual([init.endContainer, init.endOffset]);
@@ -120,14 +120,14 @@ describe("position", () => {
 
   test("offsetToRange/text node", () => {
     const text = createTextNode("012345");
-    expect(offsetToRange(text, FIRST_POSITION)?.startContainer).toStrictEqual(
+    expect(intervalToRange(text, FIRST_POSITION)?.startContainer).toStrictEqual(
       text
     );
-    expect(offsetToRange(text, FIRST_POSITION)?.startOffset).toBe(0);
-    expect(offsetToRange(text, LAST_POSITION)?.endContainer).toStrictEqual(
+    expect(intervalToRange(text, FIRST_POSITION)?.startOffset).toBe(0);
+    expect(intervalToRange(text, LAST_POSITION)?.endContainer).toStrictEqual(
       text
     );
-    expect(offsetToRange(text, LAST_POSITION)?.endOffset).toBe(text.length);
+    expect(intervalToRange(text, LAST_POSITION)?.endOffset).toBe(text.length);
     tryThis(text);
   });
 
@@ -138,7 +138,10 @@ describe("position", () => {
     // 0 1   2 3   4 5      6 7       8    9    10
     // Lor<b>|**<i>*|a*</i>**</b>m
     addMarkdownHint(p);
-    const coffset = rangeToOffset(p, offsetToRange(p, { start: 8, end: 9 })!);
+    const coffset = rangeToInterval(
+      p,
+      intervalToRange(p, { start: 8, end: 9 })!
+    );
     expect(coffset.start).toBe(8);
     expect(coffset.end).toBe(9);
   });
@@ -149,15 +152,15 @@ describe("position", () => {
     // Lor<b>|**<i>*|a*</i>**</b>m
     addMarkdownHint(p);
     expect(
-      offsetToRange(p, { start: 4, end: 5 })!.cloneContents().textContent
+      intervalToRange(p, { start: 4, end: 5 })!.cloneContents().textContent
     ).toBe("*");
 
     expect(
-      offsetToRange(p, { start: 6, end: 7 })!.cloneContents().textContent
+      intervalToRange(p, { start: 6, end: 7 })!.cloneContents().textContent
     ).toBe("*");
 
     expect(
-      offsetToRange(p, { start: 7, end: 8 })!.cloneContents().textContent
+      intervalToRange(p, { start: 7, end: 8 })!.cloneContents().textContent
     ).toBe("**");
 
     p.innerHTML = "L<b>d<i>i<code>c</code></i></b>";
@@ -165,10 +168,10 @@ describe("position", () => {
     // 0 1   2 3   4 5      6 7       8    9    10
     addMarkdownHint(p);
     expect(
-      offsetToRange(p, { start: 7, end: 8 })!.cloneContents().textContent
+      intervalToRange(p, { start: 7, end: 8 })!.cloneContents().textContent
     ).toBe("`");
     expect(
-      offsetToRange(p, { start: 8, end: 9 })!.cloneContents().textContent
+      intervalToRange(p, { start: 8, end: 9 })!.cloneContents().textContent
     ).toBe("*");
   });
 
@@ -176,7 +179,7 @@ describe("position", () => {
     const p = createElement("p");
     p.innerHTML = "<b></b>";
     addMarkdownHint(p);
-    const res = rangeToOffset(p, createRange(p.firstChild!, 1));
+    const res = rangeToInterval(p, createRange(p.firstChild!, 1));
     expect(res.start).toBe(1);
   });
 
@@ -188,11 +191,11 @@ describe("position", () => {
     addMarkdownHint(p);
 
     expect(
-      offsetToRange(p, { start: 5, end: 6 })!.cloneContents().textContent
+      intervalToRange(p, { start: 5, end: 6 })!.cloneContents().textContent
     ).toBe("*");
     // TODO happy-dom bugs, TypeError: clone.substringData is not a function
     expect(
-      offsetToRange(p, { start: 7, end: 8 })!.cloneContents().textContent
+      intervalToRange(p, { start: 7, end: 8 })!.cloneContents().textContent
     ).toBe("*");
   });
 
@@ -201,7 +204,7 @@ describe("position", () => {
     p.innerHTML = "Lor<b>e</b>m";
 
     expect(
-      offsetToRange(p, { start: 4, end: 5 })!.cloneContents().textContent
+      intervalToRange(p, { start: 4, end: 5 })!.cloneContents().textContent
     ).toBe("e");
   });
 
@@ -236,22 +239,22 @@ describe("position", () => {
     p.innerHTML = "<b>text</b>";
     // <b>text|</b>
     range.setStart(p.firstChild!, 1);
-    expect(rangeToOffset(p, range).start).toBe(5);
+    expect(rangeToInterval(p, range).start).toBe(5);
 
     p.innerHTML = "<b><i></i></b>";
     // <b><i></i>|</b>
     range.setStart(p.firstChild!, 1);
-    expect(rangeToOffset(p, range).start).toBe(3);
+    expect(rangeToInterval(p, range).start).toBe(3);
     // <b>|<i></i></b>
     range.setStart(p.firstChild!, 0);
-    expect(rangeToOffset(p, range).start).toBe(1);
+    expect(rangeToInterval(p, range).start).toBe(1);
     p.innerHTML = "<b>123<i></i></b>";
     range.setStart(p.firstChild!, 1);
-    expect(rangeToOffset(p, range).start).toBe(4);
+    expect(rangeToInterval(p, range).start).toBe(4);
 
     p.innerHTML = "<b></b>";
     range.setStart(p, 1);
-    expect(rangeToOffset(p, range).start).toBe(2);
+    expect(rangeToInterval(p, range).start).toBe(2);
   });
   test("mathElement", () => {
     const p = createElement("p");
@@ -267,19 +270,21 @@ describe("position", () => {
     );
     expect(getTokenSize(p)).toBe(2);
     // |<label>...</label>
-    expect(offsetToRange(p, { start: 0 })?.startOffset).toBe(0);
+    expect(intervalToRange(p, { start: 0 })?.startOffset).toBe(0);
     // [<label>...</label>]
-    expect(getTagName(offsetToRange(p, { start: 1 })?.startContainer!)).toBe(
+    expect(getTagName(intervalToRange(p, { start: 1 })?.startContainer!)).toBe(
       "label"
     );
     // <label>...</label>|
-    expect(offsetToRange(p, { start: 2 })?.startOffset).toBe(0);
-    expect(getTagName(offsetToRange(p, { start: 2 })?.startContainer!)).toBe(
+    expect(intervalToRange(p, { start: 2 })?.startOffset).toBe(0);
+    expect(getTagName(intervalToRange(p, { start: 2 })?.startContainer!)).toBe(
       "#text"
     );
-    expect(offsetToRange(p, { start: 2 })?.startContainer.textContent).toBe("");
-    expect(rangeToOffset(p, offsetToRange(p, { start: 2 })!).start).toBe(2);
-    expect(offsetToRange(p, { start: 3 })).toBe(null);
+    expect(intervalToRange(p, { start: 2 })?.startContainer.textContent).toBe(
+      ""
+    );
+    expect(rangeToInterval(p, intervalToRange(p, { start: 2 })!).start).toBe(2);
+    expect(intervalToRange(p, { start: 3 })).toBe(null);
   });
 
   test("2023-04-03-18-15", () => {
@@ -287,14 +292,14 @@ describe("position", () => {
     const p = createElement("p");
     p.innerHTML = "<b>t</b>";
     // <b>t</b>| -> container = p, offset = 1, container.childList[offset] === null
-    expect(rangeToOffset(p, offsetToRange(p, { start: 3 })!).start).toBe(3);
+    expect(rangeToInterval(p, intervalToRange(p, { start: 3 })!).start).toBe(3);
     p.innerHTML = "<b><i>t</i><i></i></b>";
 
-    expect(getTagName(offsetToRange(p, { start: 4 })?.startContainer!)).toBe(
+    expect(getTagName(intervalToRange(p, { start: 4 })?.startContainer!)).toBe(
       "b"
     );
-    expect(rangeToOffset(p, offsetToRange(p, { start: 4 })!).start).toBe(4);
-    expect(rangeToOffset(p, offsetToRange(p, { start: 6 })!).start).toBe(6);
+    expect(rangeToInterval(p, intervalToRange(p, { start: 4 })!).start).toBe(4);
+    expect(rangeToInterval(p, intervalToRange(p, { start: 6 })!).start).toBe(6);
   });
 
   test("inOrder", () => {
@@ -308,23 +313,23 @@ describe("position", () => {
     addMarkdownHint(p);
     expect(getTokenSize(p)).toBe(12);
     let range: Range;
-    range = offsetToRange(p, { start: 0 })!;
+    range = intervalToRange(p, { start: 0 })!;
     expect(range.startContainer.textContent).toBe("Lor");
     expect(range.startOffset).toBe(0);
-    range = offsetToRange(p, { start: 1 })!;
+    range = intervalToRange(p, { start: 1 })!;
     expect(range.startOffset).toBe(1);
-    range = offsetToRange(p, { start: 3 })!;
+    range = intervalToRange(p, { start: 3 })!;
     expect(range.startOffset).toBe(3);
     expect(range.startContainer.textContent).toBe("Lor");
-    range = offsetToRange(p, { start: 4 })!;
+    range = intervalToRange(p, { start: 4 })!;
     expect(range.startContainer.textContent).toBe("e");
     expect(getTagName(range.startContainer)).toBe("#text");
     expect(range.startOffset).toBe(0);
-    range = offsetToRange(p, { start: 5 })!;
+    range = intervalToRange(p, { start: 5 })!;
     expect(range.startContainer.textContent).toBe("e");
     expect(getTagName(range.startContainer)).toBe("#text");
     expect(range.startOffset).toBe(1);
-    range = offsetToRange(p, { start: 6 })!;
+    range = intervalToRange(p, { start: 6 })!;
     expect(range.startContainer.textContent).toBe("a");
     expect(getTagName(range.startContainer)).toBe("#text");
     expect(range.startOffset).toBe(0);
@@ -333,11 +338,11 @@ describe("position", () => {
     expect(getTokenSize(p)).toBe(7);
     addMarkdownHint(p);
 
-    range = offsetToRange(p, { start: 0 })!;
+    range = intervalToRange(p, { start: 0 })!;
     expect(getTagName(range.startContainer)).toBe("#text");
     expect(range.startOffset).toBe(0);
 
-    range = offsetToRange(p, { start: 5 })!;
+    range = intervalToRange(p, { start: 5 })!;
     expect(getTagName(range.startContainer.parentElement!)).toBe("i");
     expect(range.startOffset).toBe(0);
   });
@@ -350,7 +355,7 @@ describe("rangeToOffset", () => {
       const size = getTokenSize(p);
       for (let i = 0; i < size; i++) {
         const offset = { start: i };
-        const coffset = rangeToOffset(p, offsetToRange(p, offset)!);
+        const coffset = rangeToInterval(p, intervalToRange(p, offset)!);
         expect(offset.start).toBe(coffset.start);
       }
     }

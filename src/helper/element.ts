@@ -6,7 +6,7 @@ import {
 } from "./consts";
 import { ElementTagName, createElement } from "./document";
 
-export type ValidNode = Text | HTMLElement;
+export type ValidNode = Text | HTMLElement | Element;
 
 export interface Condition {
   emptyText?: boolean;

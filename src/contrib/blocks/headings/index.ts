@@ -1,17 +1,15 @@
-export * from "./handler";
-import { BlockEntry, HandlerEntry } from "@/system/page";
-import { HeadingsHandler } from "./handler";
+import { BlockComponent } from "@/system/page";
 import { Headings } from "./block";
+import { HeadingsHandler } from "./handler";
 
 export * from "./handler";
 export * from "./block";
 
-export const HeadingHandlers: HandlerEntry = {
-  blockHandler: new HeadingsHandler(),
-};
-
-export const HeadingsBlockEntry: BlockEntry = {
-  name: "headings",
-  blockType: Headings,
-  handler: new HeadingsHandler(),
-};
+export function HeadingsBlock(): BlockComponent {
+  return {
+    blockType: Headings,
+    handlers: {
+      blocks: { headings: new HeadingsHandler() },
+    },
+  };
+}

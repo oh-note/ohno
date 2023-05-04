@@ -1,4 +1,4 @@
-import { createElement, getDefaultRange } from "@/helper/document";
+import { createElement } from "@/helper/document";
 import {
   EventContext,
   Handler,
@@ -7,14 +7,10 @@ import {
   dispatchKeyDown,
 } from "@/system/handler";
 import {
-  FIRST_POSITION,
   LAST_POSITION,
-  Offset,
   getTokenSize,
   locationToBias,
-  offsetToRange,
-  rangeToOffset,
-  setOffset,
+  tokenBetweenRange,
 } from "@/system/position";
 import {
   BlockCreate,
@@ -23,10 +19,10 @@ import {
 } from "@/contrib/commands/block";
 import { ValidNode, outerHTML, parentElementWithTag } from "@/helper/element";
 import { ListCommandBuilder } from "@/contrib/commands/concat";
-import { TextDeleteSelection } from "@/contrib/commands/text";
+// import { TextDeleteSelection } from "@/contrib/commands/text";
 
 import { List } from "./block";
-import { AnyBlock, Block } from "@/system/block";
+import { AnyBlock } from "@/system/block";
 import {
   ContainerInsert,
   ContainerRemove,
@@ -37,31 +33,36 @@ import { addMarkdownHint } from "@/helper/markdown";
 import { Paragraph } from "../paragraph";
 import { FormatMultipleText } from "@/contrib/commands/format";
 import { formatTags } from "@/system/format";
-import { TextInsert } from "@/contrib/commands";
+import { RichTextDelete, TextInsert } from "@/contrib/commands";
 import { ListInit } from "./block";
-import { createRange, setRange } from "@/system/range";
+import { createRange, setLocation, setRange } from "@/system/range";
+import { EditableInterval } from "@/system/base";
 
-export interface DeleteContext extends EventContext {
+export interface DeleteContext extends RangedEventContext {
   nextBlock: AnyBlock;
 }
 
 export function prepareDeleteCommand({
   page,
   block,
+  range,
   nextBlock,
 }: DeleteContext) {
-  const offset = block.getOffset();
-  const containers = block.containers();
+  // const offset = block.getOffset();
+  const start = block.getBias([range.startContainer, range.startOffset]);
+  const editable = block.getCurrentEditable();
+  const index = block.getEditableIndex(editable);
+  const containers = block.getEditables();
   const builder = new ListCommandBuilder({ page, block, nextBlock });
-  if (offset.index === containers.length - 1) {
+  if (index === containers.length - 1) {
     // 在最后一个 index 时
     // 如果是 list ，就合并 BlockRemove -> ContainerCreate
 
-    if (nextBlock.multiContainer) {
+    if (nextBlock.isMultiEditable) {
       builder
         .withLazyCommand(({ page, block, nextBlock }, extra) => {
           const containers = nextBlock
-            .containers()
+            .getEditables()
             .map((item) => item.cloneNode(true));
           extra["containers"] = containers;
           return new BlockRemove({
@@ -71,11 +72,11 @@ export function prepareDeleteCommand({
         })
         .withLazyCommand(({ block, page }, { containers }) => {
           return new ContainerInsert({
-            block: block,
-            index: offset.index!,
-            newContainer: containers,
             page,
-            afterOffset: { ...LAST_POSITION, index: offset.index },
+            block,
+            index,
+            newContainer: containers,
+            afterOffset: { ...LAST_POSITION, index },
             where: "below",
           });
         });
@@ -83,45 +84,44 @@ export function prepareDeleteCommand({
       // 如果是 paragraph，就 BlockRemove -> TextInsert
 
       builder
-        .withLazyCommand(({ block, page }, extra) => {
+        .withLazyCommand(({ page }, extra) => {
           extra["innerHTML"] = nextBlock.root.innerHTML;
-
           return new BlockRemove({
+            page,
             block: nextBlock,
-            page: page,
           });
         })
         .withLazyCommand(({ block, page }, { innerHTML }) => {
-          return new TextInsert(
-            {
-              block,
-              page,
-              insertOffset: offset,
-              innerHTML,
-            },
-            ({ block, insertOffset }) => {
-              block.setOffset(insertOffset);
-            }
-          );
+          return new TextInsert({
+            page,
+            block,
+            start,
+            index,
+            // insertOffset: offset,
+            innerHTML,
+          }).onExecute(({ block, start, index }) => {
+            setLocation(block.getLocation(start, index)!);
+          });
         });
     }
   } else {
     // 在中间 index 时，将下一个 container 的内容合并， ContainerRemove -> TextInsert
     builder
       .withLazyCommand(({ block, page }, extra) => {
-        const nextIndex = offset.index! + 1;
+        const nextIndex = index + 1;
         extra["innerHTML"] = containers[nextIndex].innerHTML;
 
-        return new ContainerRemove({ block, page, index: [nextIndex] });
+        return new ContainerRemove({ block, page, indexs: [nextIndex] });
       })
       .withLazyCommand(({ block, page }, { innerHTML }) => {
-        return new TextInsert(
-          { block, page, innerHTML, insertOffset: offset },
-          ({ block, insertOffset }) => {
-            block.setOffset(insertOffset);
-          }
-        ).onExecute(({ block, insertOffset }) => {
-          block.setOffset(insertOffset);
+        return new TextInsert({
+          block,
+          page,
+          innerHTML,
+          start,
+          index,
+        }).onExecute(({ block, start, index }) => {
+          setLocation(block.getLocation(start, index)!);
         });
       });
   }
@@ -135,11 +135,11 @@ export function removeSelection({ range, page, block }: EventContext) {
   const startLi = parentElementWithTag(range.startContainer, "li", block.root)!;
   const endLi = parentElementWithTag(range.endContainer, "li", block.root);
 
-  const offsets: Offset[] = [];
+  const offsets: EditableInterval[] = [];
 
-  let offset: Offset;
+  let offset: EditableInterval;
   for (
-    let i = block.getIndexOfContainer(startLi), li = startLi;
+    let i = block.getEditableIndex(startLi), li = startLi;
     ;
     i++, li = li.nextElementSibling as HTMLElement
   ) {
@@ -178,63 +178,53 @@ export function removeSelection({ range, page, block }: EventContext) {
 
   const builder = new ListCommandBuilder({ page, block })
     .withLazyCommand(() => {
-      return new TextDeleteSelection({
+      const { start, index } = offsets[offsets.length - 1];
+      const token_number = offsets[offsets.length - 1].end - start;
+      return new RichTextDelete({
         block,
         page,
-        delOffset: offsets[offsets.length - 1],
+        start: offsets[offsets.length - 1].start,
+        index,
+        token_number,
       }).onUndo(() => {
-        // debugger;
-        const [startContainer, startOffset] = block.getLocation(
-          offsets[0].start,
-          { index: offsets[0].index }
+        const startLoc = block.getLocation(offsets[0].start, offsets[0].index)!;
+        const endLoc = block.getLocation(
+          offsets[offsets.length - 1].end,
+          offsets[offsets.length - 1].index
         )!;
-        const [endContainer, endOffset] = block.getLocation(
-          offsets[offsets.length - 1].end!,
-          {
-            index: offsets[offsets.length - 1].index,
-          }
-        )!;
-        setRange(
-          createRange(startContainer, startOffset, endContainer, endOffset)
-        );
-        // block.getLocation(delOffset.start, { index: delOffset.index });
+        setRange(createRange(...startLoc, ...endLoc));
       });
     })
     .withLazyCommand(() => {
-      offsets[0].start;
-      return new TextDeleteSelection({
-        block,
-        page,
-        delOffset: offsets[0],
-      });
+      const { start, index } = offsets[0];
+      const token_number = offsets[0].end - start;
+      return new RichTextDelete({ page, block, start, index, token_number });
     })
     .withLazyCommand(() => {
-      const container = block.getContainer(offsets[offsets.length - 1].index);
+      const editable = block.getEditable(offsets[offsets.length - 1].index);
+      const { index } = offsets[offsets.length - 1];
       return new TextInsert({
         page,
         block,
-        innerHTML: container.innerHTML,
-        insertOffset: { ...LAST_POSITION, index: offsets[0].index },
-      }).onExecute(({ block, insertOffset }) => {
-        const [startContainer, startOffset] = block.getLocation(
-          insertOffset.start,
-          { index: insertOffset.index }
-        )!;
-        setRange(createRange(startContainer, startOffset));
+        innerHTML: editable.innerHTML,
+        start: 0,
+        index,
+      }).onExecute(({ block }) => {
+        const { start, index } = offsets[0];
+        setLocation(block.getLocation(start, index)!);
       });
     })
     .withLazyCommand(() => {
       return new ContainerRemove({
         block,
         page,
-        index: offsets.slice(1).map((item) => item.index!),
+        indexs: offsets.slice(1).map((item) => item.index!),
       });
     });
   return builder;
 }
 
 export class ListHandler extends Handler implements KeyDispatchedHandler {
-  name: string = "list";
   handleKeyPress(
     e: KeyboardEvent,
     context: RangedEventContext
@@ -257,45 +247,58 @@ export class ListHandler extends Handler implements KeyDispatchedHandler {
 
     if (parentElementWithTag(range.commonAncestorContainer, "li", block.root)) {
       // 没有跨 container
-      const container = block.findContainer(range.commonAncestorContainer)!;
-      const index = block.getIndexOfContainer(container);
-      const offset = { ...rangeToOffset(container, range), index };
-      command = new TextDeleteSelection({
+      const editable = block.findEditable(range.commonAncestorContainer)!;
+      const index = block.getEditableIndex(editable);
+      const token_number = tokenBetweenRange(range);
+      const start = block.getBias([range.startContainer, range.startOffset]);
+      const end = block.getBias([range.endContainer, range.endOffset]);
+      command = new RichTextDelete({
         page,
         block,
-        delOffset: offset,
-      }).onExecute(({ block }) => {
-        block.setOffset({ ...offset, end: undefined });
-      });
+        start,
+        index,
+        token_number,
+      })
+        .onExecute(({ block }) => {
+          setLocation(block.getLocation(start, index)!);
+        })
+        .onUndo(({ block }) => {
+          setRange(block.getRange({ start, end }, index)!);
+        });
     } else {
       const builder = removeSelection({ page, block, range });
       command = builder.build();
     }
     page.executeCommand(command);
-
     return true;
   }
   handleDeleteDown(
     e: KeyboardEvent,
-    { page, block }: EventContext
+    { page, block, range }: RangedEventContext
   ): boolean | void {
-    const range = getDefaultRange();
-
     // 非 collapse 情况下都应该由 beforeInput 处理
-    if (!block.isRight(range) || !range.collapsed) {
+    if (
+      !range.collapsed ||
+      !block.isLocationInRight([range.startContainer, range.startOffset])
+    ) {
       return;
     }
+    // TODO 合并下一个 Editable
 
     const nextBlock = page.getNextBlock(block);
     if (!nextBlock) {
       // 在右下方，不做任何操作
-      e.preventDefault();
-      e.stopPropagation();
       return true;
     }
+
     // 需要将下一个 Block 的第一个 Container 删除，然后添加到尾部
     // 执行过程是 TextInsert -> ContainerDelete
-    const command = prepareDeleteCommand({ page, block, nextBlock }).build();
+    const command = prepareDeleteCommand({
+      page,
+      block,
+      nextBlock,
+      range,
+    }).build();
     page.executeCommand(command);
     return true;
   }
@@ -305,7 +308,7 @@ export class ListHandler extends Handler implements KeyDispatchedHandler {
   }
 
   updateValue({ block }: EventContext) {
-    const containers = block.containers();
+    const containers = block.getEditables();
     const lvstack: number[] = [];
     containers.forEach((container, ind, arr) => {
       const level = parseFloat(container.getAttribute("data-level") || "0");
@@ -323,8 +326,8 @@ export class ListHandler extends Handler implements KeyDispatchedHandler {
 
   indent(context: EventContext, add: boolean = true) {
     const { page, block } = context;
-    const container = block.currentContainer();
-    const index = block.getIndexOfContainer(container);
+    const container = block.getCurrentEditable();
+    const index = block.getEditableIndex(container);
     const command = new ListCommandBuilder({ block, index, container })
       .withLazyCommand(({ block, index, container }) => {
         let level = this.getLevelOfContainer(container as HTMLLIElement);
@@ -371,17 +374,22 @@ export class ListHandler extends Handler implements KeyDispatchedHandler {
     return parseInt(container.getAttribute("data-level") || "0");
   }
 
-  handleBackspaceDown(e: KeyboardEvent, context: EventContext): boolean | void {
+  handleBackspaceDown(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): boolean | void {
     const { block, page, range } = context;
-    if (!range) {
-      throw new NoRangeError();
-    }
-    if (!block.isLeft(range) || !range.collapsed) {
+    if (
+      !range.collapsed ||
+      !block.isLocationInLeft([range.startContainer, range.startOffset])
+    ) {
       return;
     }
     // 此时一定是非选中状态下在最左侧按下 BackSpace
-    const offset = block.getOffset(range);
-    const container = block.getContainer(offset.index);
+    // const offset = block.getOffset(range);
+    const container = block.findEditable(range.startContainer)!;
+    const liIndex = block.getEditableIndex(container);
+    // const container = block.getContainer(offset.index);
     const level = this.getLevelOfContainer(container as HTMLLIElement);
     if (level > 0) {
       this.indent(context, false);
@@ -389,16 +397,15 @@ export class ListHandler extends Handler implements KeyDispatchedHandler {
     }
 
     let command;
-    const cn = block.containers().length;
+    const cn = block.getEditables().length;
     if (cn === 1) {
+      // 仅剩一个 Editable 时，将整个block 替换为 paragraph 即可
       command = new BlockReplace({
         block,
         page,
-        offset: FIRST_POSITION,
         newBlock: new Paragraph({
-          innerHTML: block.firstContainer().innerHTML,
+          innerHTML: block.getFirstEditable().innerHTML,
         }),
-        newOffset: FIRST_POSITION,
       });
     } else {
       // 只需要考虑 Paragraph 类和 List 类型的退格删除导致的 Block 间信息增删行为
@@ -410,16 +417,16 @@ export class ListHandler extends Handler implements KeyDispatchedHandler {
         .withLazyCommand((_, extra) => {
           // 删除 index 之后的全部 Container(包括 index)，但是保留内容
           const containers = block
-            .containers()
-            .filter((item, index) => index >= offset.index!);
+            .getEditables()
+            .filter((item, index) => index >= liIndex!);
           extra["containers"] = containers.map((item) => item.cloneNode(true));
-          const index = Array.from(
+          const indexs = Array.from(
             { length: containers.length },
-            (_, index) => index + offset.index!
+            (_, index) => index + liIndex
           );
-          return new ContainerRemove({ page, block, index }).onUndo(
-            ({ index }) => {
-              block.setOffset({ index: index[0], start: 0 });
+          return new ContainerRemove({ page, block, indexs }).onUndo(
+            ({ indexs }) => {
+              setLocation(block.getLocation(0, indexs[0])!);
             }
           );
         })
@@ -431,13 +438,11 @@ export class ListHandler extends Handler implements KeyDispatchedHandler {
           return new BlockCreate({
             page,
             block,
-            offset: FIRST_POSITION,
             newBlock: new this.ListBlockType({
               children: (containers as HTMLElement[]).slice(
                 1
               ) as HTMLLIElement[],
             }),
-            newOffset: FIRST_POSITION,
             where: "after",
           }).removeCallback();
         })
@@ -446,15 +451,13 @@ export class ListHandler extends Handler implements KeyDispatchedHandler {
           return new BlockCreate({
             page,
             block,
-            offset: FIRST_POSITION,
             newBlock: new Paragraph({ innerHTML: containers[0].innerHTML }),
-            newOffset: FIRST_POSITION,
             where: "after",
           }).onUndo();
         })
         .withLazyCommand(({ block, page }) => {
           // BackSpace 之前的行（默认不做操作，如果之前没有行了，则将 block 删除）
-          if (offset.index === 0) {
+          if (liIndex === 0) {
             return new BlockRemove({ block, page });
           }
           return;
@@ -469,20 +472,20 @@ export class ListHandler extends Handler implements KeyDispatchedHandler {
 
   updateView(context: EventContext) {}
 
-  handleEnterDown(e: KeyboardEvent, context: EventContext): boolean | void {
+  handleEnterDown(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): boolean | void {
     const { page, block, range } = context;
-    e.stopPropagation();
-    e.preventDefault();
-    if (!range) {
-      throw new NoRangeError();
-    }
-
     // 检测是否跨 Container
     if (parentElementWithTag(range.commonAncestorContainer, "li", block.root)) {
       // 没有跨 Container
       // 先删除当前选中
       // 再删除光标后内容
       // 再将光标后内容作为新内容插入
+      const editable = block.findEditable(range.startContainer)!;
+      const index = block.getEditableIndex(editable);
+
       const builder = new ListCommandBuilder({
         page,
         block,
@@ -493,53 +496,62 @@ export class ListHandler extends Handler implements KeyDispatchedHandler {
             // 没有选中文本，不需要删除
             return;
           }
-          const delOffset: Offset = block.getOffset(range);
-          const command = new TextDeleteSelection({
+          const start = block.getBias([
+            range.startContainer,
+            range.startOffset,
+          ]);
+          const token_number = tokenBetweenRange(range);
+
+          const command = new RichTextDelete({
             page,
             block,
-            delOffset,
-          }).onUndo(({ block, delOffset }) => {
-            block.setOffset(delOffset);
+            index,
+            start,
+            token_number,
+          }).onUndo(({ block, start, index }) => {
+            setRange(
+              block.getRange({ start, end: start + token_number }, index)!
+            );
           });
           return command;
         })
         .withLazyCommand(({ block, page, range }, extra, status) => {
-          const container = block.findContainer(range.startContainer)!;
-          const index = block.getIndexOfContainer(container);
-          const token_number = getTokenSize(container);
-          if (block.isRight(range, container)) {
+          const full_token_number = getTokenSize(editable);
+          if (
+            block.isLocationInRight([range.startContainer, range.startOffset])
+          ) {
             // 已经在最右侧了，直接返回并新建 Block
             extra["innerHTML"] = "";
-            extra["index"] = index;
-            extra["token_number"] = token_number;
             return;
           }
-          // 获取光标到右侧的文本，删除并将其作为新建 Block 的参数
-          const offset: Offset = {
-            start: locationToBias(
-              container,
-              range.startContainer as ValidNode,
-              range.startOffset
-            ),
-            end: getTokenSize(container),
-            index,
-          };
 
-          const tailSelectedRange = offsetToRange(container, offset);
+          // 获取光标到右侧的文本，删除并将其作为新建 Block 的参数
+          const start = block.getBias([
+            range.startContainer,
+            range.startOffset,
+          ]);
+          const tailSelectedRange = block.getRange(
+            {
+              start,
+              end: full_token_number,
+            },
+            editable
+          )!;
           const newContent = tailSelectedRange!.cloneContents();
 
           extra["innerHTML"] = outerHTML(newContent);
-          extra["index"] = index;
-          extra["token_number"] = token_number;
-          return new TextDeleteSelection({
-            block: block,
+          return new RichTextDelete({
             page: page,
-            beforeOffset: { ...offset, end: undefined },
-            delOffset: offset,
+            block: block,
+            index,
+            start,
+            token_number: full_token_number - start,
+          }).onUndo(({ block, start, index }) => {
+            setLocation(block.getLocation(start, index)!);
           });
         })
-        .withLazyCommand(({ block, page }, { innerHTML, index }) => {
-          if (innerHTML === undefined || index === undefined) {
+        .withLazyCommand(({ block, page }, { innerHTML }) => {
+          if (innerHTML === undefined) {
             throw new Error("sanity check");
           }
           const newLi = createElement("li");
@@ -555,6 +567,7 @@ export class ListHandler extends Handler implements KeyDispatchedHandler {
           })
             .onExecute(() => {
               this.updateValue(context);
+              setLocation(block.getLocation(0, index + 1)!);
             })
             .onUndo(() => {
               this.updateValue(context);
@@ -565,52 +578,74 @@ export class ListHandler extends Handler implements KeyDispatchedHandler {
       return true;
     }
 
+    // 跨多个 li 选中
     const startLi = parentElementWithTag(
       range.startContainer,
       "li",
       block.root
     )!;
+    const startIndex = block.getEditableIndex(startLi);
     const endLi = parentElementWithTag(range.endContainer, "li", block.root)!;
-    const startIndex = block.getIndexOfContainer(startLi);
-    const endIndex = block.getIndexOfContainer(endLi);
+    const endIndex = block.getEditableIndex(endLi);
 
-    const startOffset = {
-      start: locationToBias(
-        startLi,
-        range.startContainer as ValidNode,
-        range.startOffset
-      ),
-      end: getTokenSize(startLi),
-      index: startIndex,
-    };
-    const endOffset = {
-      start: 0,
-      end: locationToBias(
-        endLi,
-        range.endContainer as ValidNode,
-        range.endOffset
-      ),
-      index: endIndex,
-    };
+    // const startOffset = {
+    //   start: locationToBias(
+    //     startLi,
+    //     range.startContainer as ValidNode,
+    //     range.startOffset
+    //   ),
+    //   end: getTokenSize(startLi),
+    //   index: startIndex,
+    // };
+    // const endOffset = {
+    //   start: 0,
+    //   end: locationToBias(
+    //     endLi,
+    //     range.endContainer as ValidNode,
+    //     range.endOffset
+    //   ),
+    //   index: endIndex,
+    // };
 
-    const blockOffset = block.getGlobalOffset(range);
+    const globalStart = block.getGlobalBias([
+      range.startContainer,
+      range.startOffset,
+    ]);
+    const globalEnd = block.getGlobalBias([
+      range.startContainer,
+      range.startOffset,
+    ]);
+
+    // const command = new RichTextDelete()
+
     const builder = new ListCommandBuilder({ page, block })
-      .withLazyCommand(() => {
-        return new TextDeleteSelection({
-          block,
+      .withLazyCommand(({ page, block }, extra) => {
+        const start = block.getBias([range.startContainer, range.startOffset]);
+        extra["start"] = start;
+
+        return new RichTextDelete({
           page,
-          delOffset: startOffset,
+          block,
+          start,
+          index: startIndex,
+          token_number: getTokenSize(startLi) - start,
         }).onUndo(({ block }) => {
-          block.setGlobalOffset(blockOffset);
+          block.getRange({ start: globalStart, end: globalEnd });
         });
       })
       .withLazyCommand(() => {
-        return new TextDeleteSelection({
-          block,
+        const token_number = block.getBias([
+          range.endContainer,
+          range.endOffset,
+        ]);
+        return new RichTextDelete({
           page,
-          delOffset: endOffset,
-        }).onExecute(({ block, delOffset }) => {
-          block.setOffset({ start: 0, index: delOffset.index });
+          block,
+          start: 0,
+          index: endIndex,
+          token_number,
+        }).onExecute(({ block, start, index }) => {
+          setLocation(block.getLocation(-1, startIndex)!);
         });
       })
       .withLazyCommand(() => {
@@ -623,7 +658,7 @@ export class ListHandler extends Handler implements KeyDispatchedHandler {
         return new ContainerRemove({
           block,
           page,
-          index: index,
+          indexs: index,
         })
           .onExecute(() => {
             this.updateValue(context);
@@ -655,11 +690,11 @@ export class ListHandler extends Handler implements KeyDispatchedHandler {
     )!;
     const endLi = parentElementWithTag(range.endContainer, "li", block.root);
 
-    const offsets: Offset[] = [];
+    const offsets: EditableInterval[] = [];
 
-    let offset: Offset;
+    let offset: EditableInterval;
     for (
-      let i = block.getIndexOfContainer(startLi), li = startLi;
+      let i = block.getEditableIndex(startLi), li = startLi;
       ;
       i++, li = li.nextElementSibling as HTMLElement
     ) {
@@ -697,7 +732,15 @@ export class ListHandler extends Handler implements KeyDispatchedHandler {
     }
 
     let command;
-    const blockOffset = block.getGlobalOffset(range);
+    const globalStart = block.getGlobalBias([
+      range.startContainer,
+      range.startOffset,
+    ]);
+    const globalEnd = block.getGlobalBias([
+      range.endContainer,
+      range.endOffset,
+    ]);
+    // const blockOffset = block.getGlobalOffset(range);
     if (
       e.inputType === "formatBold" ||
       e.inputType === "formatItalic" ||
@@ -718,40 +761,50 @@ export class ListHandler extends Handler implements KeyDispatchedHandler {
       // 下面这些都是要先把选中内容删干净，即跨 Container 的删除
       const builder = new ListCommandBuilder({ page, block })
         .withLazyCommand(() => {
-          return new TextDeleteSelection({
+          // delOffset: offsets[offsets.length - 1],
+          const { start, index } = offsets[offsets.length - 1];
+          const token_number = offsets[offsets.length - 1].end - start;
+          return new RichTextDelete({
             block,
             page,
-            delOffset: offsets[offsets.length - 1],
+            start,
+            index,
+            token_number,
           }).onUndo(() => {
-            block.setGlobalOffset(blockOffset);
+            setRange(block.getRange({ start: globalStart, end: globalEnd })!);
           });
         })
         .withLazyCommand(() => {
-          offsets[0].start;
-          return new TextDeleteSelection({
+          const { start, index } = offsets[0];
+          const token_number = offsets[0].end - start;
+          return new RichTextDelete({
             block,
             page,
-            delOffset: offsets[0],
+            start,
+            index,
+            token_number,
           });
         })
-        .withLazyCommand((_, extra) => {
-          const container = block.getContainer(
-            offsets[offsets.length - 1].index
-          );
+        .withLazyCommand(() => {
+          const editable = block.getEditable(offsets[offsets.length - 1].index);
+          const { index } = offsets[offsets.length - 1];
+
           return new TextInsert({
             page,
             block,
-            innerHTML: container.innerHTML,
-            insertOffset: { ...LAST_POSITION, index: offsets[0].index },
-          }).onExecute(({ block, insertOffset }) => {
-            block.setOffset(insertOffset);
+            innerHTML: editable.innerHTML,
+            start: getTokenSize(editable),
+            index,
+          }).onExecute(({ block, start, index }) => {
+            setLocation(block.getLocation(start, index)!);
           });
         })
+
         .withLazyCommand(() => {
           return new ContainerRemove({
             block,
             page,
-            index: offsets.slice(1).map((item) => item.index!),
+            indexs: offsets.slice(1).map((item) => item.index!),
           })
             .onUndo(() => {
               this.updateValue(context);
@@ -763,11 +816,14 @@ export class ListHandler extends Handler implements KeyDispatchedHandler {
 
       if (e.inputType === "insertText") {
         builder.withLazyCommand(({ page, block }) => {
+          // insertOffset: { ...offsets[0], end: undefined },
+          const { start, index } = offsets[0];
           return new TextInsert({
             page,
             block,
             innerHTML: e.data as string,
-            insertOffset: { ...offsets[0], end: undefined },
+            start,
+            index,
           });
         });
 

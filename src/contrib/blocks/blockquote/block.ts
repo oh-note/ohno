@@ -8,6 +8,7 @@ export interface BlockQuoteInit extends BlockInit {
 }
 
 export class Blockquote extends Block<BlockQuoteInit> {
+  type: string = "blockquote";
   constructor(init?: BlockQuoteInit) {
     init = init || {};
     if (!init.el) {

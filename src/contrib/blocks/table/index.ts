@@ -1,16 +1,15 @@
-import { BlockEntry, HandlerEntry } from "@/system/page";
-import { TableHandler } from "./handler";
+import { BlockComponent, HandlerEntry } from "@/system/page";
 import { Table } from "./block";
+import { TableHandler } from "./handler";
 
 export * from "./handler";
 export * from "./block";
 
-export const TableHandlers: HandlerEntry = {
-  blockHandler: new TableHandler(),
-};
-
-export const TableBlockEntry: BlockEntry = {
-  name: "table",
-  blockType: Table,
-  handler: new TableHandler(),
-};
+export function TableBlock(): BlockComponent {
+  return {
+    blockType: Table,
+    handlers: {
+      blocks: { list: new TableHandler() },
+    },
+  };
+}

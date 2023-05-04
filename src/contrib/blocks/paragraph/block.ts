@@ -7,8 +7,8 @@ export interface ParagraphInit extends BlockInit {
 }
 
 export class Paragraph extends Block<ParagraphInit> {
+  type: string = "paragraph";
   constructor(init?: ParagraphInit) {
-    // placeholder: "type / for start"
     init = init || {};
     if (!init.el) {
       init.el = createElement("p", {

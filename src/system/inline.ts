@@ -1,3 +1,4 @@
+// inline manager 的基本行为，所有 inline 类（包裹了 label tag）都需要一个 manager 来管理行为（除了默认的格式 tag）
 import { createElement } from "@/helper/document";
 import { EventContext, Handler, HandlerOption } from "./handler";
 import { Page } from "./page";
@@ -42,7 +43,7 @@ export class Inline<T extends InlineInit> {
     if (!this.context) {
       return undefined;
     }
-    return this.context.page.status.activeInline;
+    return this.context.page.activeInline;
   }
 
   // findInline(range?: Range): HTMLElement | null {
@@ -76,7 +77,7 @@ export class Inline<T extends InlineInit> {
   }
   activate(context: EventContext, inline: HTMLElement) {
     this.context = context;
-    context.page.activateInline(inline);
+    context.page.setActiveInline(inline);
 
     this.onActivate(context, inline);
   }
@@ -86,7 +87,7 @@ export class Inline<T extends InlineInit> {
   edit(context: EventContext, inline: HTMLElement) {
     this.snap = inline.cloneNode(true) as HTMLElement;
     this.context = context;
-    context.page.activateInline(inline);
+    context.page.setActiveInline(inline);
     this.onEdit(context, inline);
   }
 
@@ -95,7 +96,7 @@ export class Inline<T extends InlineInit> {
   deactivate() {
     if (this.context) {
       this.onDeactivate(this.context, this.current);
-      this.context.page.deactivateInline();
+      this.context.page.setActiveInline();
     }
   }
 

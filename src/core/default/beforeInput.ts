@@ -1,30 +1,24 @@
 import { EventContext, Handler } from "@/system/handler";
-import {
-  TextDeleteSelection,
-  TextDeleteBackward,
-  TextDeleteForward,
-} from "@/contrib/commands/text";
+
 import { FormatText } from "@/contrib/commands/format";
-import { HTMLElementTagName, getDefaultRange } from "@/helper/document";
+import { HTMLElementTagName } from "@/helper/document";
 import {
   createRange,
-  getPrevRange,
-  normalizeRange,
+  setLocation,
+  setRange,
   tryGetBoundsRichNode,
-  validateLocation,
   validateRange,
 } from "@/system/range";
-import { getTagName, parentElementWithTag } from "@/helper/element";
+import { getTagName } from "@/helper/element";
 import { IBlockRemove } from "@/contrib/commands/inlineblock";
 
-import {
-  FIRST_POSITION,
-  LAST_POSITION,
-  elementOffset,
-  rangeToOffset,
-} from "@/system/position";
-import { TextInsert } from "@/contrib/commands";
+import { elementOffset, tokenBetweenRange } from "@/system/position";
 import { ListCommandBuilder } from "@/contrib/commands/concat";
+import {
+  RichTextDelete,
+  TextDelete,
+  TextInsert,
+} from "@/contrib/commands/text";
 
 export function defaultHandleBeforeInput(
   handler: Handler,
@@ -41,33 +35,42 @@ export function defaultHandleBeforeInput(
   validateRange(range);
 
   let command;
-  const offset = block.getOffset(range);
+  const editable = block.findEditable(range.startContainer)!;
+  const index = block.getEditableIndex(editable);
+  let start = block.getBias([range.startContainer, range.startOffset]);
   if (e.inputType === "insertText") {
     if (range.startContainer instanceof HTMLLabelElement) {
-      offset.start++;
+      start++;
     }
     if (range.collapsed) {
       command = new TextInsert({
-        page: page,
-        block: block,
-        insertOffset: offset,
-        innerHTML: e.data as string,
+        page,
+        block,
+        innerHTML: e.data!,
+        plain: true,
+        start,
+        index,
       });
     } else {
       command = new ListCommandBuilder(context)
         .withLazyCommand(() => {
-          return new TextDeleteSelection({
-            delOffset: offset,
+          const token_number = tokenBetweenRange(range);
+          return new RichTextDelete({
             page,
             block,
+            start,
+            index,
+            token_number,
           });
         })
         .withLazyCommand(() => {
           return new TextInsert({
-            page: page,
-            block: block,
-            insertOffset: { ...offset, end: undefined },
-            innerHTML: e.data as string,
+            page,
+            block,
+            innerHTML: e.data!,
+            plain: true,
+            start,
+            index,
           });
         })
         .build();
@@ -75,21 +78,24 @@ export function defaultHandleBeforeInput(
     }
   } else if (e.inputType === "insertFromPaste") {
     if (e.dataTransfer) {
-      let content: string;
-      if ((content = e.dataTransfer.getData("text/html"))) {
-        console.log(content);
+      let innerHTML: string;
+      if ((innerHTML = e.dataTransfer.getData("text/html"))) {
+        console.log(innerHTML);
         command = new TextInsert({
           page,
           block,
-          insertOffset: block.getOffset(range),
-          innerHTML: content,
+          start,
+          index,
+          innerHTML,
         });
-      } else if ((content = e.dataTransfer.getData("text/plain"))) {
+      } else if ((innerHTML = e.dataTransfer.getData("text/plain"))) {
         command = new TextInsert({
           page,
           block,
-          insertOffset: block.getOffset(range),
-          innerHTML: content,
+          innerHTML,
+          plain: true,
+          start,
+          index,
         });
       } else {
         // eslint-disable-next-line no-debugger
@@ -106,36 +112,22 @@ export function defaultHandleBeforeInput(
   ) {
     // 所有的 multi block 应该被 multiblock handler 接受
     // 所有的 multi container 应该被 block handler 接受
-
-    const offset = block.getOffset();
-    command = new TextDeleteSelection({
-      delOffset: offset,
+    const token_number = tokenBetweenRange(range);
+    command = new RichTextDelete({
       page,
       block,
-    }).onExecute(({ block, delOffset }) => {
-      block.setOffset({ ...delOffset, end: undefined });
+      start,
+      index,
+      token_number,
+    }).onExecute(({ block, start, index }) => {
+      setLocation(block.getLocation(start, index)!);
     });
   } else if (
     e.inputType === "deleteContentBackward" ||
     e.inputType === "deleteWordBackward"
   ) {
     let hint;
-
     // TODO 讨论在 label 边界出的删除行为应该是首次选中还是直接删除
-    // if (range.startContainer instanceof HTMLLabelElement) {
-    //   const offset = block.getOffset();
-    //   command = new IBlockRemove({
-    //     page,
-    //     block,
-    //     label: range.startContainer,
-    //   })
-    //     .onExecute(() => {
-    //       block.setOffset({ ...offset, start: offset.start - 1 });
-    //     })
-    //     .onUndo(() => {
-    //       block.setOffset(offset);
-    //     });
-    // } else
     if (
       (hint = tryGetBoundsRichNode(
         range.startContainer,
@@ -145,58 +137,52 @@ export function defaultHandleBeforeInput(
     ) {
       const format = getTagName(hint) as HTMLElementTagName;
       if (format === "label") {
-        const offset = block.getOffset();
         command = new IBlockRemove({
           page,
           block,
           label: hint as HTMLLabelElement,
         })
           .onExecute(() => {
-            block.setOffset({ ...offset, start: offset.start - 2 });
+            setLocation(block.getLocation(start - 2, editable)!);
           })
           .onUndo(() => {
-            block.setOffset(offset);
+            setLocation(block.getLocation(start, editable)!);
           });
       } else {
+        const bias = block.getBias([range.startContainer, range.startOffset]);
         command = new FormatText({
           block,
           page,
           format,
-          offset: {
-            ...elementOffset(block.currentContainer(), hint),
-            index: offset.index,
+          interval: {
+            ...elementOffset(editable, hint),
+            index,
           },
+        }).onUndo(({ block, interval }) => {
+          setLocation(block.getLocation(bias, interval.index)!);
         });
       }
     } else {
-      const prev =
-        e.inputType === "deleteWordBackward"
-          ? block.getPrevWordLocation(range.startContainer, range.startOffset)!
-          : block.getPrevLocation(range.startContainer, range.startOffset)!;
+      let token_number = -1;
+      if (e.inputType === "deleteWordBackward") {
+        const prev = block.getPrevWordLocation([
+          range.startContainer,
+          range.startOffset,
+        ])!;
+        const prevRange = createRange(
+          ...prev,
+          range.startContainer,
+          range.startOffset
+        );
+        token_number = -tokenBetweenRange(prevRange);
+      }
 
-      const prevRange = createRange(
-        ...prev,
-        range.startContainer,
-        range.startOffset
-      );
-      const start = block.getLocalBias(...prev);
-      const end = block.getLocalBias(range.startContainer, range.startOffset);
-      const index = block.getIndexOfContainer(
-        block.findContainer(range.startContainer)!
-      );
-      // const { start, end, index } = block.getOffset(prevRange);
-      // prev.setEnd(range.startContainer, range.startOffset);
-      command = new TextDeleteBackward({
-        page: page,
-        block: block,
-        // offset: offset,
-        start,
-        end,
-        index,
-        // innerHTML: prevRange?.cloneContents().textContent as string,
-      });
+      command = new TextDelete({ block, page, start, token_number, index });
     }
-  } else if (e.inputType === "deleteContentForward") {
+  } else if (
+    e.inputType === "deleteContentForward" ||
+    e.inputType === "deleteWordForward"
+  ) {
     // 判断是否是格式字符边界，两种情况：
     // ?|<b>asd</b>
     // <b>asd|</b>?
@@ -223,29 +209,38 @@ export function defaultHandleBeforeInput(
           block,
           page,
           format,
-          offset: elementOffset(block.currentContainer(), hint),
+          interval: { ...elementOffset(editable, hint), index },
+        }).onUndo(({ block, interval }) => {
+          setLocation(block.getLocation(interval.start, interval.index)!);
         });
       }
     } else {
-      const next = block.getNextRange(range)!;
-      const offset = block.getOffset(range);
-      next.setStart(range.startContainer, range.startOffset);
-      command = new TextDeleteForward({
-        page: page,
-        block: block,
-        offset: offset,
-        innerHTML: next?.cloneContents().textContent as string,
-        intime: { range: range },
-      }).onExecute(({ block, offset }) => {
-        block.setOffset({ ...offset, end: undefined });
-      });
+      let token_number = 1;
+      if (e.inputType === "deleteWordForward") {
+        const next = block.getNextWordLocation([
+          range.startContainer,
+          range.startOffset,
+        ])!;
+        const nextRange = createRange(
+          range.startContainer,
+          range.startOffset,
+          ...next
+        );
+        token_number = tokenBetweenRange(nextRange);
+      }
+      command = new TextDelete({ page, block, start, token_number, index });
     }
   } else if (e.inputType === "formatBold" || e.inputType === "formatItalic") {
+    const end = block.getBias([range.endContainer, range.endOffset]);
     command = new FormatText({
       page: page,
       block: block,
       format: e.inputType === "formatBold" ? "b" : "i",
-      offset: block.getOffset(range),
+      interval: {
+        start,
+        end,
+        index,
+      },
     });
   }
 

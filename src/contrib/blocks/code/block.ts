@@ -38,28 +38,10 @@ export class Code extends Block<CodeInit> {
       }
     }
   }
-  public get edit_root(): HTMLElement {
+
+  public get inner(): HTMLElement {
     return this.plain;
   }
-
-  // getOffset(range?: Range | undefined): Offset {
-
-  // }
-  // setOffset(offset: Offset, defaultOffset?: Offset | undefined): void {
-
-  // }
-  // getNextRange(range: Range, container?: HTMLElement | undefined): Range | null {
-
-  // }
-  // getNextWordPosition(range: Range, container?: HTMLElement | undefined): Range | null {
-
-  // }
-  // getPrevRange(range: Range, container?: HTMLElement | undefined): Range | null {
-
-  // }
-  // getPrevWordPosition(range: Range, container?: HTMLElement | undefined): Range | null {
-
-  // }
 
   updateRender() {
     const code = this.plain.textContent || "";

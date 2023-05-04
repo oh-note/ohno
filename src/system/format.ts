@@ -1,9 +1,10 @@
+// 添加和删除格式的基本行为逻辑
 import {
   ElementTagName,
   HTMLElementTagName,
   createElement,
 } from "@/helper/document";
-import { Offset, elementOffset, offsetToRange } from "./position";
+import { elementOffset, intervalToRange } from "./position";
 import {
   ValidNode,
   getTagName,
@@ -13,6 +14,7 @@ import {
 } from "@/helper/element";
 import { nodesOfRange, normalizeRange } from "./range";
 import { addMarkdownHint } from "@/helper/markdown";
+import { Interval } from "./base";
 
 export const formatTags: { [key in InputType]?: HTMLElementTagName } = {
   formatBold: "b",
@@ -39,11 +41,11 @@ export interface FormatMeta {
  */
 export function getFormatStatus(
   container: HTMLElement,
-  offset: Offset,
+  offset: Interval,
   format: ElementTagName
 ): FormatMeta {
-  const range = offsetToRange(container, offset)!;
-  normalizeRange(range.commonAncestorContainer as Node, range);
+  const range = intervalToRange(container, offset)!;
+  normalizeRange(range.commonAncestorContainer as HTMLElement, range);
   // 1. 判断选中内容是否是待应用格式的子节点（1. 是遍历子节点，判断不出来）
   const fmt = parentElementWithTag(
     range.commonAncestorContainer,
@@ -90,7 +92,7 @@ export function addFormat(
   container: HTMLElement,
   format: HTMLElementTagName,
   { fathers, range }: FormatMeta
-): { fathers: ValidNode[]; offsets: Offset[] } {
+): { fathers: ValidNode[]; offsets: Interval[] } {
   const wrap = createElement(format, {
     children: fathers,
     textContent: outerHTML(...fathers) === "" ? "" : undefined,
@@ -104,11 +106,11 @@ export function removeFormat(
   container: HTMLElement,
   format: HTMLElementTagName,
   { formatedChildren, fathers }: FormatMeta
-): { offsets: Offset[]; flatFathers: ValidNode[]; boundingOffset: Offset } {
-  const offsets: Offset[] = [];
+): { offsets: Interval[]; flatFathers: ValidNode[]; boundingOffset: Interval } {
+  const offsets: Interval[] = [];
   let reduce = 0;
   let left: number, right: number;
-  function update(offset: Offset) {
+  function update(offset: Interval) {
     left = left === undefined || left > offset.start ? offset.start : left;
     right =
       right === undefined || (offset.end && right < offset.end)

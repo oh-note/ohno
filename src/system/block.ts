@@ -1,40 +1,38 @@
+// 实现 block 的基本接口和默认行为
 import { addMarkdownHint } from "@/helper/markdown";
 import {
-  Offset,
   biasToLocation,
   locationToBias,
-  makeBiasPos,
   offsetAfter,
-  offsetToRange,
-  rangeToOffset,
-  setOffset,
   tokenBetweenRange,
 } from "./position";
 import {
+  RefLocation,
   createRange,
-  getNextRange,
   getNextWordLocation,
   getNextWordRange,
   getPrevLocation,
-  getPrevRange,
   getPrevWordRange,
   getSoftLineHead,
   getSoftLineTail,
-  isFirstLine,
-  isLastLine,
   locationInFirstLine,
   locationInLastLine,
   normalizeRange,
-  setRange,
+  validateLocation,
 } from "./range";
-import { getDefaultRange } from "@/helper/document";
 import { Page } from "./page";
 import { BLOCK_CLASS } from "./config";
 import { ValidNode, isParent } from "@/helper/element";
 import { getNextLocation } from "./range";
 import { getPrevWordLocation } from "./range";
-
-export type Order = string;
+import {
+  EditableFlag,
+  EditableInterval,
+  IBlock,
+  IComponent,
+  Interval,
+  Order,
+} from "./base";
 
 export interface BlockInit {
   order?: Order;
@@ -45,21 +43,20 @@ export interface BlockInit {
 /**
  * Block 会默认对所有 children 添加 markdown hint
  */
-export class Block<T extends BlockInit> {
+export class Block<T extends BlockInit> implements IBlock {
   root: HTMLElement;
   type: string = "";
   init: T;
   page?: Page;
-  multiContainer: boolean = false;
-  mergeable: boolean = true; // 表格、图片、公式复杂组件等视为独立的 unmergeable，multiblock 下只删除内容，不删除 container
+  isMultiEditable: boolean = false;
+  mergeable: boolean = true; // 表格、图片、公式复杂组件等视为独立的 unmergeable，multiblock 下只删除内容，不删除 editable
   order: Order = "";
+  parent?: Page | undefined;
+
   constructor(init: T) {
     const { el, order } = init as BlockInit;
     if (!el) {
       throw new Error("root el should be created befire constructor");
-    }
-    if (this.type === "") {
-      this.type = el.tagName.toLowerCase();
     }
 
     this.root = el;
@@ -75,465 +72,300 @@ export class Block<T extends BlockInit> {
     }
   }
 
-  public get edit_root(): HTMLElement {
+  getFirstEditable(): HTMLElement {
+    return this.inner;
+  }
+  getLastEditable(): HTMLElement {
+    return this.inner;
+  }
+
+  getGlobalLocation(bias: number): RefLocation | null {
+    return biasToLocation(this.inner, bias);
+  }
+
+  public get outer(): HTMLElement {
     return this.root;
   }
 
-  /**
-   * attached 表示 block 已渲染
-   * @param page
-   */
-  attached(page: Page) {
-    this.page = page;
+  public get inner(): HTMLElement {
+    return this.root;
   }
-  /**
-   * Activate 表示 block 存在焦点，焦点在 block 的具体位置在 block 内部处理
-   * @param page
-   */
-  activate(page?: Page) {
-    if (page) {
-      this.page = page;
-    }
-    this.root.classList.add("active");
-  }
-  /**
-   * 表示 block 已失去焦点
-   */
-  deactivate() {
-    this.root.classList.remove("active");
-  }
-  /**
-   * 表示 block 已不可见，但内部元素仍然还存在
-   */
-  detached() {
-    this.page = undefined;
-    this.deactivate();
+  setParent(parent?: Page): void {
+    this.parent = parent;
   }
 
-  equals(block: Block<T>) {
-    return block.root === this.root;
+  serialize(option?: any): string {
+    throw new Error("Method not implemented.");
+  }
+  // deserialize(): IComponent {
+  //   throw new Error("Method not implemented.");
+  // }
+  equals(component?: IComponent | undefined): boolean {
+    return component !== undefined && component.root === this.root;
+  }
+  clone(): IBlock {
+    throw new Error("Method not implemented.");
+  }
+  detach(): void {
+    this.root.remove();
   }
 
-  assignOrder(order: Order, left?: string, right?: string) {
+  setOrder(order: string): void {
     if (this.order) {
-      if ((left && left > this.order) || (right && right > this.order)) {
-        throw new Error(
-          "old order not match" + `${this.order}, ${order} ${left} ${right}`
-        );
-      }
+      // if ((left && left > this.order) || (right && right > this.order)) {
+      //   throw new Error(
+      //     "old order not match" + `${this.order}, ${order} ${left} ${right}`
+      //   );
+      // }
       return;
     }
     this.order = order;
     this.root.setAttribute("order", order);
   }
 
-  currentContainer() {
-    // document.getSelection().focusNode
-    return this.edit_root;
+  getCurrentEditable(): HTMLElement {
+    return this.inner;
   }
 
-  findContainer(node: Node): HTMLElement | null {
-    return this.edit_root;
+  getEditables(
+    start?: number | undefined,
+    end?: number | undefined
+  ): HTMLElement[] {
+    return [this.inner];
   }
 
-  getContainer(index?: number): HTMLElement {
-    return this.edit_root;
-  }
-
-  leftContainer(el?: HTMLElement): HTMLElement | null {
-    return null;
-  }
-  rightContainer(el?: HTMLElement): HTMLElement | null {
-    return null;
-  }
-  aboveContainer(el?: HTMLElement): HTMLElement | null {
-    return null;
-  }
-  belowContainer(el?: HTMLElement): HTMLElement | null {
-    return null;
-  }
-  nextContainer(el?: HTMLElement): HTMLElement | null {
-    return null;
-  }
-  prevContainer(el?: HTMLElement): HTMLElement | null {
-    return null;
-  }
-
-  firstContainer(): HTMLElement {
-    return this.edit_root;
-  }
-  lastContainer(): HTMLElement {
-    return this.edit_root;
-  }
-  containers(): HTMLElement[] {
-    return [this.edit_root];
-  }
-
-  getIndexOfContainer(container: HTMLElement, reversde?: boolean): number {
-    if (reversde) {
-      return -1;
-    }
+  getEditableIndex(editable: HTMLElement): number {
     return 0;
   }
 
-  isLeft(range: Range, container?: HTMLElement): boolean {
-    if (!container) {
-      container = this.currentContainer();
-    }
-    if (getPrevRange(range, container)) {
-      return false;
-    }
-    return true;
+  getEditable(flag: EditableFlag): HTMLElement {
+    return this.inner;
   }
-  isRight(range: Range, container?: HTMLElement): boolean {
-    if (!container) {
-      container = this.currentContainer();
-    }
-    if (getNextRange(range, container)) {
-      return false;
-    }
-    return true;
+  findEditableIndex(node: Node): number {
+    const editable = this.findEditable(node, true);
+    return this.getEditableIndex(editable);
   }
-
-  isFirstLine(range: Range, container?: HTMLElement): boolean {
-    if (!container) {
-      container = this.currentContainer();
+  findEditable(node: Node): HTMLElement | null;
+  findEditable(node: Node, raise?: boolean): HTMLElement;
+  findEditable(node: Node, raise?: boolean): HTMLElement | null {
+    if (isParent(node, this.inner)) {
+      return this.inner;
     }
-    return isFirstLine(container, range);
+    if (raise) {
+      throw new Error("editable not found");
+    }
+    return null;
   }
-
-  isLastLine(range: Range, container?: HTMLElement): boolean {
-    if (!container) {
-      container = this.currentContainer();
-    }
-
-    return isLastLine(container, range);
+  getNextEditable(editable: HTMLElement): HTMLElement | null {
+    return null;
   }
-
-  locationInFirstLine(cur: Node, curOffset: number) {
-    const container = this.findContainer(cur);
-    if (!container) {
-      throw new EditableNotFound(cur, this.order);
-    }
-    return locationInFirstLine(container, cur, curOffset);
+  getPrevEditable(editable: HTMLElement): HTMLElement | null {
+    return null;
+  }
+  getLeftEditable(editable: HTMLElement): HTMLElement | null {
+    return null;
+  }
+  getRightEditable(editable: HTMLElement): HTMLElement | null {
+    return null;
+  }
+  getAboveEditable(editable: HTMLElement): HTMLElement | null {
+    return null;
+  }
+  getBelowEditable(editable: HTMLElement): HTMLElement | null {
+    return null;
   }
 
-  locationInLastLine(cur: Node, curOffset: number) {
-    const container = this.findContainer(cur);
-    if (!container) {
-      throw new EditableNotFound(cur, this.order);
+  getRangeLegend(
+    start: [number, EditableFlag],
+    end?: [number, EditableFlag] | undefined
+  ): Range | null {
+    const startLoc = this.getLocation(...start);
+    const endLoc = end ? this.getLocation(...end) : startLoc;
+    if (!startLoc || !endLoc) {
+      return null;
     }
-    return locationInLastLine(container, cur, curOffset);
+    return createRange(...startLoc, ...endLoc);
   }
 
-  getPrevWordPosition(range: Range, container?: HTMLElement): Range | null {
-    if (!container) {
-      container = this.currentContainer();
-    }
-
-    return getPrevWordRange(range, container);
+  getEditableRange(interval: EditableInterval): Range | null {
+    return this.getRange(interval, interval.index);
   }
 
-  getNextWordPosition(range: Range, container?: HTMLElement): Range | null {
-    if (!container) {
-      container = this.currentContainer();
+  /**
+   *
+   * @param interval
+   * @param query
+   */
+  getRange(interval: Interval, query: EditableFlag): Range | null;
+  getRange(interval: Interval): Range | null;
+  getRange(interval: Interval, query?: EditableFlag): Range | null {
+    const editable = query ? this.getEditable(query) : this.inner;
+    if (!editable) {
+      throw new Error("editable not found.");
     }
-    return getNextWordRange(range, container);
+    const start = biasToLocation(editable, interval.start);
+    const end = biasToLocation(editable, interval.end);
+    if (!start || !end) {
+      return null;
+    }
+    return createRange(...start, ...end);
   }
 
-  getPrevLocation(cur: Node, curOffset: number) {
-    const container = this.findContainer(cur);
-    if (!container) {
-      throw new EditableNotFound(cur, this.order);
+  getLocation(bias: number, query: EditableFlag): RefLocation | null {
+    const editable = this.getEditable(query);
+    if (!editable) {
+      throw new Error("editable not found.");
     }
-    return getPrevLocation(cur, curOffset, container);
-  }
-  getNextLocation(cur: Node, curOffset: number) {
-    const container = this.findContainer(cur);
-    if (!container) {
-      throw new EditableNotFound(cur, this.order);
-    }
-    return getNextLocation(cur, curOffset, container);
-  }
-
-  getPrevWordLocation(cur: Node, curOffset: number) {
-    const container = this.findContainer(cur);
-    if (!container) {
-      throw new EditableNotFound(cur, this.order);
-    }
-    return getPrevWordLocation(cur, curOffset, container);
-  }
-  getNextWordLocation(cur: Node, curOffset: number) {
-    const container = this.findContainer(cur);
-    if (!container) {
-      throw new EditableNotFound(cur, this.order);
-    }
-    return getNextWordLocation(cur, curOffset, container);
-  }
-
-  getPrevRange(range: Range, container?: HTMLElement): Range | null {
-    if (!container) {
-      container = this.currentContainer();
-    }
-    return getPrevRange(range, container);
-    // return null;
-  }
-  getNextRange(range: Range, container?: HTMLElement): Range | null {
-    if (!container) {
-      container = this.findContainer(range.startContainer)!;
-      if (!container) {
-        throw new Error("Sanity check");
-      }
-    }
-    return getNextRange(range, container);
-  }
-  getTokenSize(): number {
-    return 0;
-  }
-
-  setRange(range: Range) {
-    setRange(range);
-  }
-
-  getIndex(container?: HTMLElement): number {
-    if (!container) {
-      container = this.currentContainer();
-    }
-    return this.getIndexOfContainer(container);
-  }
-
-  getRange(offset: Offset) {
-    const container = this.getContainer(offset.index);
-    return offsetToRange(container, offset);
-  }
-
-  getLocation(
-    bias: number,
-    { index, container }: { index?: number; container?: HTMLElement }
-  ): [Node, number] | null {
-    if (!container) {
-      container = this.getContainer(index);
-    }
-    if (!container) {
-      throw new EditableNotFound();
-    }
-
-    const result = biasToLocation(container, bias);
+    let result = biasToLocation(editable, bias);
     if (!result) {
       return null;
     }
+    if (result[0] === editable) {
+      result = validateLocation(...result);
+    }
+
     return result;
   }
 
-  getBias(cur: Node, curOffset: number): number {
-    const container = this.findContainer(cur);
-    if (!container) {
-      throw new EditableNotFound(cur, this.order);
+  getBias(loc: RefLocation): number {
+    const editable = this.findEditable(loc[0]);
+    if (!editable) {
+      throw new Error("editable not found");
     }
-    return locationToBias(container, cur as ValidNode, curOffset);
+    return locationToBias(editable, ...loc);
   }
 
-  getLocalBias = this.getBias;
-
-  getGlobalBias(cur: ValidNode, curOffset: number): number {
-    return locationToBias(this.edit_root, cur, curOffset);
+  getGlobalBias(loc: RefLocation): number {
+    return locationToBias(this.inner, ...loc);
   }
-
-  getSoftLineBias(cur: Node, curOffset: number): number {
-    const container = this.findContainer(cur)!;
-    if (!container) {
-      throw new EditableNotFound(cur, this.order);
+  getSoftLineBias(loc: RefLocation): number {
+    const editable = this.findEditable(loc[0])!;
+    if (!editable) {
+      throw new Error("editable not found");
     }
 
-    const [node, offset] = getSoftLineHead(cur, curOffset, container)!;
-    const toHeadRange = createRange(node, offset, cur, curOffset);
+    const [node, offset] = getSoftLineHead(...loc, editable)!;
+    const toHeadRange = createRange(node, offset, ...loc);
     return tokenBetweenRange(toHeadRange);
   }
-
-  getSoftLineHead(cur: Node, curOffset: number): [Node, number] {
-    const container = this.findContainer(cur);
-    if (!container) {
-      throw new EditableNotFound(cur, this.order);
+  getSoftLineHead(loc: RefLocation): RefLocation {
+    const editable = this.findEditable(loc[0])!;
+    if (!editable) {
+      throw new Error("editable not found");
     }
 
-    return getSoftLineHead(cur, curOffset, container);
+    return getSoftLineHead(...loc, editable);
   }
-
-  getSoftLineTail(cur: Node, curOffset: number): [Node, number] {
-    const container = this.findContainer(cur);
-    if (!container) {
-      throw new EditableNotFound(cur, this.order);
+  getSoftLineTail(loc: RefLocation): RefLocation {
+    const editable = this.findEditable(loc[0])!;
+    if (!editable) {
+      throw new Error("editable not found");
     }
-
-    return getSoftLineTail(cur, curOffset, container);
+    return getSoftLineTail(...loc, editable);
   }
-
-  getSoftLineLocation(
-    anchor: Node,
-    anchorOffset: number,
-    bias: number
-  ): [Node, number] | null {
-    const container = this.findContainer(anchor);
-    if (!container) {
-      throw new EditableNotFound(anchor, this.order);
+  getSoftLineLocation(loc: RefLocation, bias: number): RefLocation | null {
+    const editable = this.findEditable(loc[0])!;
+    if (!editable) {
+      throw new Error("editable not found");
     }
-    const [node, offset] = getSoftLineHead(anchor, anchorOffset, container)!;
+
+    const [node, offset] = getSoftLineHead(...loc, editable)!;
 
     const [tgt, tgtOffset] = offsetAfter(node as ValidNode, offset, bias);
-    if (!isParent(tgt, container)) {
+    if (!isParent(tgt, editable)) {
       return null;
     }
     return [tgt, tgtOffset];
   }
 
-  // setSoftLine(cur: Node, curOffset: number, bias: number) {}
-
-  // getLocation(offset:Offset){
-
-  // }
-
-  // 设置当前行的第 n 个
-  setSoftLineWithRange(range: Range, bias: number) {
-    if (!range) {
-      range = getDefaultRange();
-    }
-    if (!range) {
-      throw new NoRangeError();
-    }
-    const container = this.findContainer(range.commonAncestorContainer)!;
-    if (!container) {
-      throw new Error(
-        "should not getOffset in block when range expands multi container."
-      );
+  isLocationInLeft(loc: RefLocation): boolean {
+    const [cur, curOffset] = loc;
+    const editable = this.findEditable(cur);
+    if (!editable) {
+      throw new Error("editable not found.");
     }
 
-    const [node, offset] = getSoftLineHead(
-      range.startContainer,
-      range.startOffset,
-      container
-    )!;
-
-    const [tgt, tgtOffset] = offsetAfter(node as ValidNode, offset, bias);
-    if (!isParent(tgt, container)) {
-      setOffset(container, { start: -1 });
-    } else {
-      const tgtRange = createRange(tgt, tgtOffset);
-      setRange(tgtRange);
+    if (getPrevLocation(...loc, editable)) {
+      return false;
     }
+    return true;
+  }
+  isLocationInRight(loc: RefLocation): boolean {
+    const [cur, curOffset] = loc;
+    const editable = this.findEditable(cur);
+    if (!editable) {
+      throw new Error("editable not found.");
+    }
+    if (getNextLocation(...loc, editable)) {
+      return false;
+    }
+    return true;
+  }
+  isLocationInFirstLine(loc: RefLocation): boolean {
+    const [cur, curOffset] = loc;
+    const editable = this.findEditable(cur);
+    if (!editable) {
+      throw new Error("editable not found.");
+    }
+
+    return locationInFirstLine(editable, ...loc);
+  }
+  isLocationInLastLine(loc: RefLocation): boolean {
+    const [cur, curOffset] = loc;
+    const editable = this.findEditable(cur);
+    if (!editable) {
+      throw new Error("editable not found.");
+    }
+    return locationInLastLine(editable, ...loc);
   }
 
-  getSoftLineBiasWithRange(range?: Range): number {
-    if (!range) {
-      range = getDefaultRange();
-    }
-    if (!range) {
-      throw new NoRangeError();
-    }
-    const container = this.findContainer(range.commonAncestorContainer)!;
-    if (!container) {
-      throw new Error(
-        "should not getOffset in block when range expands multi container."
-      );
+  getPrevWordPosition(range: Range, editable?: HTMLElement): Range | null {
+    if (!editable) {
+      editable = this.getCurrentEditable();
     }
 
-    const [node, offset] = getSoftLineHead(
-      range.startContainer,
-      range.startOffset,
-      container
-    )!;
-    // const index = this.getIndexOfContainer(container);
-    const toHeadRange = createRange(
-      node,
-      offset,
-      range.startContainer,
-      range.startOffset
-    );
-    return tokenBetweenRange(toHeadRange);
+    return getPrevWordRange(range, editable);
   }
 
-  getGlobalOffset(range?: Range) {
-    if (!range) {
-      range = getDefaultRange();
+  getNextWordPosition(range: Range, editable?: HTMLElement): Range | null {
+    if (!editable) {
+      editable = this.getCurrentEditable();
     }
-    if (!range) {
-      throw new NoRangeError();
-    }
-    const offset = rangeToOffset(this.edit_root, range);
-    return offset;
-  }
-  getOffset(range?: Range): Offset {
-    if (!range) {
-      range = getDefaultRange();
-    }
-    if (!range) {
-      throw new NoRangeError();
-    }
-    const container = this.findContainer(range.commonAncestorContainer);
-    if (!container) {
-      throw new Error(
-        "should not getOffset in block when range expands multi container."
-      );
-    }
-    const index = this.getIndexOfContainer(container);
-
-    const offset = rangeToOffset(container, range);
-    offset.index = index;
-    return offset;
+    return getNextWordRange(range, editable);
   }
 
-  setGlobalOffset(offset: Offset) {
-    setOffset(this.edit_root, offset);
+  getPrevLocation(ref: RefLocation): RefLocation | null {
+    const [cur, curOffset] = ref;
+    const editable = this.findEditable(cur);
+    if (!editable) {
+      throw new EditableNotFound(cur, this.order);
+    }
+    return getPrevLocation(cur, curOffset, editable);
+  }
+  getNextLocation(ref: RefLocation) {
+    const [cur, curOffset] = ref;
+    const editable = this.findEditable(cur);
+    if (!editable) {
+      throw new EditableNotFound(cur, this.order);
+    }
+    return getNextLocation(cur, curOffset, editable);
   }
 
-  setLocalOffset(
-    container: HTMLElement,
-    offset: Offset,
-    defaultOffset?: Offset
-  ) {
-    if (!isParent(container, this.edit_root)) {
-      throw new Error("Container is not child of block root.");
+  getPrevWordLocation(ref: RefLocation): RefLocation | null {
+    const [cur, curOffset] = ref;
+    const editable = this.findEditable(cur);
+    if (!editable) {
+      throw new EditableNotFound(cur, this.order);
     }
-    let range = offsetToRange(container, offset);
-    if (!range) {
-      if (!defaultOffset) {
-        throw new Error("Cannot get range by given offset and container");
-      }
-      range = offsetToRange(container, defaultOffset)!;
-    }
-    setRange(range);
+    return getPrevWordLocation(cur, curOffset, editable);
   }
-
-  setOffset(offset: Offset, defaultOffset?: Offset) {
-    const container = this.getContainer(offset.index);
-    if (!container) {
-      throw new Error(
-        `${offset.index} can not specify a container in ${this.edit_root}`
-      );
+  getNextWordLocation(ref: RefLocation): RefLocation | null {
+    const [cur, curOffset] = ref;
+    const editable = this.findEditable(cur);
+    if (!editable) {
+      throw new EditableNotFound(cur, this.order);
     }
-    let range = offsetToRange(container, offset);
-    if (!range) {
-      if (!defaultOffset) {
-        throw new Error("Cannot get range by given offset and container");
-      }
-      range = offsetToRange(container, defaultOffset)!;
-    }
-    this.setRange(range);
-  }
-
-  /**
-   * 将 offset 中的负值转换为正值
-   */
-  correctOffset(offset: Offset): Offset {
-    this.getContainer(offset.index);
-    const container = this.getContainer(offset.index);
-    if (!container) {
-      throw new Error("container not found");
-    }
-    return {
-      ...offset,
-      start: makeBiasPos(container, offset.start)!,
-      end: makeBiasPos(container, offset.end),
-    };
+    return getNextWordLocation(cur, curOffset, editable);
   }
 }
 

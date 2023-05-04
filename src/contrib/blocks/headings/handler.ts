@@ -6,7 +6,7 @@ import {
   RangedEventContext,
   dispatchKeyDown,
 } from "@/system/handler";
-import { FIRST_POSITION, offsetToRange } from "@/system/position";
+import { FIRST_POSITION, intervalToRange } from "@/system/position";
 import { BlockCreate, BlockReplace } from "@/contrib/commands/block";
 import { containHTMLElement } from "@/helper/element";
 import {
@@ -15,6 +15,7 @@ import {
   prepareEnterCommand,
 } from "../paragraph";
 import { Headings } from "./block";
+import { createRange } from "@/system/range";
 
 export class HeadingsHandler extends Handler implements KeyDispatchedHandler {
   name: string = "headings";
@@ -27,10 +28,12 @@ export class HeadingsHandler extends Handler implements KeyDispatchedHandler {
   }
   handleDeleteDown(
     e: KeyboardEvent,
-    { page, block }: EventContext
+    { page, block, range }: RangedEventContext
   ): boolean | void {
-    const range = getDefaultRange();
-    if (!block.isLeft(range) || !range.collapsed) {
+    if (
+      !range.collapsed ||
+      !block.isLocationInLeft([range.startContainer, range.startOffset])
+    ) {
       return;
     }
     const nextBlock = page.getNextBlock(block);
@@ -43,7 +46,7 @@ export class HeadingsHandler extends Handler implements KeyDispatchedHandler {
 
     // 需要将下一个 Block 的第一个 Container 删除，然后添加到尾部
     // 执行过程是 TextInsert -> ContainerDelete
-    if (nextBlock.multiContainer) {
+    if (nextBlock.isMultiEditable) {
       // block.firstContainer();
       throw new Error("Not supported yet");
     } else {
@@ -55,22 +58,18 @@ export class HeadingsHandler extends Handler implements KeyDispatchedHandler {
 
   handleBackspaceDown(
     e: KeyboardEvent,
-    { page, block }: EventContext
+    { page, block, range }: RangedEventContext
   ): boolean | void {
-    const range = getDefaultRange();
-    if (!block.isLeft(range)) {
+    if (!block.isLocationInLeft([range.startContainer, range.startOffset])) {
       return;
     }
 
     const command = new BlockReplace({
       block,
       page,
-      offset: FIRST_POSITION,
       newBlock: new Paragraph({ innerHTML: block.root.innerHTML }),
-      newOffset: FIRST_POSITION,
     });
     page.executeCommand(command);
-    // 向前合并
     return true;
   }
 
@@ -78,29 +77,26 @@ export class HeadingsHandler extends Handler implements KeyDispatchedHandler {
     e: KeyboardEvent,
     { page, block, range }: EventContext
   ): boolean | void {
-    e.stopPropagation();
-    e.preventDefault();
-
     const command = prepareEnterCommand({ page, block, range })
-      .withLazyCommand(({ block, page }, { innerHTML, offset }) => {
-        if (innerHTML === undefined || !offset) {
+      .withLazyCommand(({ block, page }, { innerHTML }) => {
+        if (innerHTML === undefined) {
           throw new Error("sanity check");
         }
         const paragraph = new Paragraph({
           innerHTML: innerHTML,
         });
+        
         return new BlockCreate({
           block: block,
           newBlock: paragraph,
-          offset: offset,
-          newOffset: FIRST_POSITION,
           where: "after",
           page: page,
         });
-      }) // 将新文本添加到
+      })
       .build();
 
     page.executeCommand(command);
+    return true;
   }
   handleSpaceDown(
     e: KeyboardEvent,
@@ -108,16 +104,19 @@ export class HeadingsHandler extends Handler implements KeyDispatchedHandler {
   ): boolean | void {
     const { page, block, range } = context;
 
-    const prefixRange = offsetToRange(block.currentContainer(), { start: 0 })!;
-    prefixRange.setEnd(range.endContainer, range.endOffset);
+    const editable = block.findEditable(range.startContainer)!;
+    const startLoc = block.getLocation(0, editable)!;
+    const prefixRange = createRange(
+      ...startLoc,
+      range.endContainer,
+      range.endOffset
+    );
 
     const prefix = prefixRange.cloneContents().textContent!;
-    let matchRes, command;
     // debugger;
+    let matchRes;
     if ((matchRes = prefix.match(/^(#{1,6})/))) {
-      const offset = block.getOffset();
       const level = matchRes[1].length as 1 | 2 | 3 | 4 | 5 | 6;
-      // if(level)
       let newBlock;
       if ((block as Headings).init.level === level) {
         newBlock = new Paragraph({
@@ -129,12 +128,9 @@ export class HeadingsHandler extends Handler implements KeyDispatchedHandler {
           innerHTML: block.root.innerHTML.replace(/^#+/, ""),
         });
       }
-      const newOffset = FIRST_POSITION;
-      command = new BlockReplace({
+      const command = new BlockReplace({
         page,
         block,
-        offset,
-        newOffset,
         newBlock,
       });
       page.executeCommand(command);

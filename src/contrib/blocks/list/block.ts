@@ -17,6 +17,7 @@
  */
 import { createElement, getDefaultRange } from "@/helper/document";
 import { indexOfNode, parentElementWithTag } from "@/helper/element";
+import { EditableFlag } from "@/system/base";
 import { Block, BlockInit } from "@/system/block";
 
 export interface ListInit extends BlockInit {
@@ -27,7 +28,7 @@ export interface ListInit extends BlockInit {
 
 export class List extends Block<ListInit> {
   type: string = "list";
-  multiContainer: boolean = true;
+  isMultiEditable: boolean = true;
   constructor(init?: ListInit) {
     init = init || {};
     if (!init.el) {
@@ -66,16 +67,15 @@ export class List extends Block<ListInit> {
     super(init);
   }
 
-  indent() {}
-
-  dedent() {}
-
-  // 所有多 Container 下的 currentContainer 只考虑 range.startContainer 位置
-  currentContainer() {
+  getCurrentEditable(): HTMLElement {
     // document.getSelection().focusNode
     const range = getDefaultRange();
 
-    const li = parentElementWithTag(range.startContainer, "li", this.root);
+    const li = parentElementWithTag(
+      range.commonAncestorContainer,
+      "li",
+      this.root
+    );
     if (!li) {
       throw new Error(
         "Error when get currentContainer: focus are not in li element"
@@ -83,53 +83,65 @@ export class List extends Block<ListInit> {
     }
     return li;
   }
-  findContainer(node: Node): HTMLElement | null {
-    const tgt = parentElementWithTag(node, "li", this.root);
-    return tgt;
-  }
-  getContainer(index?: number) {
-    if (!index) {
-      return this.root.firstChild! as HTMLElement;
-    }
-    if (index < 0) {
+
+  getEditable(flag: EditableFlag): HTMLElement {
+    if (typeof flag === "number") {
+      if (flag < 0) {
+        return this.root.querySelector(
+          `li:nth-last-child(${-flag})`
+        ) as HTMLElement;
+      }
+      // selector 从 1 开始，index 从 0 开始
       return this.root.querySelector(
-        `li:nth-last-child(${-index})`
+        `li:nth-child(${flag + 1})`
       ) as HTMLElement;
     }
-    // selector 从 1 开始，index 从 0 开始
-    return this.root.querySelector(`li:nth-child(${index + 1})`) as HTMLElement;
+
+    return flag;
+  }
+  findEditable(node: Node): HTMLElement | null;
+  findEditable(node: Node, raise?: boolean | undefined): HTMLElement;
+  findEditable(node: Node, raise?: boolean | undefined): HTMLElement | null {
+    let tgt;
+    if ((tgt = parentElementWithTag(node, "li", this.root))) {
+      return tgt;
+    }
+    if (raise) {
+      throw new Error("editable not found");
+    }
+    return null;
   }
 
-  leftContainer(el?: HTMLElement) {
+  getLeftEditable(el?: HTMLElement) {
     return el!.previousElementSibling! as HTMLElement;
   }
-  rightContainer(el?: HTMLElement) {
+  getRightEditable(el?: HTMLElement) {
     return el!.nextElementSibling as HTMLElement;
   }
-  aboveContainer(el?: HTMLElement) {
-    return this.leftContainer(el);
+  getAboveEditable(el?: HTMLElement) {
+    return this.getLeftEditable(el);
   }
-  belowContainer(el?: HTMLElement) {
-    return this.rightContainer(el);
+  getBelowEditable(el?: HTMLElement) {
+    return this.getRightEditable(el);
   }
-  prevContainer(el?: HTMLElement | undefined): HTMLElement | null {
-    return this.aboveContainer(el);
+  getPrevEditable(el?: HTMLElement | undefined): HTMLElement | null {
+    return this.getAboveEditable(el);
   }
-  nextContainer(el?: HTMLElement | undefined): HTMLElement | null {
-    return this.belowContainer(el);
+  getNextEditable(el?: HTMLElement | undefined): HTMLElement | null {
+    return this.getBelowEditable(el);
   }
 
-  firstContainer() {
-    return this.root.firstChild as HTMLElement;
+  getFirstEditable() {
+    return this.root.firstElementChild as HTMLElement;
   }
-  lastContainer() {
-    return this.root.lastChild as HTMLElement;
+  getLastEditable() {
+    return this.root.lastElementChild as HTMLElement;
   }
-  containers(): HTMLElement[] {
+  getEditables(): HTMLElement[] {
     return Array.from(this.root.querySelectorAll("li"));
   }
 
-  getIndexOfContainer(container: HTMLElement, reverse?: boolean): number {
+  getEditableIndex(container: HTMLElement, reverse?: boolean): number {
     let index = indexOfNode(container, "li");
     if (reverse) {
       index = index - this.root.childNodes.length - 1;

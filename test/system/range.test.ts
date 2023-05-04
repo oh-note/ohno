@@ -14,7 +14,7 @@ import {
   setRange,
   tryGetBoundsRichNode,
 } from "@/system/range";
-import { offsetToRange, setOffset } from "@/system/position";
+import { intervalToRange, setOffset } from "@/system/position";
 
 describe("range.ts", () => {
   test("getNextOffset/getPrefOffset", () => {
@@ -27,7 +27,8 @@ describe("range.ts", () => {
     setRange(init);
     let [container, offset] = getNextLocation(
       init.startContainer,
-      init.startOffset
+      init.startOffset,
+      p
     )!;
     expect(getTagName(container)).toBe("i");
     expect(offset).toBe(1);
@@ -48,7 +49,7 @@ describe("range.ts", () => {
     p.innerHTML = "012<i>345</i>678";
     addMarkdownHint(p);
     let range, node;
-    setOffset(p, { start: 3 });
+    setOffset(p, { start: 3, end: 3 });
     range = getDefaultRange();
     node = tryGetBoundsRichNode(
       range.startContainer,
@@ -56,7 +57,7 @@ describe("range.ts", () => {
       "right"
     );
     expect(node?.textContent).toBe("*345*");
-    setOffset(p, { start: 4 });
+    setOffset(p, { start: 4, end: 4 });
     range = getDefaultRange();
     node = tryGetBoundsRichNode(
       range.startContainer,
@@ -64,7 +65,7 @@ describe("range.ts", () => {
       "left"
     );
     expect(node?.textContent).toBe("*345*");
-    setOffset(p, { start: 7 });
+    setOffset(p, { start: 7, end: 7 });
     range = getDefaultRange();
     node = tryGetBoundsRichNode(
       range.startContainer,
@@ -72,7 +73,7 @@ describe("range.ts", () => {
       "right"
     );
     expect(node?.textContent).toBe("*345*");
-    setOffset(p, { start: 8 });
+    setOffset(p, { start: 8, end: 8 });
     range = getDefaultRange();
     node = tryGetBoundsRichNode(
       range.startContainer,

@@ -1,7 +1,7 @@
 import {
   Offset,
   elementOffset,
-  offsetToRange,
+  intervalToRange,
   setOffset,
 } from "@/system/position";
 import { AnyBlock } from "@/system/block";
@@ -52,7 +52,7 @@ export class IBlockSubmit extends Command<IBlockReplacePayload> {
     // clone 是为了防止删除时 current（在 document 上的 element）消失
     if (this.buffer.offset) {
       const { offset, label } = this.buffer!;
-      const range = offsetToRange(block.root, {
+      const range = intervalToRange(block.root, {
         start: offset.start,
         end: offset.start + 2,
       })!;
@@ -78,7 +78,7 @@ export class IBlockSubmit extends Command<IBlockReplacePayload> {
   undo(): void {
     const { block } = this.payload;
     const { old, offset } = this.buffer!;
-    const range = offsetToRange(block.root, {
+    const range = intervalToRange(block.root, {
       start: offset.start,
       end: offset.start + 2,
     })!;
@@ -110,7 +110,7 @@ export class IBlockRemove extends Command<IBlockRemovePayload> {
     const { block, label } = this.payload;
     const { offset } = this.buffer;
     if (offset) {
-      const range = offsetToRange(block.root, offset)!;
+      const range = intervalToRange(block.root, offset)!;
       range.deleteContents();
     } else {
       const offset = elementOffset(block.root, label);
@@ -125,7 +125,7 @@ export class IBlockRemove extends Command<IBlockRemovePayload> {
   undo(): void {
     const { block } = this.payload;
     const { label, offset } = this.buffer!;
-    const range = offsetToRange(block.root, {
+    const range = intervalToRange(block.root, {
       start: offset.start,
     })!;
     range.insertNode(label);

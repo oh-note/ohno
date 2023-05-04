@@ -1,16 +1,15 @@
-import { BlockEntry, HandlerEntry } from "@/system/page";
-import { CodeHandler } from "./handler";
+import { BlockComponent, HandlerEntry } from "@/system/page";
 import { Code } from "./block";
+import { CodeHandler } from "./handler";
 
 export * from "./handler";
 export * from "./block";
 
-export const CodeHandlers: HandlerEntry = {
-  blockHandler: new CodeHandler(),
-};
-
-export const CodeBlockEntry: BlockEntry = {
-  name: "code",
-  blockType: Code,
-  handler: new CodeHandler(),
-};
+export function CodeBlock(): BlockComponent {
+  return {
+    blockType: Code,
+    handlers: {
+      blocks: { code: new CodeHandler() },
+    },
+  };
+}

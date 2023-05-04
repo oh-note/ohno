@@ -13,7 +13,7 @@ export interface TableInit extends BlockInit {
 
 export class Table extends Block<TableInit> {
   type: string = "table";
-  multiContainer: boolean = true;
+  isMultiEditable: boolean = true;
   mergeable: boolean = false;
   rows: HTMLTableRowElement[];
   table: HTMLTableElement;

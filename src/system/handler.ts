@@ -1,3 +1,5 @@
+// 事件系统可以处理的事件的定义
+import { IBlock } from "./base";
 import { AnyBlock, Block } from "./block";
 import { Page } from "./page";
 
@@ -18,7 +20,7 @@ export interface RangedEventContext extends EventContext {
 
 export interface MultiBlockEventContext extends EventContext {
   // page: Page;
-  // block: AnyBlock;
+  // block: IBlock;
   endBlock: AnyBlock;
   range: Range;
   blocks: AnyBlock[];
@@ -55,10 +57,7 @@ export interface HandlerMethods {
   handleClick(e: MouseEvent, context: EventContext): void | boolean;
   handleContextMenu(e: MouseEvent, context: EventContext): void | boolean;
   handleInput(e: Event, context: EventContext): void | boolean;
-  handleBeforeInput(
-    e: InputEvent,
-    context: RangedEventContext
-  ): void | boolean;
+  handleBeforeInput(e: InputEvent, context: RangedEventContext): void | boolean;
   handleCompositionEnd(
     e: CompositionEvent,
     context: EventContext
@@ -74,7 +73,6 @@ export interface HandlerMethods {
 }
 
 export class Handler implements HandlerMethods {
-  name: string = "abc";
   option: HandlerOption;
   constructor(option?: any) {
     if (!option) {
@@ -98,20 +96,14 @@ export class Handler implements HandlerMethods {
     e: KeyboardEvent,
     context: RangedEventContext
   ): void | boolean {}
-  handleKeyUp(
-    e: KeyboardEvent,
-    context: RangedEventContext
-  ): void | boolean {}
+  handleKeyUp(e: KeyboardEvent, context: RangedEventContext): void | boolean {}
   handleMouseDown(e: MouseEvent, context: EventContext): void | boolean {}
   handleMouseEnter(e: MouseEvent, context: EventContext): void | boolean {}
   handleMouseLeave(e: MouseEvent, context: EventContext): void | boolean {}
   handleMouseUp(e: MouseEvent, context: EventContext): void | boolean {}
   handleMouseMove(e: MouseEvent, context: EventContext): void | boolean {}
   handleClick(e: MouseEvent, context: EventContext): void | boolean {}
-  handleContextMenu(
-    e: MouseEvent,
-    context: EventContext
-  ): void | boolean {}
+  handleContextMenu(e: MouseEvent, context: EventContext): void | boolean {}
   handleInput(e: TypedInputEvent, context: EventContext): void | boolean {}
   handleBeforeInput(
     e: TypedInputEvent,
@@ -132,14 +124,8 @@ export class Handler implements HandlerMethods {
 }
 
 export interface KeyDispatchedHandler {
-  handleKeyDown(
-    e: KeyboardEvent,
-    context: RangedEventContext
-  ): void | boolean;
-  handleKeyUp(
-    e: KeyboardEvent,
-    context: RangedEventContext
-  ): void | boolean;
+  handleKeyDown(e: KeyboardEvent, context: RangedEventContext): void | boolean;
+  handleKeyUp(e: KeyboardEvent, context: RangedEventContext): void | boolean;
 
   handleEnterDown?(
     e: KeyboardEvent,
@@ -149,10 +135,7 @@ export interface KeyDispatchedHandler {
     e: KeyboardEvent,
     context: RangedEventContext
   ): void | boolean;
-  handleTabDown?(
-    e: KeyboardEvent,
-    context: RangedEventContext
-  ): void | boolean;
+  handleTabDown?(e: KeyboardEvent, context: RangedEventContext): void | boolean;
   handleArrowKeyDown?(
     e: KeyboardEvent,
     context: RangedEventContext
@@ -173,10 +156,7 @@ export interface KeyDispatchedHandler {
     e: KeyboardEvent,
     context: RangedEventContext
   ): void | boolean;
-  handleEndDown?(
-    e: KeyboardEvent,
-    context: RangedEventContext
-  ): void | boolean;
+  handleEndDown?(e: KeyboardEvent, context: RangedEventContext): void | boolean;
   handlePageUpDown?(
     e: KeyboardEvent,
     context: RangedEventContext
@@ -186,18 +166,9 @@ export interface KeyDispatchedHandler {
     context: RangedEventContext
   ): void | boolean;
 
-  handleEnterUp?(
-    e: KeyboardEvent,
-    context: RangedEventContext
-  ): void | boolean;
-  handleSpaceUp?(
-    e: KeyboardEvent,
-    context: RangedEventContext
-  ): void | boolean;
-  handleTabUp?(
-    e: KeyboardEvent,
-    context: RangedEventContext
-  ): void | boolean;
+  handleEnterUp?(e: KeyboardEvent, context: RangedEventContext): void | boolean;
+  handleSpaceUp?(e: KeyboardEvent, context: RangedEventContext): void | boolean;
+  handleTabUp?(e: KeyboardEvent, context: RangedEventContext): void | boolean;
   handleArrowKeyUp?(
     e: KeyboardEvent,
     context: RangedEventContext
@@ -214,14 +185,8 @@ export interface KeyDispatchedHandler {
     e: KeyboardEvent,
     context: RangedEventContext
   ): void | boolean;
-  handleHomeUp?(
-    e: KeyboardEvent,
-    context: RangedEventContext
-  ): void | boolean;
-  handleEndUp?(
-    e: KeyboardEvent,
-    context: RangedEventContext
-  ): void | boolean;
+  handleHomeUp?(e: KeyboardEvent, context: RangedEventContext): void | boolean;
+  handleEndUp?(e: KeyboardEvent, context: RangedEventContext): void | boolean;
   handlePageUpUp?(
     e: KeyboardEvent,
     context: RangedEventContext
@@ -288,43 +253,4 @@ export function dispatchKeyDown(
     }
     return false;
   }
-}
-
-// 只有当执行了跨 Block 区域的操作时才需要 pageHandlers
-export const defaultMultiBlockHandlers: Handler[] = [];
-export const defaultBeforeHandlers: { [key: string]: Handler[] } = {};
-export const defaultStartHandlers: Handler[] = [];
-export const defaultGlobalHandlers: Handler[] = [];
-export const defaultAfterHandlers: { [key: string]: Handler[] } = {};
-
-export function setBeforeHandlers(handler: Handler) {
-  if (!defaultBeforeHandlers[handler.name]) {
-    defaultBeforeHandlers[handler.name] = [];
-  }
-  // console.log(["Register before handler", handler]);
-  defaultBeforeHandlers[handler.name].push(handler);
-}
-
-export function setGlobalHandler(handler: Handler) {
-  // console.log(["Register global handler", handler]);
-  console.log(handler);
-  defaultGlobalHandlers.push(handler);
-}
-export function setStartHandler(handler: Handler) {
-  // console.log(["Register global handler", handler]);
-  console.log(handler);
-  defaultStartHandlers.push(handler);
-}
-
-export function setMultiBlockHandler(handler: Handler) {
-  // console.log(["Register global handler", handler]);
-  defaultMultiBlockHandlers.push(handler);
-}
-
-export function setAfterHandlers(handler: Handler) {
-  if (!defaultAfterHandlers[handler.name]) {
-    defaultAfterHandlers[handler.name] = [];
-  }
-  console.log(["Register after handler", handler]);
-  defaultAfterHandlers[handler.name].push(handler);
 }

@@ -1,16 +1,15 @@
-import { BlockEntry, HandlerEntry } from "@/system/page";
-import { ListHandler } from "./handler";
+import { BlockComponent, HandlerEntry } from "@/system/page";
 import { List } from "./block";
+import { ListHandler } from "./handler";
 
 export * from "./handler";
 export * from "./block";
 
-export const ListHandlers: HandlerEntry = {
-  blockHandler: new ListHandler(),
-};
-
-export const ListBlockEntry: BlockEntry = {
-  name: "list",
-  blockType: List,
-  handler: new ListHandler(),
-};
+export function ListBlock(): BlockComponent {
+  return {
+    blockType: List,
+    handlers: {
+      blocks: { list: new ListHandler() },
+    },
+  };
+}

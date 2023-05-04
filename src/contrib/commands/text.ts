@@ -1,163 +1,157 @@
 import {
-  Offset,
-  elementOffset,
-  getTokenSize,
-  offsetToRange,
-} from "@/system/position";
+  createFlagNode,
+  createTextNode,
+  innerHTMLToNodeList,
+} from "@/helper/document";
+import {
+  ValidNode,
+  calcDepths,
+  mergeAroundLeft,
+  mergeAroundRight,
+  outerHTML,
+} from "@/helper/element";
+import { addMarkdownHint } from "@/helper/markdown";
+import { EditableFlag, IBlock } from "@/system/base";
 import { AnyBlock } from "@/system/block";
 import {
   Command,
   CommandBuffer,
   CommandCallback,
-  Payload,
+  CommandCallbackWithBuffer,
 } from "@/system/history";
 import { Page } from "@/system/page";
-import { createRange, nodesOfRange, setRange } from "@/system/range";
-import { addMarkdownHint } from "@/helper/markdown";
-import { ValidNode, calcDepths } from "@/helper/element";
+import { elementOffset, getTokenSize } from "@/system/position";
 import {
-  createElement,
-  createFlagNode,
-  createTextNode,
-  innerHTMLToNodeList,
-} from "@/helper/document";
+  createRange,
+  getValidAdjacent,
+  nodesOfRange,
+  setLocation,
+  setRange,
+} from "@/system/range";
+
+export interface TextInsertPayload {
+  page: Page;
+  block: AnyBlock;
+  index: number;
+  start: number;
+  innerHTML: string;
+  plain?: boolean;
+}
 
 export interface TextDeletePayload {
   page: Page;
   block: AnyBlock;
-  // offset: Offset;
-
   index: number;
   start: number;
-  end: number;
-
-  // innerHTML: string;
-  // intime?: {
-  //   range: Range;
-  // };
-  undo_hint?: {
-    token_number: number;
-  };
+  token_number: number;
 }
 
-export interface TextDeleteSelectionPayload extends Payload {
-  page: Page;
-  block: AnyBlock;
-  beforeOffset?: Offset; // 删除前的位置，不指定，默认为选中所有 delOffset 的范围
-  afterOffset?: Offset; // 删除后的位置，不指定，默认为 delOffset 删除后的范围
-  delOffset: Offset;
-  undo_hint?: {
-    full_html: ValidNode[];
-    trim_offset: Offset;
-    full_offset: Offset;
-  };
-  intime?: {
-    range: Range;
-  };
-}
-
-export function makeNode({
-  textContent,
-  innerHTML,
-}: {
-  textContent?: string;
-  innerHTML?: string;
-}): ValidNode[] {
-  if (textContent !== undefined && innerHTML !== undefined) {
-    throw new Error("textContent and innerHTML can only have one");
-  }
-  if (innerHTML !== undefined) {
-    return innerHTMLToNodeList(innerHTML) as ValidNode[];
-  }
-  return [createTextNode(textContent)];
-}
-
-export class TextDeleteBackward extends Command<TextDeletePayload> {
+export class TextDelete extends Command<TextDeletePayload> {
   declare buffer: {
     innerHTML: string;
   };
+  onExecuteFn?: CommandCallback<TextDeletePayload> = ({
+    block,
+    index,
+    start,
+    token_number,
+  }) => {
+    setLocation(block.getLocation(start + token_number, index)!);
+  };
+  onUndoFn?: CommandCallback<TextDeletePayload> = ({ block, index, start }) => {
+    setLocation(block.getLocation(start, index)!);
+  };
   execute(): void {
-    const block = this.payload.block;
-    const { start, end, index } = this.payload;
-    const offset = { start, end, index };
-    const range = offsetToRange(block.getContainer(offset.index!), offset)!;
+    const { block, index, start, token_number } = this.payload;
+    const startLoc = block.getLocation(start, index)!;
+    const endLoc = block.getLocation(start + token_number, index)!;
+    const range =
+      token_number > 0
+        ? createRange(...startLoc, ...endLoc)
+        : createRange(...endLoc, ...startLoc);
+
     this.buffer = {
       innerHTML: range.cloneContents().textContent || "",
     };
     range.deleteContents();
-    setRange(range);
   }
   undo(): void {
-    // let range: Range;
-    const { start, index, block } = this.payload;
-    const tgt = block.getLocation(start, { index })!;
+    const { start, index, block, token_number } = this.payload;
+    const tgt = block.getLocation(start + token_number, index)!;
     const range = createRange(...tgt);
     const node = createTextNode(this.buffer.innerHTML);
     range.insertNode(node);
-    range.setStartAfter(node);
-    range.setEndAfter(node);
-    setRange(range);
-  }
-  public get label(): string {
-    return `delete ${this.buffer.innerHTML}`;
   }
 
-  tryMerge(command: TextDeleteBackward): boolean {
-    if (!(command instanceof TextDeleteBackward)) {
+  tryMerge(command: Command<any>): boolean {
+    if (!(command instanceof TextDelete)) {
       return false;
     }
-    if (command.buffer.innerHTML.indexOf(" ") >= 0) {
+
+    if (this.buffer.innerHTML.indexOf(" ") >= 0) {
       return false;
     }
-    // 更早的左删除命令在的 offset 在右侧
-    if (
-      command.payload.block.equals(this.payload.block) &&
-      command.payload.start + command.buffer.innerHTML.length ===
-        this.payload.start
-    ) {
-      this.payload.start = command.payload.start;
-      this.payload.end = command.payload.end;
+
+    if (Math.abs(this.payload.token_number) > 10) {
+      return false;
+    }
+
+    if (this.payload.token_number * command.payload.token_number < 0) {
+      return false;
+    }
+    if (this.payload.token_number > 0) {
+      this.buffer.innerHTML += command.buffer.innerHTML;
+    } else {
       this.buffer.innerHTML = command.buffer.innerHTML + this.buffer.innerHTML;
-      return true;
     }
-    return false;
+
+    this.payload.token_number += command.payload.token_number;
+
+    return true;
   }
 }
 
-export class TextDeleteSelection extends Command<TextDeleteSelectionPayload> {
+/**
+ * 在 Editable 内删除一段文本，从 start 开始，删除 token_number 个 token
+ * token_number < 0 时，为向前删除，否则向后删除
+ */
+export class RichTextDelete extends Command<TextDeletePayload> {
   declare buffer: {
-    full_html: ValidNode[];
-    trim_offset: Offset;
-    full_offset: Offset;
+    full_html: Node[];
+    full_start: number;
+    full_end: number;
+    trimed_start: number;
+    trimed_end: number;
+  };
+  onExecuteFn?: CommandCallback<TextDeletePayload> = ({
+    block,
+    index,
+    start,
+    token_number,
+  }) => {
+    setLocation(block.getLocation(start, index)!);
   };
 
-  onExecuteFn?: CommandCallback<TextDeleteSelectionPayload> = ({
+  onUndoFn?: CommandCallback<TextDeletePayload> = ({
     block,
-    delOffset,
+    index,
+    start,
+    token_number,
   }) => {
-    this.buffer.full_offset;
-    block.setOffset({ ...delOffset, end: undefined });
-  };
-  onUndoFn?: CommandCallback<TextDeleteSelectionPayload> = ({
-    block,
-    delOffset,
-  }) => {
-    block.setOffset(delOffset);
+    const startLoc = block.getLocation(start, index)!;
+    const endLoc = block.getLocation(start + token_number, index)!;
+    setRange(createRange(...startLoc, ...endLoc));
   };
 
   execute(): void {
-    let { block, page, delOffset } = this.payload;
-    const container = block.getContainer(delOffset.index);
-    const range = offsetToRange(container, delOffset)!;
-    if (!this.payload.beforeOffset) {
-      this.payload.beforeOffset = delOffset;
-    }
-    // if (!afterOffset) {
-    //   this.payload.afterOffset = { ...delOffset, end: undefined };
-    //   afterOffset = this.payload.afterOffset;
-    // }
+    const { block, index: query, start, token_number } = this.payload;
+    const startLoc = block.getLocation(start, query)!;
+    const endLoc = block.getLocation(start + token_number, query)!;
+    const range =
+      token_number > 0
+        ? createRange(...startLoc, ...endLoc)
+        : createRange(...endLoc, ...startLoc);
 
-    const selectedTokenN = delOffset.end! - delOffset.start;
     const nodes = nodesOfRange(range, false);
 
     // 计算光标在 range.startContainer 在 nodes[0] 的深度
@@ -168,99 +162,118 @@ export class TextDeleteSelection extends Command<TextDeleteSelectionPayload> {
     const leftDepth = calcDepths(range.startContainer, nodes[0]);
     const rightDepth = calcDepths(range.endContainer, nodes[nodes.length - 1]);
 
-    const fullOffset = elementOffset(
-      container,
-      nodes[0],
-      nodes[nodes.length - 1]
+    const fullStart = block.getBias(getValidAdjacent(nodes[0], "beforebegin"));
+    const fullEnd = block.getBias(
+      getValidAdjacent(nodes[nodes.length - 1], "afterend")
     );
+
     this.buffer = {
       full_html: nodes.map((item) => {
         return item.cloneNode(true) as ValidNode;
       }),
-      full_offset: {
-        start: fullOffset.start,
-        end: fullOffset.end,
-      },
-      trim_offset: {
-        start: fullOffset.start,
-        end: fullOffset.end! - selectedTokenN + leftDepth + rightDepth,
-      },
+      full_start: token_number > 0 ? start : start + token_number,
+      full_end: token_number > 0 ? start + token_number : start,
+      trimed_start: fullStart,
+      trimed_end: fullEnd - Math.abs(token_number) + leftDepth + rightDepth,
     };
+    console.log(this.buffer);
     range.deleteContents();
     nodes.forEach((item) => {
       addMarkdownHint(item);
     });
+    range.deleteContents();
   }
   undo(): void {
-    const { block, delOffset, beforeOffset } = this.payload;
-    const buffer = this.buffer;
-    // 删掉原来的 common 部分
-    console.log(delOffset);
-    const range = offsetToRange(
-      block.getContainer(delOffset.index),
-      buffer.trim_offset
-    )!;
-    range.deleteContents();
-    const flag = createElement("span");
-    range.insertNode(flag);
-    flag.replaceWith(...buffer.full_html);
-
-    const fullRange = offsetToRange(
-      block.getContainer(beforeOffset?.index),
-      buffer.full_offset
-    )!;
+    const { block, index } = this.payload;
+    const { trimed_start, trimed_end, full_html, full_start, full_end } =
+      this.buffer;
+    const trimedRange = createRange(
+      ...block.getLocation(trimed_start, index)!,
+      ...block.getLocation(trimed_end, index)!
+    );
+    trimedRange.deleteContents();
+    const flag = createFlagNode();
+    trimedRange.insertNode(flag);
+    flag.replaceWith(...full_html);
+    const fullRange = createRange(
+      ...block.getLocation(full_start, index)!,
+      ...block.getLocation(full_end, index)!
+    );
     addMarkdownHint(...nodesOfRange(fullRange));
-
-    if (beforeOffset) {
-      const beforeRange = offsetToRange(
-        block.getContainer(beforeOffset.index),
-        beforeOffset
-      )!;
-      block.setRange(beforeRange);
-    }
+    // TODO  default set Range
   }
 }
 
-export class TextDeleteForward extends Command<TextDeletePayload> {
-  execute(): void {
-    const block = this.payload.block;
-    const offset = this.payload.offset;
-    offset.end = offset.start + this.payload.innerHTML.length;
-    const range = offsetToRange(block.getContainer(offset.index!), offset)!;
-    range.deleteContents();
-    setRange(range);
-  }
-  undo(): void {
-    let range: Range;
-    const block = this.payload.block;
-    const offset = this.payload.offset;
-    range = offsetToRange(block.getContainer(offset.index!), offset)!;
-    const node = createTextNode(this.payload.innerHTML);
-    range.insertNode(node);
-    range.setStartBefore(node);
-    range.setEndBefore(node);
-    setRange(range);
-  }
-  public get label(): string {
-    return `delete ${this.payload.innerHTML}`;
+export class TextInsert extends Command<TextInsertPayload> {
+  onExecuteFn: CommandCallbackWithBuffer<
+    TextInsertPayload,
+    TextInsert["buffer"]
+  > = ({ block, index: query }, { token_number, bias }) => {
+    const loc = block.getLocation(bias + token_number, query)!;
+    // afterOffset = block.correctOffset(afterOffset);
+    setLocation(loc);
+  };
+  onUndoFn: CommandCallbackWithBuffer<TextInsertPayload, TextInsert["buffer"]> =
+    ({ block, index: query, start: bias }) => {
+      const loc = block.getLocation(bias, query)!;
+      setLocation(loc);
+    };
+
+  declare buffer: {
+    bias: number;
+    token_number: number;
+  };
+
+  constructor(p: TextInsertPayload) {
+    super(p);
+    const { block, plain, index: query, start: bias } = this.payload;
+    const loc = block.getLocation(bias, query)!;
+    const posBias = bias < 0 ? block.getBias(loc) : bias;
+    const nodes = innerHTMLToNodeList(
+      this.payload.innerHTML,
+      plain
+    ) as ValidNode[];
+    addMarkdownHint(...nodes);
+    const token_number = getTokenSize(nodes);
+    this.buffer = {
+      bias: posBias,
+      token_number: token_number,
+    };
   }
 
-  tryMerge(command: TextDeleteForward): boolean {
-    if (!(command instanceof TextDeleteForward)) {
-      return false;
-    }
-    if (command.payload.innerHTML.indexOf(" ") >= 0) {
-      return false;
-    }
-    // 更早的右删除命令在的 offset 在左侧
-    if (
-      command.payload.block.equals(this.payload.block) &&
-      command.payload.offset.start === this.payload.offset.start
-    ) {
-      // this.payload.offset.end = command.payload.offset.end;
-      this.payload.innerHTML += command.payload.innerHTML;
-      return true;
-    }
-    return false;
+  execute(): void {
+    const { block, plain, index: query, start: bias } = this.payload;
+
+    const loc = block.getLocation(bias, query)!;
+    const range = createRange(...loc);
+    const nodes = innerHTMLToNodeList(
+      this.payload.innerHTML,
+      plain
+    ) as ValidNode[];
+    addMarkdownHint(...nodes);
+
+    const node = createFlagNode();
+    range.insertNode(node);
+    node.replaceWith(...nodes);
+
+    mergeAroundLeft(nodes[0]);
+    mergeAroundRight(nodes[nodes.length - 1]);
+  }
+
+  undo(): void {
+    const { block, index: query } = this.payload;
+
+    const startLoc = block.getLocation(this.buffer.bias, query)!;
+    const endLoc = block.getLocation(
+      this.buffer.bias + this.buffer.token_number,
+      query
+    )!;
+
+    const range = createRange(...startLoc, ...endLoc);
+    range.deleteContents();
+  }
+
+  public get label(): string {
+    return `insert ${this.payload.innerHTML}`;
   }
 }

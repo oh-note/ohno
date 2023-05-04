@@ -1,16 +1,15 @@
-import { BlockEntry, HandlerEntry } from "@/system/page";
-import { OrderedListHandler } from "./handler";
+import { BlockComponent, HandlerEntry } from "@/system/page";
 import { OrderedList } from "./block";
+import { OrderedListHandler } from "./handler";
 
 export * from "./handler";
 export * from "./block";
 
-export const OrderedListHandlers: HandlerEntry = {
-  blockHandler: new OrderedListHandler(),
-};
-
-export const OrderedListBlockEntry: BlockEntry = {
-  name: "ordered_list",
-  blockType: OrderedList,
-  handler: new OrderedListHandler(),
-};
+export function OrderedListBlock(): BlockComponent {
+  return {
+    blockType: OrderedList,
+    handlers: {
+      blocks: { ordered_list: new OrderedListHandler() },
+    },
+  };
+}

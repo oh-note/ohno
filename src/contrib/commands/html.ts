@@ -3,12 +3,14 @@ import { addMarkdownHint } from "@/helper/markdown";
 import { AnyBlock } from "@/system/block";
 import { Command } from "@/system/history";
 import { Page } from "@/system/page";
-import { Offset, getTokenSize, offsetToRange } from "@/system/position";
+import { Offset, getTokenSize, intervalToRange } from "@/system/position";
+import { createRange } from "@/system/range";
 
 export interface InsertNodePayload {
   block: AnyBlock;
   page: Page;
-  insertOffset: Offset;
+  start: number;
+  index: number;
   node: ValidNode;
 }
 export class NodeInsert extends Command<InsertNodePayload> {
@@ -16,13 +18,13 @@ export class NodeInsert extends Command<InsertNodePayload> {
     token_number: number;
   };
   execute(): void {
-    const { block, node } = this.payload;
+    const { block, node, start, index } = this.payload;
 
-    let { insertOffset } = this.payload;
-    const container = block.getContainer(insertOffset.index);
-    const range = offsetToRange(container, insertOffset)!;
-    insertOffset = block.correctOffset(insertOffset);
-    this.payload.insertOffset = insertOffset;
+    // let { insertOffset } = this.payload;
+    // const container = block.getEditable(index);
+    const range = createRange(...block.getLocation(start, index)!);
+    // insertOffset = block.correctOffset(insertOffset);
+    // this.payload.insertOffset = insertOffset;
 
     addMarkdownHint(node);
     const token_number = getTokenSize(node, true);
@@ -37,15 +39,11 @@ export class NodeInsert extends Command<InsertNodePayload> {
     };
   }
   undo(): void {
-    const { block, insertOffset } = this.payload;
-    // this.ensureBuffer();
-    const deleteOffset = {
-      ...insertOffset,
-      end: insertOffset.start + this.buffer.token_number,
-    };
-
-    const container = block.getContainer(insertOffset.index);
-    const range = offsetToRange(container, deleteOffset)!;
+    const { block, start, index } = this.payload;
+    const range = block.getRange(
+      { start: start, end: start + this.buffer.token_number },
+      index
+    )!;
     range.deleteContents();
   }
 }

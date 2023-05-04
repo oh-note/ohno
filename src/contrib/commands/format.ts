@@ -3,16 +3,12 @@ import { createElement } from "@/helper/document";
 import { ValidNode, getTagName, outerHTML } from "@/helper/element";
 import { parentElementWithTag, validChildNodes } from "@/helper/element";
 import { addMarkdownHint } from "@/helper/markdown";
-import {
-  FULL_BLOCK as FULL_SELECTED,
-  Offset,
-  elementOffset,
-  offsetToRange,
-} from "@/system/position";
+import { elementOffset, intervalToRange } from "@/system/position";
 import { AnyBlock } from "@/system/block";
 import { Command } from "@/system/history";
 import { Page } from "@/system/page";
 import {
+  createRange,
   getValidAdjacent,
   nodesOfRange,
   normalizeRange,
@@ -24,20 +20,22 @@ import {
   getFormatStatus,
   removeFormat,
 } from "@/system/format";
+import { EditableInterval, Interval } from "@/system/base";
 
 export interface FormatPayload {
   page: Page;
   block: AnyBlock;
-  offset: Offset;
+  // offset: Interval;
+  interval: EditableInterval;
   format: HTMLElementTagName;
   // remove?: boolean;
-  execute?: {
-    elements: ValidNode[];
-  };
-  undo_hint?: {
-    offsets: Offset[];
-    op?: FormatOp;
-  };
+  // execute?: {
+  //   elements: ValidNode[];
+  // };
+  // undo_hint?: {
+  //   offsets: Interval[];
+  //   op?: FormatOp;
+  // };
   intime?: {
     range: Range;
   };
@@ -46,21 +44,24 @@ export interface FormatPayload {
 export interface FormatRemovePayload {
   page: Page;
   block: AnyBlock;
-  offset: Offset;
+  offset: Interval;
+  interval: EditableInterval;
   format: HTMLElementTagName;
   // remove?: boolean;
-  undo_hint?: {
-    offsets: Offset[];
-  };
+  // undo_hint?: {
+  //   offsets: Interval[];
+  // };
 }
 
 export class FormatRemove extends Command<FormatRemovePayload> {
+  declare buffer: {
+    offsets: Interval[];
+  };
   execute(): void {
-    const { block, format, offset } = this.payload;
-    const container = block.getContainer(offset.index!);
-    const range = offsetToRange(block.getContainer(offset.index!), offset)!;
-    normalizeRange(range.commonAncestorContainer as Node, range);
-
+    const { block, format, interval } = this.payload;
+    const range = block.getEditableRange(interval)!;
+    normalizeRange(range.commonAncestorContainer as HTMLElement, range);
+    const editable = block.getEditable(interval.index)!;
     // 1. 判断选中的子节点中是否有待应用格式
     let fathers: ValidNode[] = [];
     const related: HTMLElement[] = [];
@@ -86,10 +87,10 @@ export class FormatRemove extends Command<FormatRemovePayload> {
     const fmt = parentElementWithTag(
       range.commonAncestorContainer,
       format,
-      container
+      editable
     );
 
-    this.payload.undo_hint = { offsets: [] };
+    this.buffer = { offsets: [] };
 
     if (
       // 1. 导致的 deformat
@@ -98,16 +99,16 @@ export class FormatRemove extends Command<FormatRemovePayload> {
     ) {
       // deformat
       related.forEach((item) => {
-        const itemOffset = elementOffset(container, item);
-        this.payload.undo_hint?.offsets.push(itemOffset);
+        const itemOffset = elementOffset(editable, item);
+        this.buffer.offsets.push(itemOffset);
         const childs = validChildNodes(item);
         item.replaceWith(...childs);
       });
 
       fathers = fathers.flatMap((item) => {
         if (getTagName(item) === format) {
-          const itemOffset = elementOffset(container, item);
-          this.payload.undo_hint?.offsets.push(itemOffset);
+          const itemOffset = elementOffset(editable, item);
+          this.buffer.offsets.push(itemOffset);
           const childs = validChildNodes(item);
           item.replaceWith(...childs);
           return childs;
@@ -116,17 +117,13 @@ export class FormatRemove extends Command<FormatRemovePayload> {
       });
 
       if (!this.onExecuteFn) {
-        const [startContainer, startOffset] = getValidAdjacent(
-          fathers[0],
-          "beforebegin"
-        );
-        const [endContainer, endOffset] = getValidAdjacent(
+        const startLoc = getValidAdjacent(fathers[0], "beforebegin");
+        const endLoc = getValidAdjacent(
           fathers[fathers.length - 1],
           "afterend"
         );
 
-        range.setStart(startContainer, startOffset);
-        range.setEnd(endContainer, endOffset);
+        const range = createRange(...startLoc, ...endLoc);
         setRange(range);
       }
       return;
@@ -137,30 +134,22 @@ export class FormatRemove extends Command<FormatRemovePayload> {
       // <b>te[x<i>te]xt</i>t</b>
       const childs = validChildNodes(fmt);
 
-      const itemOffset = elementOffset(container, fmt);
-      this.payload.undo_hint?.offsets.push(itemOffset);
+      const itemOffset = elementOffset(editable, fmt);
+      this.buffer.offsets.push(itemOffset);
 
       fmt.replaceWith(...childs);
       if (!this.onExecuteFn) {
-        const [startContainer, startOffset] = getValidAdjacent(
-          childs[0],
-          "beforebegin"
-        );
-        const [endContainer, endOffset] = getValidAdjacent(
-          childs[childs.length - 1],
-          "afterend"
-        );
-
-        range.setStart(startContainer, startOffset);
-        range.setEnd(endContainer, endOffset);
+        const startLoc = getValidAdjacent(childs[0], "beforebegin");
+        const endLoc = getValidAdjacent(childs[childs.length - 1], "afterend");
+        const range = createRange(...startLoc, ...endLoc);
         setRange(range);
       }
       return;
     }
   }
   undo(): void {
-    const { offsets } = this.payload.undo_hint!;
-    const { block, format, offset } = this.payload;
+    const { offsets } = this.buffer;
+    const { block, format, interval } = this.payload;
     // 逆序排列
     offsets
       .sort((a, b) => {
@@ -168,7 +157,8 @@ export class FormatRemove extends Command<FormatRemovePayload> {
       })
       .forEach((item) => {
         item.end! -= 2;
-        const range = offsetToRange(block.getContainer(offset.index!), item)!;
+        const range = block.getRange(item, interval.index)!;
+        // const range = intervalToRange(block.getEditable(interval.index), item)!;
         const children = Array.from(range.extractContents().childNodes);
         const wrap = createElement(format, {
           children: children,
@@ -177,23 +167,35 @@ export class FormatRemove extends Command<FormatRemovePayload> {
         range.insertNode(wrap);
       });
     if (!this.onUndoFn) {
-      const range = offsetToRange(block.getContainer(offset.index!), offset)!;
+      const range = block.getEditableRange(interval)!;
+      // const range = intervalToRange(
+      //   block.getEditable(interval.index),
+      //   interval
+      // )!;
       setRange(range);
     }
   }
 }
 
 export class FormatText extends Command<FormatPayload> {
+  declare buffer: {
+    elements: HTMLElement[];
+    offsets: Interval[];
+    op?: FormatOp;
+  };
   execute(): void {
-    const { block, format, offset } = this.payload;
-    const container = block.getContainer(offset.index!)!;
+    const { block, format, interval } = this.payload;
+    const container = block.getEditable(interval.index!)!;
 
-    const status = getFormatStatus(container, offset, format);
+    const status = getFormatStatus(container, interval, format);
     const { range, op } = status;
-    this.payload.undo_hint = {
+
+    this.buffer = {
+      elements: [],
       offsets: [],
       op,
     };
+
     if (op === "removeFormat") {
       // deformat
       // removeFormat()
@@ -202,13 +204,13 @@ export class FormatText extends Command<FormatPayload> {
         format,
         status
       );
-      this.payload.undo_hint.offsets = offsets;
+      this.buffer.offsets = offsets;
 
       this.payload.execute = {
         elements: flatFathers,
       };
       if (!this.onExecuteFn) {
-        const range = offsetToRange(container, boundingOffset)!;
+        const range = intervalToRange(container, boundingOffset)!;
         // 2023.04.19 替换，虽然可能增加了一些开销，但简化了代码实现
         // const [startContainer, startOffset] = getValidAdjacent(
         //   flatFathers[0],
@@ -225,18 +227,20 @@ export class FormatText extends Command<FormatPayload> {
       }
     } else {
       const addResults = addFormat(container, format, status);
-      this.payload.undo_hint.offsets = addResults.offsets;
+      this.buffer.offsets = addResults.offsets;
 
       if (!this.onExecuteFn) {
-        setRange(offsetToRange(addResults.fathers[0], FULL_SELECTED)!);
+        setRange(
+          intervalToRange(addResults.fathers[0], { start: 0, end: -1 })!
+        );
       }
     }
   }
   undo(): void {
-    const { offsets, op } = this.payload.undo_hint!;
-    const { block, format, offset } = this.payload;
+    const { offsets, op } = this.buffer;
+    const { block, format, interval } = this.payload;
     // 逆序排列，从右到左取消，这样不需要考虑其他 area 带来的影响
-    const container = block.getContainer(offset.index);
+    const container = block.getEditable(interval.index);
     offsets
       .sort((a, b) => {
         return a.start < b.start ? 1 : -1;
@@ -244,7 +248,8 @@ export class FormatText extends Command<FormatPayload> {
       .forEach((item) => {
         if (op === "removeFormat") {
           item.end! -= 2;
-          const range = offsetToRange(container, item)!;
+
+          const range = block.getRange(item, container)!;
           const children = Array.from(range.extractContents().childNodes);
           const wrap = createElement(format, {
             children: children,
@@ -252,7 +257,7 @@ export class FormatText extends Command<FormatPayload> {
           addMarkdownHint(wrap);
           range.insertNode(wrap);
         } else {
-          const range = offsetToRange(container, item)!;
+          const range = block.getRange(item, container)!;
           nodesOfRange(range).flatMap((item) => {
             if (getTagName(item) === format) {
               const childs = validChildNodes(item);
@@ -265,7 +270,7 @@ export class FormatText extends Command<FormatPayload> {
       });
 
     if (!this.onUndoFn) {
-      const range = offsetToRange(container, offset)!;
+      const range = intervalToRange(container, interval)!;
       setRange(range);
     }
   }
@@ -273,14 +278,14 @@ export class FormatText extends Command<FormatPayload> {
 
 export interface FormatAreasPayload {
   page: Page;
-  areas: { block: AnyBlock; offset: Offset }[];
+  areas: { block: AnyBlock; offset: EditableInterval }[];
   format: HTMLElementTagName;
   // remove?: boolean;
   execute?: {
     elements: ValidNode[];
   };
   undo_hint?: {
-    areas: { block: AnyBlock; offsets: Offset[] }[];
+    areas: { block: AnyBlock; offsets: EditableInterval[] }[];
     op?: FormatOp;
   };
   intime?: {
@@ -289,18 +294,22 @@ export interface FormatAreasPayload {
 }
 
 export class FormatMultipleText extends Command<FormatAreasPayload> {
+  declare buffer: {
+    areas: { block: AnyBlock; offsets: EditableInterval[] }[];
+    op?: FormatOp;
+  };
   execute(): void {
     // 获取全部区域的 status
     // 所有全部区域有一个是 deformat 就 deformat
     // 全部为 enformat 才 enformat
     const { format, page, areas: areas } = this.payload;
-    const allStatus = areas.map(({ block, offset }) => {
-      const container = block.getContainer(offset.index);
+    const allStatus = areas.map(({ block, offset: interval }) => {
+      const container = block.getEditable(interval.index);
       return {
         block,
         container,
-        offset,
-        status: getFormatStatus(container, offset, format),
+        offset: interval,
+        status: getFormatStatus(container, interval, format),
       };
     });
     const deformatStatue = allStatus.filter(({ status }) => {
@@ -308,20 +317,19 @@ export class FormatMultipleText extends Command<FormatAreasPayload> {
     });
 
     // 假设传入的 block+offset 对应的 Container 无重复
-    this.payload.undo_hint = {
+    this.buffer = {
       areas: [],
       op: "addFormat",
     };
     if (deformatStatue.length > 0) {
       // deformat
-      this.payload.undo_hint.op = "removeFormat";
+      this.buffer.op = "removeFormat";
       deformatStatue.forEach(({ block, container, status, offset }) => {
         const { offsets } = removeFormat(container, format, status);
-        this.payload.undo_hint?.areas.push({
+        this.buffer.areas.push({
           block,
           offsets: offsets.map((item) => {
-            item.index = offset.index;
-            return item;
+            return { ...item, index: offset.index };
           }),
         });
       });
@@ -332,8 +340,7 @@ export class FormatMultipleText extends Command<FormatAreasPayload> {
         this.payload.undo_hint?.areas.push({
           block,
           offsets: offsets.map((item) => {
-            item.index = offset.index;
-            return item;
+            return { ...item, index: offset.index };
           }),
         });
       });
@@ -348,11 +355,11 @@ export class FormatMultipleText extends Command<FormatAreasPayload> {
           return a.start < b.start ? 1 : -1;
         })
         .forEach((item) => {
-          const container = block.getContainer(item.index);
+          const container = block.getEditable(item.index);
           console.log(item);
           if (op === "removeFormat") {
             item.end! -= 2;
-            const range = offsetToRange(container, item)!;
+            const range = intervalToRange(container, item)!;
             const children = Array.from(range.extractContents().childNodes);
             const wrap = createElement(format, {
               children: children,
@@ -360,7 +367,7 @@ export class FormatMultipleText extends Command<FormatAreasPayload> {
             addMarkdownHint(wrap);
             range.insertNode(wrap);
           } else {
-            const range = offsetToRange(container, item)!;
+            const range = intervalToRange(container, item)!;
             nodesOfRange(range).flatMap((item) => {
               if (getTagName(item) === format) {
                 const childs = validChildNodes(item);

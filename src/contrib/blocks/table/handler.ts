@@ -8,7 +8,6 @@ import {
 import { createRange, setRange } from "@/system/range";
 
 export class TableHandler extends Handler implements KeyDispatchedHandler {
-  name: string = "table";
   handleKeyPress(
     e: KeyboardEvent,
     context: RangedEventContext

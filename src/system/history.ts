@@ -1,3 +1,4 @@
+// 指令系统的接口 + 历史记录
 import { LinkedList } from "@/struct/linkedlist";
 import { AnyBlock, Block } from "./block";
 import { Page } from "./page";
@@ -16,6 +17,9 @@ export interface ContainerPayload extends Payload {
 export interface CommandBuffer {
   [key: string]: any;
 }
+export interface CommandIntime {
+  [key: string]: any;
+}
 
 export type CommandCallback<P> = (payload: P, buffer: any) => void;
 export type CommandCallbackWithBuffer<P, B> = (payload: P, buffer: B) => void;
@@ -23,7 +27,8 @@ export type CommandCallbackWithBuffer<P, B> = (payload: P, buffer: B) => void;
 export abstract class Command<P> {
   payload: P;
   history?: History;
-
+  // createdFromIntime: boolean = false;
+  // intime: CommandIntime = {};
   // 存储 execute 过程中产生的值，用于设置执行后的光标或 undo
   // 对于 offset 类的 buffer 可以减少重复计算；
   // 对于 node 类的 reference 类的 buffer 每次必须重新设置
@@ -81,10 +86,7 @@ export abstract class Command<P> {
 
 export class History {
   commands: LinkedList<Command<any>> = new LinkedList();
-
   undo_commands: LinkedList<Command<any>> = new LinkedList();
-
-  status: string = "";
 
   max_history: number;
   constructor(max_history: number = 200) {
@@ -92,6 +94,7 @@ export class History {
   }
 
   append(command: Command<any>) {
+    console.log("append", command);
     if (this.commands.last) {
       if (!this.commands.last.value.tryMerge(command)) {
         command.history = this;
@@ -114,9 +117,9 @@ export class History {
     this.append(command);
   }
 
-  undo() {
+  undo(): boolean {
     const results = this.commands.popLast();
-    // console.log(results);
+    console.log(results);
     if (results) {
       const command = results[0];
       command.undo();
@@ -124,12 +127,13 @@ export class History {
         command.onUndoFn(command.payload, command.buffer);
       }
       this.undo_commands.append(command);
+      return true;
     }
+    return false;
   }
 
-  redo() {
+  redo(): boolean {
     const results = this.undo_commands.popLast();
-    // console.log(results);
     if (results) {
       const command = results[0];
       command.execute();
@@ -139,7 +143,9 @@ export class History {
         command.onExecuteFn(command.payload, command.buffer);
       }
       this.commands.append(command);
+      return true;
     }
+    return false;
   }
 }
 

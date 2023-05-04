@@ -22,8 +22,7 @@ import {
   prevValidSibling,
 } from "@/helper/element";
 import { getValidAdjacent, setRange, validateLocation } from "./range";
-
-// export interface RefRange {}
+import { Interval } from "./base";
 
 export interface Offset {
   index?: number;
@@ -32,14 +31,25 @@ export interface Offset {
   end?: number;
 }
 
+// export interface AbsLocation {
+//   bias: number;
+//   index: number;
+//   order?: string;
+// }
+// export interface AbsRange {
+
+// }
+
 export const FIRST_POSITION: Offset = {
   index: 0,
   start: 0,
 };
+
 export const LAST_POSITION: Offset = {
   index: -1,
   start: -1,
 };
+
 export const FULL_SELECTION: Offset = {
   start: 0,
   end: -1,
@@ -65,12 +75,12 @@ export const FULL_BLOCK: Offset = {
  * @returns
  */
 export function locationToBias(
-  root: ValidNode,
-  container: ValidNode,
+  root: Node,
+  container: Node,
   offset: number
 ): number {
   let size = 0;
-  let cur: ValidNode | null = container;
+  let cur: Node | null = container;
   let curSize: number;
 
   if (!isParent(container, root)) {
@@ -86,7 +96,7 @@ export function locationToBias(
     curSize = offset;
   } else if (container.childNodes.length === offset) {
     // <b>...<i>...</i>|</b>
-    cur = lastValidChild(container as HTMLElement) as ValidNode;
+    cur = lastValidChild(container as HTMLElement);
     if (cur) {
       // <b>?</b>
       if (isTextNode(cur)) {
@@ -108,7 +118,7 @@ export function locationToBias(
     throw EvalError("sanity check");
   } else {
     // <b><i>...</i>|<i>...</i></b>
-    cur = container.childNodes[offset] as ValidNode;
+    cur = container.childNodes[offset];
     curSize = 0;
   }
 
@@ -143,10 +153,7 @@ export function locationToBias(
   return size;
 }
 
-export function makeBiasPos(
-  root: ValidNode,
-  bias?: number
-): number | undefined {
+export function makeBiasPos(root: Node, bias?: number): number | undefined {
   if (bias) {
     if (bias < 0) {
       bias += getTokenSize(root) + 1;
@@ -245,25 +252,18 @@ export function biasToLocation(
  * @param range
  * @returns
  */
-export function rangeToOffset(root: HTMLElement, range: Range): Offset {
-  const res: Offset = { start: 0 };
-
-  res["start"] = locationToBias(
-    root,
-    range.startContainer as ValidNode,
-    range.startOffset
-  );
+export function rangeToInterval(root: HTMLElement, range: Range): Interval {
+  const start = locationToBias(root, range.startContainer, range.startOffset);
+  let end;
   if (
     range.startContainer != range.endContainer ||
     range.startOffset != range.endOffset
   ) {
-    res["end"] = locationToBias(
-      root,
-      range.endContainer as ValidNode,
-      range.endOffset
-    );
+    end = locationToBias(root, range.endContainer, range.endOffset);
+  } else {
+    end = start;
   }
-  return res;
+  return { start, end };
 }
 
 /**
@@ -274,7 +274,10 @@ export function rangeToOffset(root: HTMLElement, range: Range): Offset {
  * @param offset
  * @returns
  */
-export function offsetToRange(root: ValidNode, offset: Offset): Range | null {
+export function intervalToRange(
+  root: ValidNode,
+  offset: Interval
+): Range | null {
   const range = document.createRange();
 
   const rootSize = getTokenSize(root);
@@ -282,13 +285,13 @@ export function offsetToRange(root: ValidNode, offset: Offset): Range | null {
     return null;
   }
 
-  let [startContainer, startOffset] = biasToLocation(root, offset.start);
+  let [startContainer, startOffset] = biasToLocation(root, offset.start)!;
   let [endContainer, endOffset] = [startContainer, startOffset];
   if (offset.end && offset.end != offset.start) {
     [endContainer, endOffset] = biasToLocation(
       root,
       offset.end || offset.start
-    );
+    )!;
   }
   if (root instanceof HTMLElement) {
     if (endContainer === root) {
@@ -334,9 +337,7 @@ export function reverseOffset(root: HTMLElement, offset: Offset): Offset {
 export function elementOffset(
   root: HTMLElement,
   ...node: ValidNode[]
-): // left: ValidNode,
-// right?: ValidNode
-Offset {
+): Interval {
   const range = document.createRange();
   const left = node[0];
   const right = node[node.length - 1];
@@ -344,10 +345,8 @@ Offset {
   const [endContainer, endOffset] = getValidAdjacent(right, "afterend");
   range.setStart(startContainer, startOffset);
   range.setEnd(endContainer, endOffset);
-  return rangeToOffset(root, range);
+  return rangeToInterval(root, range);
 }
-
-export function getInlinePosition(root: HTMLElement) {}
 
 /**
  * 计算节点或节点组的 token 数
@@ -355,7 +354,7 @@ export function getInlinePosition(root: HTMLElement) {}
  * 如果不是节点数组，默认忽略根节点两侧的 token
  */
 export function getTokenSize(
-  root: ValidNode | ValidNode[] | DocumentFragment,
+  root: Node | Node[] | DocumentFragment,
   with_root: boolean = false
 ): number {
   let res = 0;
@@ -376,7 +375,7 @@ export function getTokenSize(
   }
   for (let i = 0; i < root.childNodes.length; i++) {
     if (isValidNode(root.childNodes[i])) {
-      const cur = root.childNodes[i] as ValidNode;
+      const cur = root.childNodes[i];
       if (isHintHTMLElement(cur)) {
         // <span>**</span>
         continue;
@@ -402,12 +401,12 @@ export function getTokenSize(
 
 export function setOffset(
   root: HTMLElement,
-  offset: Offset,
-  defaultOffset?: Offset
+  offset: Interval,
+  defaultOffset?: Interval
 ) {
-  let range = offsetToRange(root, offset);
+  let range = intervalToRange(root, offset);
   if (!range && defaultOffset) {
-    range = offsetToRange(root, defaultOffset);
+    range = intervalToRange(root, defaultOffset);
   }
   if (range) {
     setRange(range);
@@ -421,18 +420,10 @@ export function setOffset(
  * @param range
  */
 export function tokenBetweenRange(range: Range): number {
-  const root = range.commonAncestorContainer as ValidNode;
+  const root = range.commonAncestorContainer;
   // rangeToOffset(root, range);
-  const left = locationToBias(
-    root,
-    range.startContainer as ValidNode,
-    range.startOffset
-  );
-  const right = locationToBias(
-    root,
-    range.endContainer as ValidNode,
-    range.endOffset
-  );
+  const left = locationToBias(root, range.startContainer, range.startOffset);
+  const right = locationToBias(root, range.endContainer, range.endOffset);
 
   return right - left;
 }
@@ -445,10 +436,10 @@ export function tokenBetweenRange(range: Range): number {
  *
  */
 export function offsetAfter(
-  container: ValidNode,
+  container: Node,
   offset: number,
   bias: number
-): [ValidNode, number] {
+): [Node, number] {
   // <p>|<b>|</b></p> [p,0], 1
   if (bias === 0) {
     return validateLocation(container, offset);
@@ -470,7 +461,7 @@ export function offsetAfter(
     for (let i = offset; i < container.childNodes.length; i++) {
       const child = container.childNodes[i];
       if (isValidNode(child)) {
-        const tokenN = getTokenSize(child as ValidNode, true);
+        const tokenN = getTokenSize(child, true);
         if (bias - tokenN > 0) {
           bias -= tokenN;
         } else if (bias - tokenN === 0) {
@@ -478,10 +469,10 @@ export function offsetAfter(
         } else {
           // bias-tokenN < 0
           if (child instanceof Text) {
-            return offsetAfter(child as ValidNode, 0, bias);
+            return offsetAfter(child, 0, bias);
           }
 
-          return offsetAfter(child as ValidNode, 0, bias - 1);
+          return offsetAfter(child, 0, bias - 1);
         }
       }
     }

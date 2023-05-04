@@ -4,70 +4,78 @@ import {
   HandlerMethod,
   HandlerMethods,
   MultiBlockEventContext,
-  MultiBlockHandlerMethod,
   RangedEventContext,
 } from "./handler";
 import { createOrderString } from "@/helper/string";
-import { LinkedDict } from "@/struct/linkeddict";
-import { AnyBlock, Order } from "./block";
-import { Paragraph } from "@/contrib/blocks/paragraph";
-import { Command, History, globalHistory } from "./history";
+import { DictNode, LinkedDict } from "@/struct/linkeddict";
+import { AnyBlock } from "./block";
 import { ROOT_CLASS } from "./config";
 import { createElement, getDefaultRange } from "@/helper/document";
-import { Inline, InlineHandler } from "./inline";
+import { BlockQuery, IComponent, IContainer, IPage } from "./base";
+import { History, Command } from "./history";
+import { Paragraph } from "@/contrib/blocks";
 
 export class PageHandler {
   pluginHandlers: Handler[] = [];
   multiBlockHandlers: Handler[] = [];
-  startHandlers: Handler[] = [];
-  beforeHandlers: { [key: string]: Handler[] } = {};
-  handlers: Handler[] = [];
-  afterHandlers: { [key: string]: Handler[] } = {};
+  globalHandlers: Handler[] = [];
+  blockHandlers: { [key: string]: Handler[] } = {};
   inlineHandler: { [key: string]: Handler[] } = {};
+  // handlers: Handler[] = [];
+  // afterHandlers: { [key: string]: Handler[] } = {};
 
   page: Page;
   constructor(page: Page) {
     this.page = page;
   }
 
-  registerHandler({
-    startHandler,
-    blockHandler: beforeHandler,
-    pluginHandler,
-    multiBlockHandler,
-    globalHandler,
-    afterHandler,
-    inlineHandler,
+  private deflag(entry: HandlerFlag): Handler[] {
+    if (entry === undefined) {
+      return [];
+    }
+    if (Array.isArray(entry)) {
+      return entry;
+    }
+    return [entry];
+  }
+
+  registerHandlers({
+    plugins,
+    multiblock,
+    inlines,
+    global,
+    blocks,
   }: HandlerEntry) {
-    if (startHandler) {
-      this.startHandlers.push(startHandler);
+    if (plugins) {
+      this.deflag(plugins).forEach((item) => {
+        this.pluginHandlers.push(item);
+      });
     }
-    if (beforeHandler) {
-      if (!this.beforeHandlers[beforeHandler.name]) {
-        this.beforeHandlers[beforeHandler.name] = [];
+    if (multiblock) {
+      this.deflag(multiblock).forEach((item) => {
+        this.multiBlockHandlers.push(item);
+      });
+    }
+    if (inlines) {
+      for (const key in inlines) {
+        this.inlineHandler[key] = this.inlineHandler[key] || [];
+        this.deflag(inlines[key]).forEach((item) => {
+          this.inlineHandler[key].push(item);
+        });
       }
-      this.beforeHandlers[beforeHandler.name].push(beforeHandler);
     }
-    if (pluginHandler) {
-      this.pluginHandlers.push(pluginHandler);
+    if (global) {
+      this.deflag(global).forEach((item) => {
+        this.globalHandlers.push(item);
+      });
     }
-    if (multiBlockHandler) {
-      this.multiBlockHandlers.push(multiBlockHandler);
-    }
-    if (globalHandler) {
-      this.handlers.push(globalHandler);
-    }
-    if (afterHandler) {
-      if (!this.afterHandlers[afterHandler.name]) {
-        this.afterHandlers[afterHandler.name] = [];
+    if (blocks) {
+      for (const key in blocks) {
+        this.blockHandlers[key] = this.blockHandlers[key] || [];
+        this.deflag(blocks[key]).forEach((item) => {
+          this.blockHandlers[key].push(item);
+        });
       }
-      this.afterHandlers[afterHandler.name].push(afterHandler);
-    }
-    if (inlineHandler) {
-      if (!this.inlineHandler[inlineHandler.name]) {
-        this.inlineHandler[inlineHandler.name] = [];
-      }
-      this.inlineHandler[inlineHandler.name].push(inlineHandler);
     }
   }
 
@@ -107,7 +115,7 @@ export class PageHandler {
     return el;
   }
 
-  bingEventListener(el: HTMLElement) {
+  bindEventListener(el: HTMLElement) {
     el.addEventListener("copy", this.handleCopy.bind(this));
     el.addEventListener("paste", this.handlePaste.bind(this));
     el.addEventListener("blur", this.handleBlur.bind(this));
@@ -180,7 +188,7 @@ export class PageHandler {
       el = el.parentElement!;
     }
     if (el) {
-      const block = this.page.blockChain.find(el.getAttribute("order")!)![0];
+      const block = this.page.chain.find(el.getAttribute("order")!)![0];
       return { block, page: this.page };
     }
     return null;
@@ -195,7 +203,7 @@ export class PageHandler {
       el = el.parentElement!;
     }
     if (el) {
-      const block = this.page.blockChain.find(el.getAttribute("order")!)![0];
+      const block = this.page.chain.find(el.getAttribute("order")!)![0];
       return block;
     }
     return null;
@@ -254,18 +262,12 @@ export class PageHandler {
       return;
     }
 
-    if (this._dispatchEvent(this.startHandlers, context, e, eventName)) {
+    const blockHandlers = this.blockHandlers[block.type] || [];
+    if (this._dispatchEvent(blockHandlers, context, e, eventName)) {
       return;
     }
-    const beforeHandlers = this.beforeHandlers[block.type] || [];
-    if (this._dispatchEvent(beforeHandlers, context, e, eventName)) {
-      return;
-    }
-    if (this._dispatchEvent(this.handlers, context, e, eventName)) {
-      return;
-    }
-    const afterHandlers = this.afterHandlers[block.type] || [];
-    if (this._dispatchEvent(afterHandlers, context, e, eventName)) {
+
+    if (this._dispatchEvent(this.globalHandlers, context, e, eventName)) {
       return;
     }
   }
@@ -443,6 +445,7 @@ export class PageHandler {
     if (!blocks.block) {
       return;
     }
+
     this.dispatchEvent<CompositionEvent>(blocks, e, "handleCompositionStart");
   }
   handleCompositionUpdate(e: CompositionEvent): void | boolean {
@@ -454,140 +457,121 @@ export class PageHandler {
   }
 }
 
+export type HandlerFlag = Handler[] | Handler | undefined;
+
 export interface HandlerEntry {
-  pluginHandler?: Handler;
-  multiBlockHandler?: Handler;
-  startHandler?: Handler;
-  blockHandler?: Handler;
-  afterHandler?: Handler;
-  //
-  globalHandler?: Handler;
-  // 不在 page 中调用，由 core 中的 GlobalInlineHandler 分发
-  inlineHandler?: Handler;
+  plugins?: HandlerFlag;
+  multiblock?: HandlerFlag;
+  // 只需要 global / blocks 两种，在前面都没有通过的情况下，下面两种情况二选一 consume
+  global?: HandlerFlag;
+  blocks?: { [key: string]: HandlerFlag };
+  inlines?: { [key: string]: HandlerFlag };
 }
 
-export interface BlockEntry {
-  name: string;
-  handler: Handler;
+export interface Component {
+  handlers?: HandlerEntry;
+}
+
+export interface BlockComponent extends Component {
   blockType: new () => AnyBlock;
+  // Block Manager 负责创建、序列化、反序列化 Block
+}
+export interface PluginComponent extends Component {
+  // 负责维护一个可选的 HTMLElement，并可以通过 handler 调用该 Manager 显示在必要位置上
+  manager: any;
 }
 
-export type PluginEntryFn = (init: any) => PluginEntry;
-export type BlockEntryFn = (init: any) => BlockEntry;
-
-export interface PluginEntry {
-  name: string;
-  instance: PagePluginInstance;
-  handler: Handler;
+export interface InlineComponent extends Component {
+  // 负责维护一个可选的 HTMLElement，用于在 inline 被激活时提供必要的操作
+  manager: any;
 }
 
-export interface InlineEntry {
-  name: string;
-  instance: Inline<any>;
-  handler: InlineHandler;
-}
+export type ComponentEntryFn = (init: any) => Component;
 
 export interface PageInit {
-  handlers?: HandlerEntry[];
-  plugins?: PluginEntry[];
-  blocks?: BlockEntry[];
-  inlines?: InlineEntry[];
+  components?: {
+    blocks?: BlockComponent[];
+    plugins?: PluginComponent[];
+    inlines?: InlineComponent[];
+    extraHandlers?: HandlerEntry[];
+  };
+  blocks?: AnyBlock[];
+  config?: { [key: string]: any };
 }
 
-export interface PagePluginInstance {
-  assignPage(page: Page): void;
-}
-
-const defaultPageInit: PageInit = {};
-
-export interface PageStatus {
+export class Page implements IPage {
+  chain: LinkedDict<string, AnyBlock> = new LinkedDict();
+  selected: Set<string>;
+  active?: AnyBlock;
   activeInline?: HTMLElement;
-  activeBlock?: AnyBlock;
-  activeLabel?: HTMLLabelElement;
-  selected?: AnyBlock[];
-  selectionDir?: "prev" | "next";
-  [key: string]: any;
-}
-
-export class Page {
-  handler: PageHandler;
-  blockChain: LinkedDict<string, AnyBlock> = new LinkedDict();
-  root: HTMLElement;
+  hover?: AnyBlock | undefined;
+  outer: HTMLElement;
+  inner: HTMLElement;
   pluginRoot: HTMLElement;
-  blockRoot: HTMLElement;
-  init: PageInit;
-  status: PageStatus = {};
-  // 一个 Page 由 plugin、block、inline 三部分组成
-  // plugin 指的是拖动、toolbar、dropdown 等，仅为了增加编辑体验的组件
-  // block 指各种编辑类型的基本单位，如 Paragraph、List、Table
-  // 每个 block 有 editable container 和 functional container，editable 和其他 editable 相连，可以由鼠标控制
-  // functional container 用来放按钮、其他文本等
-  // plugin、block、inline 可以看成是三种组件，每种组件都各自注册各自类型的 handlers
-  // 每个组件都可以注册多个 handlers （比如 Headings 可以注册 Paragraph 的 Handler）
-  // handler 的生命周期/调用流程为：
-  // plugin -> multiblock ->  global -> block -> global -> block
-  // inline 指block 中 editable container 的额外组成单位，除了默认的 text、b、i、code、em 之外的元素，由 label 包裹
-  //
-  // Dropdown、toolbar、侧边评论、block 的拖动条，都是 plugin
-  // plugin 同样接收 page handler 分发的所有事件，事件分发的优先级大于所有 handler
-  // 但 plugin 应该遵循非必要不处理、不强占 range、不另设焦点的要求
-  private plugins: { [key: string]: PluginEntry } = {};
-  private blocks: { [key: string]: BlockEntry } = {};
-  private inlines: { [key: string]: InlineEntry } = {};
-  namespace: { [key: string]: any } = {};
+  parent?: IComponent;
 
-  history: History = globalHistory;
+  rangeDirection: "prev" | "next" | undefined;
+  selectionMode: "block" | "text" = "text";
+
+  pageHandler: PageHandler;
+  history: History;
+
   constructor(init?: PageInit) {
-    this.handler = new PageHandler(this);
-    this.blockRoot = createElement("div");
-    this.root = createElement("div", { className: "oh-is-root" });
+    this.selected = new Set();
+    // this.active
+    this.outer = createElement("div", { className: "oh-is-root" });
+    this.inner = createElement("div", { className: ROOT_CLASS });
+    this.inner.contentEditable = "true";
     this.pluginRoot = createElement("div", { className: "oh-is-plugin" });
-    this.root.append(this.pluginRoot, this.blockRoot);
-    this.blockRoot.classList.add(ROOT_CLASS);
-    this.blockRoot.contentEditable = "true";
-    this.handler.bingEventListener(this.blockRoot);
-    if (!this.blockRoot.hasChildNodes()) {
-      this.appendBlock(new Paragraph());
+    this.outer.append(this.pluginRoot, this.inner);
+    this.pageHandler = new PageHandler(this);
+    this.pageHandler.bindEventListener(this.inner);
+    const { components, blocks } = init || {};
+    this.history = new History();
+    if (components) {
+      const { blocks, plugins, inlines, extraHandlers } = components;
+      if (blocks) {
+        // blocks
+        blocks.forEach((item) => {
+          this.pageHandler.registerHandlers(item.handlers || {});
+        });
+      }
+      if (plugins) {
+        plugins.forEach((item) => {
+          this.pageHandler.registerHandlers(item.handlers || {});
+        });
+      }
+      if (inlines) {
+        inlines.forEach((item) => {
+          this.pageHandler.registerHandlers(item.handlers || {});
+        });
+      }
+      if (extraHandlers) {
+        extraHandlers.forEach((item) => {
+          this.pageHandler.registerHandlers(item);
+        });
+      }
     }
 
-    this.init = Object.assign({}, defaultPageInit, init);
-    // 初始化顺序：plugin -> block -> handler
-    // block 初始化时，可以尝试向插件注册自己的组件
-    this.init.plugins?.forEach((item) => {
-      this.plugins[item.name] = item;
-      if (item.handler) {
-        this.handler.registerHandler({ pluginHandler: item.handler });
-        item.instance.assignPage(this);
-      }
-    });
-
-    this.init.blocks?.forEach((item) => {
-      if (item.handler) {
-        this.handler.registerHandler({ blockHandler: item.handler });
-        this.blocks[item.name] = item;
-      }
-    });
-
-    this.init.handlers?.forEach((item) => {
-      this.handler.registerHandler(item);
-    });
-
-    this.init.inlines?.forEach((item) => {
-      this.inlines[item.name] = item;
-      if (item.handler) {
-        this.handler.registerHandler({ inlineHandler: item.handler });
-        item.instance.assignPage(this);
-      }
-    });
+    if (blocks) {
+      blocks.forEach((item) => {
+        this.appendBlock(item);
+      });
+      this.setActivate(blocks[0]);
+    } else {
+      this.appendBlock(new Paragraph());
+    }
   }
 
-  getPlugin(name: string): PluginEntry {
-    // 这里不做空处理，理论上所有的 Plugin 都只由自己的 handler 调用，不存在空的情况
-    // 特殊的 hack 处理碰到了再说
-    return this.plugins[name];
+  public get root(): HTMLElement {
+    return this.outer;
   }
 
-  executeCommand(command: Command<any>, executed?: boolean) {
+  public get blockRoot(): HTMLElement {
+    return this.inner;
+  }
+
+  executeCommand(command: Command<any>, executed?: boolean | undefined): void {
     if (executed) {
       this.history.append(command);
     } else {
@@ -595,183 +579,235 @@ export class Page {
     }
   }
 
-  hover(name: Order) {
-    const result = this.blockChain.find(name);
-    if (!result) {
-      throw EvalError(`name ${name} not exists!`);
-    }
-    const [tgt, _] = result;
-    tgt.root.classList.add("oh-is-hover");
-  }
-  unhover(name: Order) {
-    const result = this.blockChain.find(name);
-    if (!result) {
-      throw EvalError(`name ${name} not exists!`);
-    }
-    const [tgt, _] = result;
-    tgt.root.classList.remove("oh-is-hover");
+  undoCommand(): boolean {
+    return this.history.undo();
   }
 
-  activateInline(node: HTMLElement) {
-    if (this.status.activeInline === node) {
+  redoCommand(): boolean {
+    return this.history.redo();
+  }
+
+  render(root: HTMLElement): void {
+    root.innerHTML = "";
+    root.appendChild(this.root);
+  }
+
+  setHover(block?: AnyBlock | undefined): void {
+    if (this.hover === block) {
       return;
     }
-    if (this.status.activeInline) {
-      this.deactivateInline(this.status.activeInline);
+    if (this.hover) {
+      // TODO unhover;
     }
-    this.status.activeInline = node;
-    // node.contentEditable = "false";
-    node.classList.add("active");
-  }
-  deactivateInline(node?: HTMLElement) {
-    if (!node && this.status.activeInline) {
-      node = this.status.activeInline;
-    }
-    if (this.status.activeInline === node) {
-      this.status.activeInline = undefined;
-    }
-    if (node) {
-      // node.removeAttribute("contenteditable");
-      node.classList.remove("active");
+    if (block) {
+      // TODO hover class;
+      this.hover = block;
     }
   }
 
-  /**
-   * 在 attribution 上进行改变，并在 page 的变量上进行记录
-   * 在光标上不做任何处理，由 handler 内部消化
-   * @param name
-   */
-  activate(name: Order) {
-    const result = this.blockChain.find(name);
-    if (!result) {
-      throw EvalError(`name ${name} not exists!`);
+  setActiveInline(inline?: HTMLElement | undefined): boolean {
+    if (this.activeInline === inline) {
+      return false;
     }
-    const [tgt, _] = result;
-    if (this.status.activeBlock) {
-      this.status.activeBlock.deactivate();
+    if (this.activeInline) {
+      // TODO
     }
-    this.status.activeBlock = tgt;
-    tgt.activate();
+    if (inline) {
+      // TODO
+      this.activeInline = inline;
+    }
+    return true;
   }
 
-  deactivate(name: Order) {
-    const result = this.blockChain.find(name);
-    if (!result) {
-      throw EvalError(`name ${name} not exists!`);
+  setActivate(block?: AnyBlock | undefined): void {
+    if (this.active === block) {
+      return;
     }
-    const [tgt, _] = result;
-    this.status.activeBlock = undefined;
-    tgt.deactivate();
+    if (this.active) {
+      // TODO
+    }
+    if (block) {
+      // TODO
+      this.active = block;
+    }
+  }
+  toggleSelect(flag: BlockQuery): void {
+    let target;
+    if ((target = this.query(flag))) {
+      if (this.selected.has(target.order)) {
+        // TODO remove selection class attr
+        this.selected.delete(target.order);
+      } else {
+        // TODO remove selection class attr
+        this.selected.add(target.order);
+      }
+    }
+  }
+  toggleAllSelect(): void {
+    let node = this.chain.first!;
+    while (node) {
+      this.toggleSelect(node.value);
+      node = node.next!;
+    }
+  }
+  clearSelect(): void {
+    this.selected.forEach((item) => {
+      // TODO remove selection class attr
+    });
+    this.selected.clear();
   }
 
-  findBlock(order: Order): AnyBlock | null {
-    const results = this.blockChain.find(order);
-    if (!results) {
+  query(flag: BlockQuery): AnyBlock | null {
+    if (typeof flag === "string") {
+      const res = this.chain.find(flag);
+      if (res) {
+        return res[0];
+      }
+    }
+    return flag as AnyBlock;
+  }
+  private denode(
+    res: [AnyBlock, DictNode<string, AnyBlock>] | null
+  ): AnyBlock | null {
+    if (!res) {
       return null;
     }
-    return results[0];
+    return res[0];
   }
-
-  getPrevBlock(block: AnyBlock): AnyBlock | null {
-    const results = this.blockChain.previous(block.order!);
-    if (!results) {
-      return null;
+  getNextBlock(flag: BlockQuery): AnyBlock | null {
+    let target;
+    if ((target = this.query(flag))) {
+      return this.denode(this.chain.next(target.order));
     }
-    return results[0];
+    return null;
   }
-
-  getNextBlock(block: AnyBlock): AnyBlock | null {
-    let results = this.blockChain.next(block.order!);
-    if (!results) {
-      return null;
+  getPrevBlock(flag: BlockQuery): AnyBlock | null {
+    let target;
+    if ((target = this.query(flag))) {
+      return this.denode(this.chain.previous(target.order));
     }
-    return results[0];
+    return null;
   }
-
-  appendBlock(newBlock: AnyBlock) {
-    const [tgt, _] = this.blockChain.getLast();
-
-    if (tgt) {
-      newBlock.assignOrder(createOrderString(tgt.order));
-      this.blockChain.append(newBlock.order!, newBlock);
+  getFirstBlock(): AnyBlock {
+    return this.chain.first!.value;
+  }
+  getLastBlock(): AnyBlock {
+    return this.chain.getLast()[0];
+  }
+  appendBlock(newBlock: AnyBlock): string {
+    const oldLast = this.getLastBlock();
+    if (oldLast) {
+      newBlock.setOrder(createOrderString(oldLast.order));
     } else {
-      newBlock.assignOrder(createOrderString());
-      this.blockChain.append(newBlock.order!, newBlock);
+      newBlock.setOrder(createOrderString());
     }
-    this.blockRoot?.appendChild(newBlock.root);
-    newBlock.attached(this);
+    this.chain.append(newBlock.order, newBlock);
+    this.blockRoot.appendChild(newBlock.root);
+    newBlock.setParent(this);
     return newBlock.order;
   }
-
-  insertBlockBefore(name: Order, newBlock: AnyBlock) {
-    const result = this.blockChain.find(name);
-    if (!result) {
-      throw EvalError(`name ${name} not exists!`);
-    }
-    const [tgt, node] = result;
-    const prev = node.prev;
-    const prevOrder = prev ? prev.value.order : "";
-
-    newBlock.assignOrder(createOrderString(prevOrder, tgt.order));
-    if (!this.blockChain.insertBefore(tgt.order!, newBlock.order!, newBlock)) {
-      throw EvalError(`insert before ${tgt.order} failed!`);
-    }
-    newBlock.attached(this);
-    tgt.root.insertAdjacentElement("beforebegin", newBlock.root);
-  }
-  insertBlockAfter(name: Order, newBlock: AnyBlock) {
-    const result = this.blockChain.find(name);
-    if (!result) {
-      throw EvalError(`name ${name} not exists!`);
-    }
-    const [tgt, node] = result;
-    const next = node.next;
-    const nextOrder = next ? next.value.order : "";
-
-    newBlock.assignOrder(createOrderString(tgt.order, nextOrder));
-    if (!this.blockChain.insertAfter(tgt.order!, newBlock.order!, newBlock)) {
-      throw EvalError(`insert before ${tgt.order} failed!`);
-    }
-    newBlock.attached(this);
-    tgt.root.insertAdjacentElement("afterend", newBlock.root);
-  }
-
-  removeBlock(name: Order): any {
-    const result = this.blockChain.pop(name);
-    if (!result) {
-      throw EvalError(`name ${name} not exists!`);
-    }
-    const [tgt, _] = result;
-    tgt.detached();
-    tgt.root.remove();
-  }
-  replaceBlock(name: Order, newBlock: AnyBlock) {
-    const result = this.blockChain.find(name);
-    if (!result) {
-      throw EvalError(`name ${name} not exists!`);
-    }
-    const [tgt, node] = result;
-    newBlock.assignOrder(tgt.order!);
-    tgt.detached();
-    newBlock.attached(this);
-
-    node.value = newBlock;
-    tgt.root.replaceWith(newBlock.root);
-  }
-
-  render(el: HTMLElement) {
-    el.appendChild(this.root);
-  }
-
-  dismiss(removeElement?: boolean) {
-    if (!this.blockRoot) {
-      return;
-    }
-    this.handler.removeEventListener(this.blockRoot);
-    if (removeElement) {
-      this.blockRoot.remove();
+  insertBlockAdjacent(
+    newBlock: AnyBlock,
+    where: "after" | "before",
+    flag?: BlockQuery | undefined
+  ): string {
+    let target;
+    if (!flag) {
+      if (where === "after") {
+        // 默认如果 flag === undefined && where === 'after 为插入到最后面
+        return this.appendBlock(newBlock);
+      } else {
+        target = this.getFirstBlock();
+      }
     } else {
-      this.blockRoot.classList.remove(ROOT_CLASS);
+      target = this.query(flag);
     }
+
+    if (target) {
+      if (where === "after") {
+        const next = this.getNextBlock(target);
+        if (!next) {
+          return this.appendBlock(newBlock);
+        } else {
+          newBlock.setOrder(createOrderString(target.order, next.order));
+          newBlock.setParent(this);
+          target.root.insertAdjacentElement("afterend", newBlock.root);
+          this.chain.insertAfter(target.order, newBlock.order, newBlock);
+          return newBlock.order;
+        }
+      } else {
+        const prev = this.getPrevBlock(target);
+        const prevOrder = prev ? prev.order : "";
+        newBlock.setOrder(createOrderString(prevOrder, target.order));
+        newBlock.setParent(this);
+        target.root.insertAdjacentElement("beforebegin", newBlock.root);
+        this.chain.insertBefore(target.order, newBlock.order, newBlock);
+        return newBlock.order;
+      }
+    }
+
+    throw new Error("Block not found.");
+  }
+  removeBlock(flag: BlockQuery): AnyBlock {
+    if (typeof flag !== "string") {
+      flag = flag.order;
+    }
+    const result = this.chain.pop(flag);
+    if (!result) {
+      throw new Error("Block not found.");
+    }
+
+    const [tgt, _] = result;
+    tgt.setParent();
+    tgt.root.remove();
+    return tgt;
+  }
+  replaceBlock(newBlock: AnyBlock, flag: BlockQuery): AnyBlock {
+    if (typeof flag !== "string") {
+      flag = flag.order;
+    }
+
+    const result = this.chain.find(flag);
+    if (!result) {
+      throw new Error("Block not found.");
+    }
+
+    const [tgt, node] = result;
+    newBlock.setOrder(tgt.order);
+    tgt.setParent();
+    tgt.root.insertAdjacentElement("afterend", newBlock.root);
+    tgt.root.remove();
+    node.value = newBlock;
+    return tgt;
+  }
+
+  setParent(parent?: IContainer): void {
+    this.parent = parent;
+  }
+  serialize(el: IComponent, option?: any): string {
+    throw new Error("Method not implemented.");
+  }
+  deserialize(): IComponent {
+    throw new Error("Method not implemented.");
+  }
+  equals(component?: IComponent): boolean {
+    return component !== undefined && this.root === component.root;
+  }
+  detach(): void {
+    this.root.remove();
+  }
+
+  setMode(mode: "block" | "text"): void {
+    this.selectionMode = mode;
+  }
+  setDirection(dir?: "prev" | "next"): void {
+    this.rangeDirection = dir;
+  }
+
+  attach(ref: HTMLElement): void {
+    throw new Error("Method not implemented.");
+  }
+  combine(start: string, end: string): void {
+    throw new Error("Method not implemented.");
   }
 }

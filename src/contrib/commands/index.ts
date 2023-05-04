@@ -1,1 +1,1 @@
-export * from "./insertText";
+export * from "./text"

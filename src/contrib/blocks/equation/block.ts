@@ -8,7 +8,7 @@ export interface EquationInit extends BlockInit {
 
 export class Equation extends Block<EquationInit> {
   type: string = "equation";
-  multiContainer: boolean = true;
+  isMultiEditable: boolean = true;
   mergeable: boolean = false;
   constructor(init?: EquationInit) {
     init = init || { src: "" };

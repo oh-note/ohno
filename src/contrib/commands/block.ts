@@ -1,8 +1,7 @@
-import { Offset, offsetToRange } from "@/system/position";
-import { AnyBlock } from "@/system/block";
 import { Command, CommandCallback } from "@/system/history";
 import { Page } from "@/system/page";
-import { setRange } from "@/system/range";
+import { setLocation } from "@/system/range";
+import { AnyBlock } from "@/system/block";
 
 export interface BlockCreatePayload {
   page: Page;
@@ -10,8 +9,8 @@ export interface BlockCreatePayload {
   newBlock: AnyBlock;
   where: "after" | "tail" | "head" | "before";
 
-  offset?: Offset;
-  newOffset?: Offset;
+  // offset?: Offset;
+  // newOffset?: Offset;
 }
 
 export interface BlockRemovePayload {
@@ -28,35 +27,31 @@ export interface BlockReplacePayload {
   block: AnyBlock;
   newBlock: AnyBlock;
 
-  offset?: Offset;
-  newOffset?: Offset;
+  // offset?: Offset;
+  // newOffset?: Offset;
 }
 
 export class BlockReplace extends Command<BlockReplacePayload> {
   onExecuteFn: CommandCallback<BlockReplacePayload> = ({
     newBlock,
-    newOffset,
+    // newOffset,
   }) => {
-    if (newOffset) {
-      newBlock.setOffset(newOffset);
-    }
+    setLocation(newBlock.getLocation(0, 0)!);
   };
 
-  onUndoFn: CommandCallback<BlockReplacePayload> = ({ block, offset }) => {
-    if (offset) {
-      block.setOffset(offset);
-    }
+  onUndoFn: CommandCallback<BlockReplacePayload> = ({ block }) => {
+    setLocation(block.getLocation(0, 0)!);
   };
 
   execute(): void {
     this.onExecuteFn;
     const { page, block, newBlock } = this.payload;
-    page.replaceBlock(block.order, newBlock);
+    page.replaceBlock(newBlock, block);
   }
 
   undo(): void {
     const { page, block, newBlock } = this.payload;
-    page.replaceBlock(newBlock.order, block);
+    page.replaceBlock(block, newBlock);
   }
 }
 
@@ -82,7 +77,7 @@ export class BlocksRemove extends Command<BlocksRemovePayload> {
       .reverse()
       .forEach((block) => {
         if (cur) {
-          page.insertBlockBefore(cur.order, block);
+          page.insertBlockAdjacent(block, "before", cur);
         } else {
           page.appendBlock(block);
         }
@@ -105,7 +100,7 @@ export class BlockRemove extends Command<BlockRemovePayload> {
   undo(): void {
     const { page, block } = this.payload;
     if (this.buffer.nextBlock) {
-      page.insertBlockBefore(this.buffer.nextBlock.order, block);
+      page.insertBlockAdjacent(block, "before", this.buffer.nextBlock);
     } else {
       page.appendBlock(block);
     }
@@ -113,29 +108,25 @@ export class BlockRemove extends Command<BlockRemovePayload> {
 }
 
 export class BlockCreate extends Command<BlockCreatePayload> {
-  onExecuteFn: CommandCallback<BlockCreatePayload> = ({
-    newBlock,
-    newOffset,
-  }) => {
-    if (newOffset) {
-      newBlock.setOffset(newOffset);
-    }
+  onExecuteFn: CommandCallback<BlockCreatePayload> = ({ newBlock }) => {
+    setLocation(newBlock.getLocation(0, 0)!);
   };
-  onUndoFn: CommandCallback<BlockCreatePayload> = ({ block, offset }) => {
-    if (offset) {
-      block.setOffset(offset);
-    }
+  onUndoFn: CommandCallback<BlockCreatePayload> = ({ block }) => {
+    setLocation(block.getLocation(0, 0)!);
   };
   execute(): void {
     const { where, page, block, newBlock } = this.payload;
 
     if (where === "after") {
-      page.insertBlockAfter(block.order, newBlock);
+      page.insertBlockAdjacent(newBlock, "after", block);
+      // page.insertBlockAfter(block.order, newBlock);
     } else if (where === "before") {
-      page.insertBlockBefore(block.order, newBlock);
+      page.insertBlockAdjacent(newBlock, "before", block);
+      // page.insertBlockBefore(block.order, newBlock);
     } else if (where === "head") {
-      if (page.blockChain.first) {
-        page.insertBlockBefore(page.blockChain.first.name!, newBlock);
+      if (page.chain.first) {
+        page.insertBlockAdjacent(newBlock, "before", page.chain.first.value);
+        // page.insertBlockBefore(page.blockChain.first.name!, newBlock);
       } else {
         page.appendBlock(newBlock);
       }
@@ -144,7 +135,7 @@ export class BlockCreate extends Command<BlockCreatePayload> {
     }
   }
   undo(): void {
-    const { page, block, newBlock, offset } = this.payload;
+    const { page, newBlock } = this.payload;
     page.removeBlock(newBlock.order);
   }
 }

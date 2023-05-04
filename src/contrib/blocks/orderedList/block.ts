@@ -16,19 +16,13 @@
  *
  */
 import { createElement, getDefaultRange } from "@/helper/document";
-import { indexOfNode, parentElementWithTag } from "@/helper/element";
 import { Block, BlockInit } from "@/system/block";
+import { List, ListInit } from "../list";
 
-export interface OrderedListInit extends BlockInit {
-  firstLiInnerHTML?: string;
-  firstLiChildren?: HTMLElement[];
-  children?: HTMLLIElement[];
-}
-
-export class OrderedList extends Block<OrderedListInit> {
+export class OrderedList extends List {
   type: string = "ordered_list";
-  multiContainer: boolean = true;
-  constructor(init?: OrderedListInit) {
+  isMultiEditable: boolean = true;
+  constructor(init?: ListInit) {
     init = init || {};
     if (!init.el) {
       init.el = createElement("ol", {
@@ -64,76 +58,5 @@ export class OrderedList extends Block<OrderedListInit> {
     }
 
     super(init);
-  }
-
-  indent() {}
-
-  dedent() {}
-
-  // 所有多 Container 下的 currentContainer 只考虑 range.startContainer 位置
-  currentContainer() {
-    // document.getSelection().focusNode
-    const range = getDefaultRange();
-
-    const li = parentElementWithTag(range.startContainer, "li", this.root);
-    if (!li) {
-      throw new Error(
-        "Error when get currentContainer: focus are not in li element"
-      );
-    }
-    return li;
-  }
-  findContainer(node: Node): HTMLElement | null {
-    const tgt = parentElementWithTag(node, "li", this.root);
-    return tgt;
-  }
-  getContainer(index?: number) {
-    if (!index) {
-      return this.root.firstChild! as HTMLElement;
-    }
-    if (index < 0) {
-      return this.root.querySelector(
-        `li:nth-last-child(${-index})`
-      ) as HTMLElement;
-    }
-    // selector 从 1 开始，index 从 0 开始
-    return this.root.querySelector(`li:nth-child(${index + 1})`) as HTMLElement;
-  }
-
-  leftContainer(el?: HTMLElement) {
-    return el!.previousElementSibling! as HTMLElement;
-  }
-  rightContainer(el?: HTMLElement) {
-    return el!.nextElementSibling as HTMLElement;
-  }
-  aboveContainer(el?: HTMLElement) {
-    return this.leftContainer(el);
-  }
-  belowContainer(el?: HTMLElement) {
-    return this.rightContainer(el);
-  }
-  prevContainer(el?: HTMLElement | undefined): HTMLElement | null {
-    return this.aboveContainer(el);
-  }
-  nextContainer(el?: HTMLElement | undefined): HTMLElement | null {
-    return this.belowContainer(el);
-  }
-
-  firstContainer() {
-    return this.root.firstChild as HTMLElement;
-  }
-  lastContainer() {
-    return this.root.lastChild as HTMLElement;
-  }
-  containers(): HTMLElement[] {
-    return Array.from(this.root.querySelectorAll("li"));
-  }
-
-  getIndexOfContainer(container: HTMLElement, reverse?: boolean): number {
-    let index = indexOfNode(container, "li");
-    if (reverse) {
-      index = index - this.root.childNodes.length - 1;
-    }
-    return index;
   }
 }

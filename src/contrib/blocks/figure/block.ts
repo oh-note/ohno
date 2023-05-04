@@ -12,7 +12,7 @@ export interface FigureInit extends BlockInit {
 
 export class Figure extends Block<FigureInit> {
   type: string = "figure";
-  multiContainer: boolean = true;
+  isMultiEditable: boolean = true;
   mergeable: boolean = false;
   constructor(init?: FigureInit) {
     init = init || { src: "" };

@@ -1,4 +1,3 @@
-import { getDefaultRange } from "@/helper/document";
 import {
   EventContext,
   Handler,
@@ -6,34 +5,25 @@ import {
   RangedEventContext,
   dispatchKeyDown,
 } from "@/system/handler";
-import {
-  FIRST_POSITION,
-  LAST_POSITION,
-  getTokenSize,
-  locationToBias,
-  offsetToRange,
-  rangeToOffset,
-} from "@/system/position";
+import { getTokenSize, tokenBetweenRange } from "@/system/position";
 import {
   BlockCreate,
   BlockRemove,
   BlockReplace,
   BlocksRemove,
 } from "@/contrib/commands/block";
-import { ValidNode, outerHTML } from "@/helper/element";
+import { outerHTML } from "@/helper/element";
 import { ListCommandBuilder } from "@/contrib/commands/concat";
-import { TextDeleteSelection } from "@/contrib/commands/text";
-import { Payload } from "@/system/history";
 import { Headings } from "../headings";
 import { Paragraph } from "./block";
 import { AnyBlock } from "@/system/block";
-import { createRange } from "@/system/range";
 import { Blockquote } from "../blockquote";
 import { List } from "../list";
-import { TextInsert } from "@/contrib/commands";
-import { Empty, SetBlockRange } from "@/contrib/commands/select";
+import { RichTextDelete, TextInsert } from "@/contrib/commands";
+import { Empty, SetLocation } from "@/contrib/commands/select";
 import { ContainerRemove } from "@/contrib/commands/container";
 import { OrderedList } from "../orderedList";
+import { createRange, setLocation, setRange } from "@/system/range";
 
 export interface DeleteContext extends EventContext {
   nextBlock: AnyBlock;
@@ -46,21 +36,24 @@ export function prepareDeleteCommand({
 }: DeleteContext) {
   const builder = new ListCommandBuilder({ page, block, nextBlock })
     .withLazyCommand(({ page, block, nextBlock }, extra, status) => {
-      if (nextBlock.root.innerHTML.length > 0) {
-        const token_number = getTokenSize(block.root);
+      //
+      if (nextBlock.inner.innerHTML.length > 0) {
+        const token_number = getTokenSize(block.inner);
         const offset = { index: -1, start: token_number };
         return new TextInsert({
-          block: block,
-          insertOffset: offset,
           page: page,
+          block: block,
+          start: token_number,
+          index: 0,
           innerHTML: nextBlock.root.innerHTML,
-        }).onExecute(({ block, insertOffset }) => {
-          block.setOffset(insertOffset);
+        }).onExecute(({ block, start, index }) => {
+          setLocation(block.getLocation(start, index)!);
         });
       }
       return null;
     })
     .withLazyCommand(() => {
+      // 2. 将下一个 block 删除。
       return new BlocksRemove({ page, blocks: [nextBlock] });
     });
   return builder;
@@ -72,53 +65,60 @@ export function prepareEnterCommand({ page, block, range }: EventContext) {
   }
   const builder = new ListCommandBuilder({ page, block, range })
     .withLazyCommand(({ block, page, range }, _, status) => {
+      // 1. 如果存在选中文本，则删除。
       if (range.collapsed) {
         // 没有选中文本，不需要删除
         return;
       }
-      const offset = rangeToOffset(block.root, range);
-      return new TextDeleteSelection({
-        block: block,
-        page: page,
-        delOffset: offset,
-      }).onUndo(({ block, page, delOffset }) => {
-        block.setOffset(delOffset);
+      const start = block.getBias([range.startContainer, range.startOffset]);
+      const token_number = tokenBetweenRange(range);
+      return new RichTextDelete({
+        page,
+        block,
+        start,
+        index: 0,
+        token_number,
+      }).onUndo(({ block, start, token_number }) => {
+        setRange(
+          block.getEditableRange({
+            start,
+            end: start + token_number,
+            index: 0,
+          })!
+        );
       });
     })
-    .withLazyCommand(({ block, page, range }, extra, status) => {
-      const bias = locationToBias(
-        block.root,
-        range.startContainer as ValidNode,
-        range.startOffset
-      );
-      const token_number = getTokenSize(block.root);
-
-      if (block.isRight(range)) {
-        // 已经在最右侧了，直接返回并新建 Block
-        status.skip();
+    .withLazyCommand(({ block, page, range }, extra) => {
+      // 2. 在删除后（上一条命令保证了是 range.collapsed），如果位于右侧，则直接创建
+      const start = block.getBias([range.startContainer, range.startOffset]);
+      if (block.isLocationInRight([range.startContainer, range.startOffset])) {
         extra["innerHTML"] = "";
-        extra["offset"] = { start: bias };
-        return;
+        return new Empty({ block, start }).onUndo(({ block, start }) => {
+          setLocation(block.getLocation(start, 0)!);
+        });
       }
-      // 获取光标到右侧的文本，删除并将其作为新建 Block 的参数
-      // const offset = rangeToOffset(block.el, range);
-      // offset.end = -1;
+      // 2. 否则，将右侧内容放到下一行
 
-      const delOffset = {
-        start: bias,
-        end: token_number,
-      };
-      const tailSelectedRange = offsetToRange(block.root, delOffset);
+      // 需要获取光标到右侧的文本，删除并将其作为新建 Block 的初始文本（下一条命令）
+      const full_token_number = getTokenSize(block.inner);
+      const tailSelectedRange = block.getRange(
+        {
+          start,
+          end: full_token_number,
+        },
+        block.inner
+      )!;
       const newContent = tailSelectedRange!.cloneContents();
 
       extra["innerHTML"] = outerHTML(newContent);
-      extra["offset"] = { start: bias };
-      return new TextDeleteSelection({
-        block: block,
-        page: page,
-        delOffset,
-      }).onUndo(({ block, delOffset }) => {
-        block.setOffset({ ...delOffset, end: undefined });
+      return new RichTextDelete({
+        page,
+        block,
+        index: 0,
+        start,
+        token_number: full_token_number - start,
+      }).onUndo(({ block, start }) => {
+        setLocation(block.getLocation(start, 0)!);
       });
     });
 
@@ -126,22 +126,20 @@ export function prepareEnterCommand({ page, block, range }: EventContext) {
 }
 
 export class ParagraphHandler extends Handler implements KeyDispatchedHandler {
-  name: string = "p";
   handleKeyPress(
     e: KeyboardEvent,
     context: RangedEventContext
   ): boolean | void {}
+
   handleKeyDown(e: KeyboardEvent, context: RangedEventContext): boolean | void {
     return dispatchKeyDown(this, e, context);
   }
 
   handleDeleteDown(
     e: KeyboardEvent,
-    { page, block }: RangedEventContext
+    { page, block, range }: RangedEventContext
   ): boolean | void {
-    const range = getDefaultRange();
-    console.log("Delete");
-    if (!block.isRight(range)) {
+    if (!block.isLocationInRight([range.startContainer, range.startOffset])) {
       return;
     }
     const nextBlock = page.getNextBlock(block);
@@ -153,7 +151,7 @@ export class ParagraphHandler extends Handler implements KeyDispatchedHandler {
     }
     // 需要将下一个 Block 的第一个 Container 删除，然后添加到尾部
     // 执行过程是 TextInsert -> ContainerDelete
-    if (nextBlock.multiContainer) {
+    if (nextBlock.isMultiEditable) {
       // 删除第一个 Container
       // 将 Container 的内容插入到末尾
       const command = new ListCommandBuilder({
@@ -162,23 +160,28 @@ export class ParagraphHandler extends Handler implements KeyDispatchedHandler {
         nextBlock,
       })
         .withLazyCommand(({ block, nextBlock }, extra) => {
-          const n = nextBlock.containers().length;
-          extra["innerHTML"] = nextBlock.firstContainer().innerHTML;
+          // 1/1 删除下一个 Block 的首元素
+          // 1/2 如果下一个多区域元素是只有一个 Editable，则直接删除整个 Block
+          const n = nextBlock.getEditables().length;
+          extra["innerHTML"] = nextBlock.getFirstEditable().innerHTML;
           if (n === 1) {
             return new BlockRemove({ page, block: nextBlock });
           } else {
-            return new ContainerRemove({ page, block: nextBlock, index: [0] });
+            return new ContainerRemove({ page, block: nextBlock, indexs: [0] });
           }
         })
         .withLazyCommand(({ block, page }, { innerHTML }) => {
-          const insertOffset = block.getOffset();
+          // const insertOffset = block.getOffset();
+          // 将删除的 Editable 的内容插入到该 block
+          const start = getTokenSize(block.getEditable(0));
           return new TextInsert({
             page,
             block,
             innerHTML,
-            insertOffset,
-          }).onExecute(({ block }) => {
-            block.setOffset(insertOffset);
+            start,
+            index: -1,
+          }).onExecute(({ block, start, index }) => {
+            setLocation(block.getLocation(start, index)!);
           });
         })
         .build();
@@ -195,10 +198,13 @@ export class ParagraphHandler extends Handler implements KeyDispatchedHandler {
 
   handleBackspaceDown(
     e: KeyboardEvent,
-    { block, page }: RangedEventContext
+    { block, page, range }: RangedEventContext
   ): boolean | void {
-    const range = getDefaultRange();
-    if (!block.isLeft(range) || !range.collapsed) {
+    if (
+      !range.collapsed ||
+      !block.isLocationInLeft([range.startContainer, range.startOffset])
+    ) {
+      // 不处理选中状态和不在左边的状态
       return;
     }
     const prevBlock = page.getPrevBlock(block);
@@ -216,33 +222,33 @@ export class ParagraphHandler extends Handler implements KeyDispatchedHandler {
     // 对 List，还需要额外分析退格的 Container Index，并额外的创建 1 或 2 个 BlockCreate 命令
     const command = new ListCommandBuilder({ page, block, prevBlock })
       .withLazyCommand(() => {
+        // 1. 删除当前 block
         return new BlockRemove({
           page,
           block,
         }).onUndo(({ block }) => {
-          block.setOffset(FIRST_POSITION);
+          setLocation(block.getLocation(0, 0)!);
         });
       })
       .withLazyCommand(({ page, block, prevBlock }, extra, status) => {
-        const token_number = getTokenSize(prevBlock.lastContainer());
+        const token_number = getTokenSize(prevBlock.getLastEditable());
         if (block.root.innerHTML.length > 0) {
+          // 2/1. 将当前 block 的内容添加到上一个 block的 lastBlock 中
           return new TextInsert({
-            block: prevBlock,
-            insertOffset: { index: -1, start: -1 },
             page: page,
+            block: prevBlock,
+            start: token_number,
+            index: -1,
+            // insertOffset: { index: -1, start: -1 },
             innerHTML: block.root.innerHTML,
           }).onExecute(({ block }) => {
-            block.setOffset({ index: -1, start: token_number });
+            setLocation(block.getLocation(token_number, -1)!);
           });
         } else {
-          return new Empty({
-            page,
-            block,
-            offset: FIRST_POSITION,
+          // 2/2. 如果是个空 Block，直接在删除后将内容放到上面去
+          return new SetLocation({
             newBlock: prevBlock,
-            newOffset: LAST_POSITION,
-          }).onExecute(({ block, newBlock }) => {
-            newBlock.setOffset({ index: -1, start: token_number });
+            newOffset: { start: token_number, end: token_number, index: -1 },
           });
         }
       })
@@ -256,12 +262,9 @@ export class ParagraphHandler extends Handler implements KeyDispatchedHandler {
     e: KeyboardEvent,
     { page, block, range }: RangedEventContext
   ): boolean | void {
-    e.stopPropagation();
-    e.preventDefault();
-
-    const command = prepareEnterCommand({ page, block, range }) // 删除当前光标向后所有文本
-      .withLazyCommand(({ block, page }, { innerHTML, offset }) => {
-        if (innerHTML === undefined || !offset) {
+    const command = prepareEnterCommand({ page, block, range })
+      .withLazyCommand(({ block, page }, { innerHTML }) => {
+        if (innerHTML === undefined) {
           throw new Error("sanity check");
         }
         const paragraph = new Paragraph({
@@ -272,13 +275,12 @@ export class ParagraphHandler extends Handler implements KeyDispatchedHandler {
           block: block,
           newBlock: paragraph,
           where: "after",
-          offset: offset,
-          newOffset: FIRST_POSITION,
         });
       }) // 将新文本添加到
       .build();
 
     page.executeCommand(command);
+    return true;
   }
   handleSpaceDown(
     e: KeyboardEvent,
@@ -286,63 +288,52 @@ export class ParagraphHandler extends Handler implements KeyDispatchedHandler {
   ): boolean | void {
     const { page, block, range } = context;
 
-    const prefixRange = offsetToRange(block.currentContainer(), { start: 0 })!;
-    prefixRange.setEnd(range.endContainer, range.endOffset);
+    const editable = block.findEditable(range.startContainer)!;
+    const startLoc = block.getLocation(0, editable)!;
+    const prefixRange = createRange(
+      ...startLoc,
+      range.endContainer,
+      range.endOffset
+    );
 
     const prefix = prefixRange.cloneContents().textContent!;
     let matchRes, command;
     if ((matchRes = prefix.match(/^(#{1,6})/))) {
-      const offset = block.getOffset();
       const level = matchRes[1].length as 1 | 2 | 3 | 4 | 5 | 6;
       const newBlock = new Headings({
         level,
         innerHTML: block.root.innerHTML.replace(/^#+/, ""),
       });
-      const newOffset = FIRST_POSITION;
       command = new BlockReplace({
         page,
         block,
-        offset,
-        newOffset,
         newBlock,
       });
     } else if ((matchRes = prefix.match(/^[>》]([!? ])?/))) {
-      const offset = block.getOffset();
       const newBlock = new Blockquote({
         innerHTML: block.root.innerHTML.replace(/^(》|&gt;)([!? ])?/, ""),
       });
-      const newOffset = FIRST_POSITION;
       command = new BlockReplace({
         page,
         block,
-        offset,
-        newOffset,
         newBlock,
       });
     } else if (prefix.match(/^ *- */)) {
-      const offset = block.getOffset();
       const newBlock = new List({
         firstLiInnerHTML: block.root.innerHTML.replace(/^ *(-*) */, ""),
       });
-      const newOffset = FIRST_POSITION;
       command = new BlockReplace({
         page,
         block,
-        offset,
-        newOffset,
         newBlock,
       });
     } else if (prefix.match(/^ *([0-9]+\.) *$/)) {
-      const offset = block.getOffset();
       const newBlock = new OrderedList({
         firstLiInnerHTML: block.root.innerHTML.replace(/^ *([0-9]+\.) *$/, ""),
       });
-      const newOffset = FIRST_POSITION;
       command = new BlockReplace({
         page,
         block,
-        offset,
-        newOffset,
         newBlock,
       });
     } else if (prefix.match(/^( *- *)?(【】|\[\]|\[ \])*$/)) {

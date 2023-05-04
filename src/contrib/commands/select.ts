@@ -1,6 +1,7 @@
 // 提供几个级别的 selection
+import { EditableInterval } from "@/system/base";
 import { AnyBlock } from "@/system/block";
-import { Command, CommandBuffer } from "@/system/history";
+import { Command, CommandBuffer, CommandCallback } from "@/system/history";
 import { Page } from "@/system/page";
 import { Offset } from "@/system/position";
 import { setRange } from "@/system/range";
@@ -22,6 +23,31 @@ export interface BlockActivePayload {
 }
 
 export class Empty<T> extends Command<T> {
+  execute(): void {}
+  undo(): void {}
+}
+
+export interface LocationPayload {
+  block?: AnyBlock;
+  offset?: EditableInterval;
+  newBlock?: AnyBlock;
+  newOffset?: EditableInterval;
+}
+
+export class SetLocation extends Command<LocationPayload> {
+  onExecuteFn?: CommandCallback<LocationPayload> = ({
+    newBlock,
+    newOffset,
+  }) => {
+    if (newBlock && newOffset) {
+      setRange(newBlock.getEditableRange(newOffset)!);
+    }
+  };
+  onUndoFn?: CommandCallback<LocationPayload> = ({ block, offset }) => {
+    if (block && offset) {
+      setRange(block.getEditableRange(offset)!);
+    }
+  };
   execute(): void {}
   undo(): void {}
 }
@@ -50,8 +76,8 @@ export class SetGlobalRange extends Command<GlobalRangePayload> {
   };
   execute(): void {
     const { page, startBlock, startOffset, endOffset, endBlock } = this.payload;
-    const startRange = startBlock.getRange(startOffset)!;
-    const endRange = endBlock.getRange(endOffset)!;
+    const startRange = startBlock.getRangeLegend(startOffset)!;
+    const endRange = endBlock.getRangeLegend(endOffset)!;
     startRange.setEnd(endRange.startContainer, endRange.startOffset);
     setRange(startRange);
   }

@@ -16,6 +16,7 @@ import {
   getSoftLineHead,
   getSoftLineTail,
   normalizeRange,
+  setLocation,
   setRange,
 } from "@/system/range";
 import { defaultHandleBeforeInput } from "./beforeInput";
@@ -33,7 +34,7 @@ export class DefaultBlockHandler
     e: MouseEvent,
     { block, page }: EventContext
   ): boolean | void {
-    page.activate(block.order);
+    page.setActivate(block);
   }
 
   handleMouseUp(e: MouseEvent, context: EventContext): boolean | void {
@@ -67,30 +68,23 @@ export class DefaultBlockHandler
       throw new NoRangeError();
     }
 
-    const container = block.findContainer(range.startContainer)!;
-    const index = block.getIndexOfContainer(container);
+    const container = block.findEditable(range.startContainer)!;
     const res =
       direction === "left"
         ? getSoftLineHead(range.startContainer, range.startOffset, container)
         : getSoftLineTail(range.startContainer, range.startOffset, container);
     if (res) {
       const [boundContainer, boundOffset] = res;
-      // const newRange = createRange(boundContainer, boundOffset);
-      // setRange(newRange);
-
       if (
         range.startContainer === boundContainer &&
         range.startOffset === boundOffset
       ) {
         const start =
           direction === "left" ? 0 : getTokenSize(container as HTMLElement);
-        block.setOffset({
-          index,
-          start,
-        });
+        const loc = block.getLocation(start, container)!;
+        setLocation(loc);
       } else {
-        const newRange = createRange(boundContainer, boundOffset);
-        setRange(newRange);
+        setLocation([boundContainer, boundOffset]);
       }
     }
   }
@@ -121,14 +115,26 @@ export class DefaultBlockHandler
       }
     }
   }
-  handleArrowKeyDown(e: KeyboardEvent, context: EventContext): boolean | void {
+  handleArrowKeyDown(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): boolean | void {
     return defaultHandleArrowDown(this, e, context);
   }
-  handleArrowKeyUp(e: KeyboardEvent, context: EventContext): boolean | void {}
-  handleKeyPress(e: KeyboardEvent, context: EventContext): boolean | void {}
-  handleKeyUp(e: KeyboardEvent, context: EventContext): boolean | void {}
+  handleArrowKeyUp(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): boolean | void {}
+  handleKeyPress(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): boolean | void {}
+  handleKeyUp(e: KeyboardEvent, context: RangedEventContext): boolean | void {}
 
-  handleBeforeInput(e: TypedInputEvent, context: EventContext): boolean | void {
+  handleBeforeInput(
+    e: TypedInputEvent,
+    context: RangedEventContext
+  ): boolean | void {
     return defaultHandleBeforeInput(this, e, context);
   }
 }

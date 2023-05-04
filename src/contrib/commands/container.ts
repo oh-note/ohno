@@ -3,7 +3,7 @@ import {
   Offset,
   elementOffset,
   getTokenSize,
-  offsetToRange,
+  intervalToRange,
 } from "@/system/position";
 import { AnyBlock } from "@/system/block";
 import { Command, CommandBuffer, Payload } from "@/system/history";
@@ -36,7 +36,7 @@ export interface ContainerRemovePayload extends Payload {
   block: AnyBlock;
   // beforeOffset?: Offset;
 
-  index: number[];
+  indexs: number[];
   // undo_hint?: {
   //   deletedContainer: HTMLElement[];
   // };
@@ -59,13 +59,17 @@ export function makeNode({
 }
 
 export class ContainerInsert extends Command<ContainerInsertPayload> {
+  declare buffer: {
+    newIndex: number[];
+  };
   execute(): void {
     const { block, index, where, newContainer } = this.payload;
-    if (!this.payload.beforeOffset) {
-      this.payload.beforeOffset = block.getOffset();
-    }
-    const cur = block.getContainer(index);
+    // if (!this.payload.beforeOffset) {
+    //   this.payload.beforeOffset = block.getOffset();
+    // }
+    const cur = block.getEditable(index);
     const flag = createFlagNode();
+
     if (where === "above") {
       cur.insertAdjacentElement("beforebegin", flag);
     } else {
@@ -73,28 +77,31 @@ export class ContainerInsert extends Command<ContainerInsertPayload> {
     }
     flag.replaceWith(...newContainer);
     const newIndex = newContainer.map((item) => {
-      return block.getIndexOfContainer(item);
+      return block.getEditableIndex(item);
     });
-    // const newIndex = block.getIndexOfContainer(newContainer);
-    if (!this.payload.afterOffset) {
-      this.payload.afterOffset = { ...FIRST_POSITION, index: newIndex[0] };
-    }
-    this.payload.undo_hint = {
-      newIndex: newIndex,
+    this.buffer = {
+      newIndex,
     };
-    block.setOffset(this.payload.afterOffset);
+    // const newIndex = block.getIndexOfContainer(newContainer);
+    // if (!this.payload.afterOffset) {
+    //   this.payload.afterOffset = { ...FIRST_POSITION, index: newIndex[0] };
+    // }
+    // this.payload.undo_hint = {
+    //   newIndex: newIndex,
+    // };
+    // block.setOffset(this.payload.afterOffset);
   }
   undo(): void {
-    const { block, beforeOffset } = this.payload;
-    const newIndex = this.payload.undo_hint!.newIndex;
+    const { block } = this.payload;
+    const newIndex = this.buffer.newIndex;
     newIndex
       .slice()
       .reverse()
       .forEach((item) => {
-        const newContainer = block.getContainer(item);
+        const newContainer = block.getEditable(item)!;
         newContainer.remove();
       });
-    block.setOffset(beforeOffset!);
+    // block.setOffset(beforeOffset!);
   }
 
   public get label(): string {
@@ -111,14 +118,14 @@ export class ContainerRemove extends Command<ContainerRemovePayload> {
     deletedContainer: HTMLElement[];
   };
   execute(): void {
-    let { block, index } = this.payload;
+    let { block, indexs: index } = this.payload;
     // 逆序删除，顺序添加
     const deletedContainer = index
       .slice()
       .sort()
       .reverse()
       .map((item) => {
-        const container = block.getContainer(item);
+        const container = block.getEditable(item)!;
         container.remove();
         return container.cloneNode(true) as HTMLElement;
       })
@@ -128,12 +135,12 @@ export class ContainerRemove extends Command<ContainerRemovePayload> {
     };
   }
   undo(): void {
-    const { block, index } = this.payload;
+    const { block, indexs: index } = this.payload;
     // 顺序添加
     index.forEach((item, ind) => {
       const container = this.buffer.deletedContainer[ind];
       let cur;
-      if ((cur = block.getContainer(item))) {
+      if ((cur = block.getEditable(item)!)) {
         cur.insertAdjacentElement("beforebegin", container);
       } else {
         block.root.appendChild(container);
@@ -161,7 +168,7 @@ export class UpdateContainerStyle extends Command<UpdateStylePayload> {
   };
   execute(): void {
     const { block, index, style } = this.payload;
-    const container = block.getContainer(index);
+    const container = block.getEditable(index);
 
     const oldStyle: Style = {};
     for (const item in style) {
@@ -172,7 +179,7 @@ export class UpdateContainerStyle extends Command<UpdateStylePayload> {
   }
   undo(): void {
     const { block, index } = this.payload;
-    const container = block.getContainer(index);
+    const container = block.getEditable(index);
     Object.assign(container.style, this.buffer.oldStyle);
   }
 }
@@ -183,7 +190,7 @@ export class SetContainerAttribute extends Command<SetAttributePayload> {
   };
   execute(): void {
     const { block, index, name, value } = this.payload;
-    const container = block.getContainer(index);
+    const container = block.getEditable(index);
 
     this.buffer = {
       oldValue: container.getAttribute(name),
@@ -193,7 +200,7 @@ export class SetContainerAttribute extends Command<SetAttributePayload> {
   undo(): void {
     const { block, index, name } = this.payload;
     const { oldValue } = this.buffer;
-    const container = block.getContainer(index);
+    const container = block.getEditable(index);
     if (!oldValue) {
       container.removeAttribute(name);
     } else {

@@ -5,7 +5,7 @@ import { createElement, getDefaultRange } from "@/helper/document";
 import { TextDeleteSelection } from "@/contrib/commands/text";
 import { Page } from "@/system/page";
 import { addMarkdownHint } from "@/helper/markdown";
-import { offsetToRange, rangeToOffset } from "@/system/position";
+import { intervalToRange, rangeToInterval } from "@/system/position";
 import { setRange } from "@/system/range";
 import { TextInsert } from "@/contrib/commands";
 
@@ -14,7 +14,7 @@ function makeFakePage() {
   const root = createElement("div");
   document.body.appendChild(root);
   page.render(root);
-  page.blockChain.first!.value.root.innerHTML = "012";
+  page.chain.first!.value.root.innerHTML = "012";
 
   return page;
 }
@@ -24,8 +24,8 @@ function makeFakeHTMLPage() {
   const root = createElement("div");
   document.body.appendChild(root);
   page.render(root);
-  page.blockChain.first!.value.root.innerHTML = "012<b>456</b>89";
-  addMarkdownHint(page.blockChain.first!.value.root);
+  page.chain.first!.value.root.innerHTML = "012<b>456</b>89";
+  addMarkdownHint(page.chain.first!.value.root);
   return page;
 }
 
@@ -66,7 +66,7 @@ describe("test command", () => {
     let block = page.findBlock("n")!;
     expect(block.root.textContent).toBe("012**456**89");
     // "012<b>4[56</b>8]9" -> "012[<b>4[56</b>]8]9" -> "012[<b>4|</b>8]9";
-    const range = offsetToRange(block.root, { start: 5, end: 9 })!;
+    const range = intervalToRange(block.root, { start: 5, end: 9 })!;
     setRange(range);
     let del = new TextDeleteSelection({
       page: page,
@@ -77,7 +77,7 @@ describe("test command", () => {
     page.executeCommand(del);
     expect(block.root.textContent).toBe("012**4**9");
     // "012<b>4|</b>9";
-    expect(rangeToOffset(block.root, getDefaultRange()).start).toBe(5);
+    expect(rangeToInterval(block.root, getDefaultRange()).start).toBe(5);
     // "012[<b>4|</b>8]9" -> "012 9" -> "012[<b>4[56</b>]8]9"
     page.history.undo();
     expect(block.root.textContent).toBe("012**456**89");

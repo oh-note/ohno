@@ -1,81 +1,83 @@
-import { EventContext, Handler } from "@/system/handler";
-import { createRange, getValidAdjacent, setRange } from "@/system/range";
-import { ValidNode } from "@/helper/element";
-import { getDefaultRange } from "@/helper/document";
+import { Handler, RangedEventContext } from "@/system/handler";
+import {
+  RefLocation,
+  createRange,
+  getValidAdjacent,
+  setRange,
+} from "@/system/range";
 
 export function defaultHandleArrowDown(
   handler: Handler,
   e: KeyboardEvent,
-  context: EventContext
+  context: RangedEventContext
 ): boolean | void {
   const { page, block, range } = context;
-  // let anchorBlock = context.endBlock || block;
-  if (!range) {
-    throw new NoRangeError();
-  }
-  let anchor, anchorOffset, anchorBlock;
+  let anchorBlock;
+  let anchorLoc: RefLocation;
 
   if (!e.shiftKey && !range.collapsed) {
     // 之前选中了，但这次按键没有选：取消
     if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
       range.collapse(true);
-      [anchor, anchorOffset] = [range.startContainer, range.startOffset];
+      anchorLoc = [range.startContainer, range.startOffset];
       anchorBlock = block;
     } else {
       range.collapse();
-      [anchor, anchorOffset] = [range.endContainer, range.endOffset];
+      anchorLoc = [range.endContainer, range.endOffset];
       anchorBlock = context.endBlock || block;
     }
-    page.status.selectionDir = undefined;
+    page.toggleSelect;
+    page.rangeDirection = undefined;
     if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
       return true;
     }
   } else if (e.shiftKey) {
     // !range.collapsed
     // 之前选中了，但这次继续去选
-    if (page.status.selectionDir === "prev") {
-      [anchor, anchorOffset] = [range.startContainer, range.startOffset];
+    if (page.rangeDirection === "prev") {
+      anchorLoc = [range.startContainer, range.startOffset];
       anchorBlock = block;
     } else {
-      [anchor, anchorOffset] = [range.endContainer, range.endOffset];
+      anchorLoc = [range.endContainer, range.endOffset];
       anchorBlock = context.endBlock || block;
     }
   } else if (range.collapsed) {
     // !e.shiftkey
     // 之前没选中，这次也不需要多选
-    [anchor, anchorOffset] = [range.startContainer, range.startOffset];
+    anchorLoc = [range.startContainer, range.startOffset];
     anchorBlock = block;
   } else {
     // e.shift && range.collpased
     // 之前没选中，这次要选
     if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
-      [anchor, anchorOffset] = [range.startContainer, range.startOffset];
+      anchorLoc = [range.startContainer, range.startOffset];
       anchorBlock = block;
-      page.status.selectionDir = "prev";
+      page.rangeDirection = "prev";
     } else {
-      [anchor, anchorOffset] = [range.startContainer, range.startOffset];
+      anchorLoc = [range.startContainer, range.startOffset];
       anchorBlock = block;
-      page.status.selectionDir = "next";
+      page.rangeDirection = "next";
     }
   }
+  const [anchor, anchorOffset] = anchorLoc;
 
   function setAnchor(tgt: Node, tgtOffset: number) {
     const next = createRange(tgt, tgtOffset);
     if (e.shiftKey) {
       if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
         if (range!.collapsed) {
-          page.status.selectionDir = "prev";
+          page.rangeDirection = "prev";
           next.setEnd(range!.endContainer, range!.endOffset);
-        } else if (page.status.selectionDir === "prev") {
+        } else if (page.rangeDirection === "prev") {
           next.setEnd(range!.endContainer, range!.endOffset);
         } else {
           next.setStart(range!.startContainer, range!.startOffset);
         }
       } else {
         if (range!.collapsed) {
-          page.status.selectionDir = "next";
+          page.rangeDirection = "next";
           next.setStart(range!.startContainer, range!.startOffset);
-        } else if (page.status.selectionDir === "next") {
+        } else if (page.rangeDirection === "next") {
           next.setStart(range!.startContainer, range!.startOffset);
         } else {
           next.setEnd(range!.endContainer, range!.endOffset);
@@ -84,37 +86,34 @@ export function defaultHandleArrowDown(
     }
     setRange(next);
   }
-  
-  const container = anchorBlock.findContainer(anchor);
-  if (!container) {
+
+  const editable = anchorBlock.findEditable(anchor);
+  if (!editable) {
     throw new EditableNotFound(anchor, anchorBlock.order);
   }
   if (e.key === "ArrowUp") {
-    if (anchorBlock.locationInFirstLine(anchor, anchorOffset)) {
-      const prevContainer = anchorBlock.aboveContainer(container);
+    if (anchorBlock.isLocationInFirstLine(anchorLoc)) {
+      const prevEditable = anchorBlock.getAboveEditable(editable);
       let prev;
-      if (prevContainer) {
-        const bias = anchorBlock.getBias(anchor as ValidNode, anchorOffset);
-        const [temp, tempOffset] = getValidAdjacent(prevContainer, "beforeend");
-        prev = anchorBlock.getSoftLineLocation(temp, tempOffset, bias);
+      if (prevEditable) {
+        const bias = anchorBlock.getBias(anchorLoc, editable);
+        const tempLoc = getValidAdjacent(prevEditable, "beforeend");
+        prev = anchorBlock.getSoftLineLocation(tempLoc, bias);
         if (!prev) {
-          prev = anchorBlock.getLocation(-1, { container: prevContainer });
+          prev = anchorBlock.getLocation(-1, prevEditable);
         }
       }
       if (!prev) {
         const prevBlock = page.getPrevBlock(anchorBlock);
         if (prevBlock) {
           // 激活，并且光标位移到上一个 block 的最后一行
-          page.activate(prevBlock.order);
-          const prevContainer = prevBlock.lastContainer();
-          const bias = anchorBlock.getBias(anchor as ValidNode, anchorOffset);
-          const [temp, tempOffset] = getValidAdjacent(
-            prevContainer,
-            "beforeend"
-          );
-          prev = prevBlock.getSoftLineLocation(temp, tempOffset, bias);
+          page.setActivate(prevBlock);
+          const prevContainer = prevBlock.getLastEditable();
+          const bias = anchorBlock.getBias(anchorLoc, editable);
+          const tempLoc = getValidAdjacent(prevContainer, "beforeend");
+          prev = prevBlock.getSoftLineLocation(tempLoc, bias);
           if (!prev) {
-            prev = prevBlock.getLocation(-1, { container: prevContainer });
+            prev = prevBlock.getLocation(-1, prevContainer);
           }
         }
         // else {
@@ -129,14 +128,15 @@ export function defaultHandleArrowDown(
 
       return true;
     } else {
-      const bias = anchorBlock.getSoftLineBias(anchor, anchorOffset);
+      const bias = anchorBlock.getSoftLineBias(anchorLoc);
       const nextLineHead = anchorBlock.getPrevLocation(
-        ...anchorBlock.getSoftLineHead(anchor, anchorOffset)
+        anchorBlock.getSoftLineHead(anchorLoc)
       )!;
-      let next = anchorBlock.getSoftLineLocation(...nextLineHead, bias);
+      let next = anchorBlock.getSoftLineLocation(nextLineHead, bias);
 
       if (!next) {
-        next = anchorBlock.getLocation(-1, { container });
+        // 默认行为是到当前 Editable 末尾
+        next = anchorBlock.getLocation(-1, editable);
       }
       if (next) {
         setAnchor(...next);
@@ -144,26 +144,26 @@ export function defaultHandleArrowDown(
       return true;
     }
   } else if (e.key === "ArrowDown") {
-    if (anchorBlock.locationInLastLine(anchor, anchorOffset)) {
-      const nextContainer = anchorBlock.belowContainer(container);
+    if (anchorBlock.isLocationInLastLine(anchorLoc)) {
+      const nextContainer = anchorBlock.getBelowEditable(editable);
       let next;
 
       if (nextContainer) {
-        const bias = anchorBlock.getSoftLineBias(anchor, anchorOffset);
-        next = anchorBlock.getLocation(bias, { container: nextContainer });
+        const bias = anchorBlock.getSoftLineBias(anchorLoc);
+        next = anchorBlock.getLocation(bias, nextContainer);
         if (!next) {
-          next = anchorBlock.getLocation(-1, { container: nextContainer });
+          next = anchorBlock.getLocation(-1, nextContainer);
         }
       }
       if (!next) {
         const nextBlock = page.getNextBlock(anchorBlock);
         if (nextBlock) {
           // activate and move cursor to next block's first line
-          page.activate(nextBlock.order);
-          const bias = anchorBlock.getSoftLineBias(anchor, anchorOffset);
-          next = nextBlock.getLocation(bias, { index: 0 })!;
+          page.setActivate(nextBlock);
+          const bias = anchorBlock.getSoftLineBias(anchorLoc);
+          next = nextBlock.getLocation(bias, 0)!;
           if (!next) {
-            next = nextBlock.getLocation(-1, { index: 0 })!;
+            next = nextBlock.getLocation(-1, 0)!;
           }
         }
         // else {
@@ -177,14 +177,14 @@ export function defaultHandleArrowDown(
 
       return true;
     } else {
-      const bias = anchorBlock.getSoftLineBias(anchor, anchorOffset);
+      const bias = anchorBlock.getSoftLineBias(anchorLoc);
       const nextLineHead = anchorBlock.getNextLocation(
-        ...anchorBlock.getSoftLineTail(anchor, anchorOffset)
+        anchorBlock.getSoftLineTail(anchorLoc)
       )!;
-      let next = anchorBlock.getSoftLineLocation(...nextLineHead, bias);
+      let next = anchorBlock.getSoftLineLocation(nextLineHead, bias);
 
       if (!next) {
-        next = anchorBlock.getLocation(-1, { container });
+        next = anchorBlock.getLocation(-1, editable);
       }
       if (next) {
         setAnchor(...next);
@@ -194,23 +194,23 @@ export function defaultHandleArrowDown(
   } else if (e.key === "ArrowLeft") {
     let prev;
     if (e.altKey) {
-      prev = anchorBlock.getPrevWordLocation(anchor, anchorOffset);
+      prev = anchorBlock.getPrevWordLocation(anchorLoc);
     } else {
-      prev = anchorBlock.getPrevLocation(anchor, anchorOffset);
+      prev = anchorBlock.getPrevLocation(anchorLoc);
     }
 
     if (!prev) {
-      const prevContainer = anchorBlock.prevContainer(container);
+      const prevContainer = anchorBlock.getPrevEditable(editable);
       if (prevContainer) {
-        prev = anchorBlock.getLocation(-1, { container: prevContainer });
+        prev = anchorBlock.getLocation(-1, prevContainer);
       }
     }
 
     if (!prev) {
       const prevBlock = page.getPrevBlock(anchorBlock);
       if (prevBlock) {
-        page.activate(prevBlock.order);
-        prev = prevBlock.getLocation(-1, { index: -1 });
+        page.setActivate(prevBlock);
+        prev = prevBlock.getLocation(-1, prevBlock.getLastEditable());
       }
     }
     if (prev) {
@@ -223,23 +223,23 @@ export function defaultHandleArrowDown(
     let next;
 
     if (e.altKey) {
-      next = anchorBlock.getNextWordLocation(anchor, anchorOffset);
+      next = anchorBlock.getNextWordLocation(anchorLoc);
     } else {
-      next = anchorBlock.getNextLocation(anchor, anchorOffset);
+      next = anchorBlock.getNextLocation(anchorLoc);
     }
 
     if (!next) {
       // container right
-      const nextContainer = anchorBlock.nextContainer(container);
+      const nextContainer = anchorBlock.getNextEditable(editable);
       if (nextContainer) {
-        next = anchorBlock.getLocation(0, { container: nextContainer });
+        next = anchorBlock.getLocation(0, nextContainer);
       }
     }
     if (!next) {
       const nextBlock = page.getNextBlock(anchorBlock);
       if (nextBlock) {
-        page.activate(nextBlock.order);
-        next = nextBlock.getLocation(0, { index: 0 });
+        page.setActivate(nextBlock);
+        next = nextBlock.getLocation(0, 0);
       }
     }
     if (next) {

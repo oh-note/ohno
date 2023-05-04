@@ -21,6 +21,7 @@ import { findCharAfterPosition, findCharBeforePosition } from "@/helper/string";
 import { addMarkdownHint } from "@/helper/markdown";
 import { createElement, createTextNode } from "@/helper/document";
 
+export type RefLocation = [Node, number];
 export interface LineInfo {
   lineNumber: number;
   lineHeight: number;
@@ -193,7 +194,7 @@ export function getValidAdjacent(
   container: ValidNode,
   where: "afterbegin" | "afterend" | "beforebegin" | "beforeend",
   norm: boolean = true
-): [ValidNode, number] {
+): RefLocation {
   if (container instanceof Text) {
     if (where === "afterbegin" || where === "beforebegin") {
       return [container, 0];
@@ -284,10 +285,7 @@ export function getValidAdjacent(
 /**
  * 以固定的逻辑获取下一个光标可以移动的位置
  */
-function _getNextLocation(
-  container: Node,
-  offset: number
-): [Node, number] | null {
+function _getNextLocation(container: Node, offset: number): RefLocation | null {
   if (container instanceof Text && offset < container.length) {
     // tex|t
     return [container, offset + 1];
@@ -360,7 +358,7 @@ export function getPrevLocation(
   container: Node,
   offset: number,
   root?: HTMLElement
-): [Node, number] | null {
+): RefLocation | null {
   const result = _getPrevLocation(container, offset);
   if (!result) {
     return result;
@@ -376,7 +374,7 @@ export function getNextLocation(
   container: Node,
   offset: number,
   root: HTMLElement
-): [Node, number] | null {
+): RefLocation | null {
   const result = _getNextLocation(container, offset);
   if (!result) {
     return result;
@@ -390,10 +388,7 @@ export function getNextLocation(
 /**
  * 以固定的逻辑获取上一个光标可以移动的位置
  */
-function _getPrevLocation(
-  container: Node,
-  offset: number
-): [Node, number] | null {
+function _getPrevLocation(container: Node, offset: number): RefLocation | null {
   // 三个位置：
   // 当前文本没结束 -> 下一个文本
   // 当前文本已结束 -> 和临界的夹缝（邻居是 HTMLElement）
@@ -483,7 +478,7 @@ function _getPrevLocation(
  * range 是一个范围，因此左右两侧有一个到了边界就进行判定
  */
 function _getNeighborRange(
-  neighborFn: (container: Node, offset: number) => [Node, number] | null,
+  neighborFn: (container: Node, offset: number) => RefLocation | null,
   range: Range,
   root?: HTMLElement
 ): Range | null {
@@ -595,7 +590,7 @@ export function tryGetBoundsRichNode(
 function checkLocation(
   res: [cur: Node, curOffset: number] | null,
   root: HTMLElement
-): [Node, number] | null {
+): RefLocation | null {
   if (!res) {
     return null;
   }
@@ -610,7 +605,7 @@ export function getPrevWordLocation(
   cur: Node,
   curOffset: number,
   root: HTMLElement
-): [Node, number] | null {
+): RefLocation | null {
   // let cur = container;
   while (isTextNode(cur) && curOffset > 0) {
     const res = findCharBeforePosition(cur.textContent!, " ", curOffset);
@@ -635,7 +630,7 @@ export function getNextWordLocation(
   cur: Node,
   curOffset: number,
   root: HTMLElement
-): [Node, number] | null {
+): RefLocation | null {
   while (isTextNode(cur)) {
     const res = findCharAfterPosition(cur.textContent!, " ", curOffset);
     if (res >= 0) {
@@ -677,7 +672,7 @@ export function getPrevWordRange(
   // 1. 获取当前 textContent 往前是否有空格
   // 2. 获取el 下相连 textContent 往前是否有空格
 
-  function convert(container: Node, offset: number): [Node, number] {
+  function convert(container: Node, offset: number): RefLocation {
     let cur = container;
     while (isTextNode(cur) && offset > 0) {
       let res = findCharBeforePosition(cur.textContent!, " ", offset);
@@ -715,7 +710,7 @@ export function getNextWordRange(
   range: Range,
   root: HTMLElement
 ): Range | null {
-  function convert(container: Node, offset: number): [Node, number] {
+  function convert(container: Node, offset: number): RefLocation {
     let cur = container;
     while (isTextNode(cur)) {
       let res = findCharAfterPosition(cur.textContent!, " ", offset);
@@ -754,6 +749,11 @@ export function getNextWordRange(
   return range;
 }
 
+export function setLocation(loc: RefLocation) {
+  const range = createRange(...loc);
+  setRange(range);
+}
+
 export function setRange(range: Range, add?: boolean) {
   if (!range) {
     throw new NoRangeError();
@@ -779,7 +779,7 @@ export function normalizeContainer(
   container: Node,
   offset: number,
   direction: "left" | "right"
-): [Node, number] {
+): RefLocation {
   const tgt = parentElementWithFilter(container, root, (el: Node) => {
     const tagName = getTagName(el);
     if (tagName === "label" || isHintHTMLElement(el)) {
@@ -812,7 +812,11 @@ export function normalizeContainer(
 
   return [container, offset];
 }
-// 跳出 label 和 span 的范围，同时如果是 span 的边界（<b><span></span>|</b>），还要跳出富文本范围
+/**
+ * 跳出 label 和 span 的范围，同时如果是 span 的边界（<b><span></span>|</b>），还要跳出富文本范围
+ * @param root
+ * @param range
+ */
 export function normalizeRange(root: HTMLElement, range: Range) {
   const [startContainer, startOffset] = normalizeContainer(
     root,
@@ -835,10 +839,7 @@ export function normalizeRange(root: HTMLElement, range: Range) {
  * @param container
  * @param offset
  */
-export function validateLocation(
-  container: Node,
-  offset: number
-): [ValidNode, number] {
+export function validateLocation(container: Node, offset: number): RefLocation {
   if (container instanceof Text || container instanceof HTMLLabelElement) {
     return [container, offset];
   }
@@ -990,7 +991,7 @@ export function getSoftLineHead(
   container: Node,
   offset: number,
   root: HTMLElement
-): [Node, number] {
+): RefLocation {
   let pointRange = createRange(container, offset);
   let [rects, rect] = getRects(pointRange);
   // 在初始的时候就判断一下
@@ -1053,7 +1054,7 @@ export function getSoftLineTail(
   container: Node,
   offset: number,
   root: HTMLElement
-): [Node, number] {
+): RefLocation {
   let pointRange = createRange(container, offset);
   const [rects, rect] = getRects(pointRange);
   // 在初始的时候就判断一下

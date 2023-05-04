@@ -1,16 +1,13 @@
-import { TextInsert } from "@/contrib/commands";
-import { TextDeleteSelection } from "@/contrib/commands/text";
+import { RichTextDelete, TextInsert } from "@/contrib/commands/text";
 import {
   UNIQUE_SPACE,
   createFlagNode,
-  createTextNode,
-  getDefaultRange,
   splitUniqueSpace,
 } from "@/helper/document";
 import { isHintHTMLElement, isHintLeft } from "@/helper/element";
-import { EventContext, Handler } from "@/system/handler";
-import { rangeToOffset } from "@/system/position";
-import { getNextRange, getValidAdjacent, setRange } from "@/system/range";
+import { EventContext, Handler, RangedEventContext } from "@/system/handler";
+import { tokenBetweenRange } from "@/system/position";
+import { createRange, setLocation, setRange } from "@/system/range";
 
 export class CompositionHandler extends Handler {
   handleKeyDown(e: KeyboardEvent, context: EventContext): boolean | void {
@@ -31,19 +28,29 @@ export class CompositionHandler extends Handler {
 
     // CompositionHandler 先与 Block Container
     // 所以 CompositionHandler 的 Start 事件只处理非 multiblock（事件不会到这里），非 multi container （必须由 multi container block 自己处理）的情况
-    if (block.multiContainer && !range.collapsed) {
+    if (block.isMultiEditable && !range.collapsed) {
       // throw new Error("Sanity check (should not be handled by this handler)");
       return false;
     }
     if (!range.collapsed) {
       // 删除选中文字
-      const delOffset = block.getOffset(range);
-      const command = new TextDeleteSelection({
+      // const command = new TextDelete
+      // block.getBias
+      const token_number = tokenBetweenRange(range);
+      const editable = block.findEditable(range.startContainer);
+      if (!editable) {
+        throw new Error("editable not found.");
+      }
+      const start = block.getBias([range.startContainer, range.startOffset]);
+      const index = block.getEditableIndex(editable);
+      const command = new RichTextDelete({
         page,
         block,
-        delOffset,
-      }).onExecute(({ block, delOffset }) => {
-        block.setOffset({ ...delOffset, end: undefined });
+        start,
+        token_number,
+        index,
+      }).onExecute(({ block, index, start }) => {
+        setLocation(block.getLocation(start, index)!);
       });
       page.executeCommand(command);
     }
@@ -63,14 +70,17 @@ export class CompositionHandler extends Handler {
         range.setEnd(text, 1);
       }
     } else if (cur instanceof HTMLLabelElement) {
-      console.log("2");
-      const next = block.getNextRange(range)!;
+      const nextLoc = block.getNextLocation([
+        range.startContainer,
+        range.startOffset,
+      ])!;
+      const next = createRange(...nextLoc);
       const text = UNIQUE_SPACE;
       next.insertNode(text);
       next.setStart(text, 1);
       next.setEnd(text, 1);
       setRange(next);
-      page.deactivateInline(cur);
+      page.setActiveInline(cur);
     } else {
       // console.log("3");
       // const text = createTextNode(" ");
@@ -91,12 +101,9 @@ export class CompositionHandler extends Handler {
    */
   handleCompositionEnd(
     e: CompositionEvent,
-    { page, block }: EventContext
+    { page, block, range }: RangedEventContext
   ): boolean | void {
-    const range = getDefaultRange();
     console.log(range.startContainer);
-    // const unique = UNIQUE;
-    // unique.textContent = createUniqueTextNode().textContent?.trim();
     splitUniqueSpace();
     const hint = range.startContainer.parentElement!;
     if (isHintHTMLElement(hint)) {
@@ -112,14 +119,20 @@ export class CompositionHandler extends Handler {
       range.setStartAfter(right);
       range.setEndAfter(right);
     }
-    const offset = block.getOffset();
+    const editable = block.findEditable(range.startContainer)!;
+    const start =
+      block.getBias([range.startContainer, range.startOffset]) - e.data!.length;
+    const index = block.getEditableIndex(editable);
     const command = new TextInsert({
       page,
       block,
-      insertOffset: { ...offset, start: offset.start - e.data.length },
       innerHTML: e.data!,
       plain: true,
+      start,
+      index,
     });
+
     page.executeCommand(command, true);
+    return true;
   }
 }

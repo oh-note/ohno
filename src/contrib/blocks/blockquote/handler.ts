@@ -5,9 +5,7 @@ import {
   KeyDispatchedHandler,
   RangedEventContext,
   dispatchKeyDown,
-  setBeforeHandlers,
 } from "@/system/handler";
-import { FIRST_POSITION, offsetToRange } from "@/system/position";
 import { BlockCreate, BlockReplace } from "@/contrib/commands/block";
 import { containHTMLElement } from "@/helper/element";
 import {
@@ -18,7 +16,6 @@ import {
 import { Blockquote } from "./block";
 
 export class BlockQuoteHandler extends Handler implements KeyDispatchedHandler {
-  name: string = "blockquote";
   handleKeyPress(e: KeyboardEvent, context: EventContext): boolean | void {}
   handleKeyDown(e: KeyboardEvent, context: RangedEventContext): boolean | void {
     return dispatchKeyDown(this, e, context);
@@ -31,7 +28,7 @@ export class BlockQuoteHandler extends Handler implements KeyDispatchedHandler {
       throw new NoRangeError();
     }
 
-    if (!block.isRight(range)) {
+    if (!block.isLocationInRight([range.startContainer, range.startOffset])) {
       return;
     }
     const nextBlock = page.getNextBlock(block);
@@ -44,7 +41,7 @@ export class BlockQuoteHandler extends Handler implements KeyDispatchedHandler {
 
     // 需要将下一个 Block 的第一个 Container 删除，然后添加到尾部
     // 执行过程是 TextInsert -> ContainerDelete
-    if (nextBlock.multiContainer) {
+    if (nextBlock.isMultiEditable) {
       // block.firstContainer();
       throw new Error("Not supported yet");
     } else {
@@ -58,16 +55,17 @@ export class BlockQuoteHandler extends Handler implements KeyDispatchedHandler {
     { block, page }: EventContext
   ): boolean | void {
     const range = getDefaultRange();
-    if (!block.isLeft(range) || !range.collapsed) {
+    if (
+      !range.collapsed ||
+      !block.isLocationInLeft([range.startContainer, range.startOffset])
+    ) {
       return;
     }
 
     const command = new BlockReplace({
       block,
       page,
-      offset: FIRST_POSITION,
       newBlock: new Paragraph({ innerHTML: block.root.innerHTML }),
-      newOffset: FIRST_POSITION,
     });
     page.executeCommand(command);
     // 向前合并
@@ -82,8 +80,8 @@ export class BlockQuoteHandler extends Handler implements KeyDispatchedHandler {
     e.preventDefault();
 
     const command = prepareEnterCommand({ page, block, range })
-      .withLazyCommand(({ block, page }, { innerHTML, offset }) => {
-        if (innerHTML === undefined || !offset) {
+      .withLazyCommand(({ block, page }, { innerHTML }) => {
+        if (innerHTML === undefined) {
           throw new Error("sanity check");
         }
         const blockquote = new Blockquote({
@@ -92,8 +90,6 @@ export class BlockQuoteHandler extends Handler implements KeyDispatchedHandler {
         return new BlockCreate({
           block: block,
           newBlock: blockquote,
-          offset: offset,
-          newOffset: FIRST_POSITION,
           where: "after",
           page: page,
         });
@@ -102,13 +98,17 @@ export class BlockQuoteHandler extends Handler implements KeyDispatchedHandler {
 
     page.executeCommand(command);
   }
-  handleSpaceDown(e: KeyboardEvent, context: EventContext): boolean | void {
+  handleSpaceDown(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): boolean | void {
     const { block, range } = context;
-    if (!range) {
-      throw new NoRangeError();
-    }
+
     // 只在最右侧空格时触发 Block change 事件
-    if (!block.isRight(range)) {
+    if (
+      !range.collapsed ||
+      !block.isLocationInRight([range.startContainer, range.startOffset])
+    ) {
       return;
     }
     // 存在 HTMLElement 取消判定
