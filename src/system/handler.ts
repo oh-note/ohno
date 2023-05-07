@@ -1,10 +1,37 @@
 // 事件系统可以处理的事件的定义
-import { IBlock } from "./base";
-import { AnyBlock, Block } from "./block";
+import { IInline } from "./base";
+import { AnyBlock } from "./block";
 import { Page } from "./page";
 
 export interface HandlerOption {
   [key: string]: any;
+}
+
+export interface ExtraEvent {
+  page: Page;
+  original?: Event;
+}
+export interface PageCreateEvent {
+  type: "pagecreated";
+}
+export interface BlockActivatedEvent {
+  type: "blockactivated";
+}
+/**
+ * 
+ * 预计要逐步添加对下面事件的支持
+BlockActivated
+BlockActiveChanged
+BlockCreated
+BlockMoved
+BlockRemoved
+BlockReplaced
+BlockSelectionChanged
+BlockUpdated
+ */
+
+export interface PageEventContext {
+  page: Page;
 }
 
 export interface EventContext {
@@ -12,15 +39,28 @@ export interface EventContext {
   block: AnyBlock;
   endBlock?: AnyBlock;
   range?: Range;
+  isMultiBlock?: boolean;
 }
 
 export interface RangedEventContext extends EventContext {
   range: Range;
 }
 
+export interface InlineEventContext extends EventContext {
+  first: boolean;
+  inline: HTMLLabelElement;
+  manager: IInline;
+}
+export interface InlineRangedEventContext extends RangedEventContext {
+  first: boolean;
+  inline: HTMLLabelElement;
+  manager: IInline;
+}
+
 export interface MultiBlockEventContext extends EventContext {
   // page: Page;
   // block: IBlock;
+  isMultiBlock: boolean;
   endBlock: AnyBlock;
   range: Range;
   blocks: AnyBlock[];
@@ -39,168 +79,235 @@ export type MultiBlockHandlerMethod<K> = (
 ) => boolean | void;
 
 export interface HandlerMethods {
-  handleSelect(e: Event, context: EventContext): void | boolean;
-  handleSelectionChange(e: Event, context: EventContext): void | boolean;
-  handleSelectStart(e: Event, context: EventContext): void | boolean;
-  handleCopy(e: ClipboardEvent, context: EventContext): void | boolean;
-  handlePaste(e: ClipboardEvent, context: EventContext): void | boolean;
-  handleBlur(e: FocusEvent, context: EventContext): void | boolean;
-  handleFocus(e: FocusEvent, context: EventContext): void | boolean;
-  handleKeyDown(e: KeyboardEvent, context: EventContext): void | boolean;
-  handleKeyPress(e: KeyboardEvent, context: EventContext): void | boolean;
-  handleKeyUp(e: KeyboardEvent, context: EventContext): void | boolean;
-  handleMouseDown(e: MouseEvent, context: EventContext): void | boolean;
-  handleMouseEnter(e: MouseEvent, context: EventContext): void | boolean;
-  handleMouseLeave(e: MouseEvent, context: EventContext): void | boolean;
-  handleMouseUp(e: MouseEvent, context: EventContext): void | boolean;
-  handleMouseMove(e: MouseEvent, context: EventContext): void | boolean;
-  handleClick(e: MouseEvent, context: EventContext): void | boolean;
-  handleContextMenu(e: MouseEvent, context: EventContext): void | boolean;
-  handleInput(e: Event, context: EventContext): void | boolean;
-  handleBeforeInput(e: InputEvent, context: RangedEventContext): void | boolean;
-  handleCompositionEnd(
+  handlePageCreated?(e: PageCreateEvent): void;
+  handleBlockCreated?(e: PageCreateEvent): void;
+  handleBlockRemoved?(e: PageCreateEvent): void;
+  handleBlockUpdated?(e: PageCreateEvent): void;
+  handlePluginLoaded?(e: PageCreateEvent): void;
+  handleSelect?(e: Event, context: EventContext): void | boolean;
+  handleSelectionChange?(e: Event, context: EventContext): void | boolean;
+  handleSelectStart?(e: Event, context: EventContext): void | boolean;
+  handleCopy?(e: ClipboardEvent, context: EventContext): void | boolean;
+  handlePaste?(e: ClipboardEvent, context: EventContext): void | boolean;
+  handleBlur?(e: FocusEvent, context: EventContext): void | boolean;
+  handleFocus?(e: FocusEvent, context: EventContext): void | boolean;
+  handleKeyDown?(e: KeyboardEvent, context: EventContext): void | boolean;
+  handleKeyPress?(e: KeyboardEvent, context: EventContext): void | boolean;
+  handleKeyUp?(e: KeyboardEvent, context: EventContext): void | boolean;
+  handleMouseEnter?(e: MouseEvent, context: EventContext): void | boolean;
+  handleMouseLeave?(e: MouseEvent, context: EventContext): void | boolean;
+  handleMouseDown?(e: MouseEvent, context: EventContext): void | boolean;
+  handleMouseUp?(e: MouseEvent, context: EventContext): void | boolean;
+  handleMouseMove?(e: MouseEvent, context: EventContext): void | boolean;
+  handleClick?(e: MouseEvent, context: EventContext): void | boolean;
+  handleContextMenu?(e: MouseEvent, context: EventContext): void | boolean;
+  handleInput?(e: Event, context: EventContext): void | boolean;
+  handleBeforeInput?(
+    e: InputEvent,
+    context: RangedEventContext
+  ): void | boolean;
+  handleCompositionEnd?(
     e: CompositionEvent,
     context: EventContext
   ): void | boolean;
-  handleCompositionStart(
+  handleCompositionStart?(
     e: CompositionEvent,
     context: EventContext
   ): void | boolean;
-  handleCompositionUpdate(
+  handleCompositionUpdate?(
     e: CompositionEvent,
     context: EventContext
   ): void | boolean;
 }
 
-export class Handler implements HandlerMethods {
-  option: HandlerOption;
-  constructor(option?: any) {
+export class Handler<T = HandlerOption> implements FineHandlerMethods {
+  option: T;
+  constructor(option?: T) {
     if (!option) {
-      option = {};
+      option = {} as T;
     }
     this.option = option;
   }
-  handleSelect(e: Event, context: EventContext): boolean | void {}
-  handleSelectionChange(e: Event, context: EventContext): boolean | void {}
-  handleSelectStart(e: Event, context: EventContext): boolean | void {}
-
-  handleCopy(e: ClipboardEvent, context: EventContext): void | boolean {}
-  handlePaste(e: ClipboardEvent, context: EventContext): void | boolean {}
-  handleBlur(e: FocusEvent, context: EventContext): void | boolean {}
-  handleFocus(e: FocusEvent, context: EventContext): void | boolean {}
-  handleKeyDown(
+  handleKeyDow?(
     e: KeyboardEvent,
     context: RangedEventContext
-  ): void | boolean {}
-  handleKeyPress(
-    e: KeyboardEvent,
-    context: RangedEventContext
-  ): void | boolean {}
-  handleKeyUp(e: KeyboardEvent, context: RangedEventContext): void | boolean {}
-  handleMouseDown(e: MouseEvent, context: EventContext): void | boolean {}
-  handleMouseEnter(e: MouseEvent, context: EventContext): void | boolean {}
-  handleMouseLeave(e: MouseEvent, context: EventContext): void | boolean {}
-  handleMouseUp(e: MouseEvent, context: EventContext): void | boolean {}
-  handleMouseMove(e: MouseEvent, context: EventContext): void | boolean {}
-  handleClick(e: MouseEvent, context: EventContext): void | boolean {}
-  handleContextMenu(e: MouseEvent, context: EventContext): void | boolean {}
-  handleInput(e: TypedInputEvent, context: EventContext): void | boolean {}
-  handleBeforeInput(
-    e: TypedInputEvent,
-    context: RangedEventContext
-  ): void | boolean {}
-  handleCompositionEnd(
-    e: CompositionEvent,
-    context: RangedEventContext
-  ): void | boolean {}
-  handleCompositionStart(
-    e: CompositionEvent,
-    context: RangedEventContext
-  ): void | boolean {}
-  handleCompositionUpdate(
-    e: CompositionEvent,
-    context: RangedEventContext
-  ): void | boolean {}
-}
-
-export interface KeyDispatchedHandler {
-  handleKeyDown(e: KeyboardEvent, context: RangedEventContext): void | boolean;
-  handleKeyUp(e: KeyboardEvent, context: RangedEventContext): void | boolean;
-
+  ): boolean | void {}
+  handleKeyUp?(e: KeyboardEvent, context: RangedEventContext): boolean | void {}
   handleEnterDown?(
     e: KeyboardEvent,
     context: RangedEventContext
-  ): void | boolean;
+  ): boolean | void {}
   handleSpaceDown?(
     e: KeyboardEvent,
     context: RangedEventContext
-  ): void | boolean;
-  handleTabDown?(e: KeyboardEvent, context: RangedEventContext): void | boolean;
+  ): boolean | void {}
+  handleTabDown?(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): boolean | void {}
   handleArrowKeyDown?(
     e: KeyboardEvent,
     context: RangedEventContext
-  ): void | boolean;
+  ): boolean | void {}
   handleDeleteDown?(
     e: KeyboardEvent,
     context: RangedEventContext
-  ): void | boolean;
+  ): boolean | void {}
   handleBackspaceDown?(
     e: KeyboardEvent,
     context: RangedEventContext
-  ): void | boolean;
+  ): boolean | void {}
   handleEscapeDown?(
     e: KeyboardEvent,
     context: RangedEventContext
-  ): void | boolean;
+  ): boolean | void {}
   handleHomeDown?(
     e: KeyboardEvent,
     context: RangedEventContext
-  ): void | boolean;
-  handleEndDown?(e: KeyboardEvent, context: RangedEventContext): void | boolean;
+  ): boolean | void {}
+  handleEndDown?(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): boolean | void {}
   handlePageUpDown?(
     e: KeyboardEvent,
     context: RangedEventContext
-  ): void | boolean;
+  ): boolean | void {}
   handlePageDownDown?(
     e: KeyboardEvent,
     context: RangedEventContext
-  ): void | boolean;
-
-  handleEnterUp?(e: KeyboardEvent, context: RangedEventContext): void | boolean;
-  handleSpaceUp?(e: KeyboardEvent, context: RangedEventContext): void | boolean;
-  handleTabUp?(e: KeyboardEvent, context: RangedEventContext): void | boolean;
+  ): boolean | void {}
+  handleEnterUp?(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): boolean | void {}
+  handleSpaceUp?(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): boolean | void {}
+  handleTabUp?(e: KeyboardEvent, context: RangedEventContext): boolean | void {}
   handleArrowKeyUp?(
     e: KeyboardEvent,
     context: RangedEventContext
-  ): void | boolean;
+  ): boolean | void {}
   handleDeleteUp?(
     e: KeyboardEvent,
     context: RangedEventContext
-  ): void | boolean;
+  ): boolean | void {}
   handleBackspaceUp?(
     e: KeyboardEvent,
     context: RangedEventContext
-  ): void | boolean;
+  ): boolean | void {}
   handleEscapeUp?(
     e: KeyboardEvent,
     context: RangedEventContext
-  ): void | boolean;
-  handleHomeUp?(e: KeyboardEvent, context: RangedEventContext): void | boolean;
-  handleEndUp?(e: KeyboardEvent, context: RangedEventContext): void | boolean;
+  ): boolean | void {}
+  handleHomeUp?(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): boolean | void {}
+  handleEndUp?(e: KeyboardEvent, context: RangedEventContext): boolean | void {}
   handlePageUpUp?(
     e: KeyboardEvent,
     context: RangedEventContext
-  ): void | boolean;
+  ): boolean | void {}
   handlePageDownUp?(
     e: KeyboardEvent,
     context: RangedEventContext
+  ): boolean | void {}
+  handlePageCreated?(e: PageCreateEvent): void {}
+  handleBlockCreated?(e: PageCreateEvent): void {}
+  handleBlockRemoved?(e: PageCreateEvent): void {}
+  handleBlockUpdated?(e: PageCreateEvent): void {}
+  handlePluginLoaded?(e: PageCreateEvent): void {}
+  handleSelect?(e: Event, context: EventContext): boolean | void {}
+  handleSelectionChange?(e: Event, context: EventContext): boolean | void {}
+  handleSelectStart?(e: Event, context: EventContext): boolean | void {}
+  handleCopy?(e: ClipboardEvent, context: EventContext): boolean | void {}
+  handlePaste?(e: ClipboardEvent, context: EventContext): boolean | void {}
+  handleBlur?(e: FocusEvent, context: EventContext): boolean | void {}
+  handleFocus?(e: FocusEvent, context: EventContext): boolean | void {}
+  handleKeyDown?(e: KeyboardEvent, context: EventContext): boolean | void {}
+  handleKeyPress?(e: KeyboardEvent, context: EventContext): boolean | void {}
+  handleMouseDown?(e: MouseEvent, context: EventContext): boolean | void {}
+  handleMouseEnter?(e: MouseEvent, context: EventContext): boolean | void {}
+  handleMouseLeave?(e: MouseEvent, context: EventContext): boolean | void {}
+  handleMouseUp?(e: MouseEvent, context: EventContext): boolean | void {}
+  handleMouseMove?(e: MouseEvent, context: EventContext): boolean | void {}
+  handleClick?(e: MouseEvent, context: EventContext): boolean | void {}
+  handleContextMenu?(e: MouseEvent, context: EventContext): boolean | void {}
+  handleInput?(e: Event, context: EventContext): boolean | void {}
+  handleBeforeInput?(
+    e: InputEvent,
+    context: RangedEventContext
+  ): boolean | void {}
+  handleCompositionEnd?(
+    e: CompositionEvent,
+    context: EventContext
+  ): boolean | void {}
+  handleCompositionStart?(
+    e: CompositionEvent,
+    context: EventContext
+  ): boolean | void {}
+  handleCompositionUpdate?(
+    e: CompositionEvent,
+    context: EventContext
+  ): boolean | void {}
+}
+
+export interface FineHandlerMethods<
+  T extends RangedEventContext = RangedEventContext
+> extends HandlerMethods {
+  handleKeyDow?(e: KeyboardEvent, context: T): void | boolean;
+  handleKeyUp?(e: KeyboardEvent, context: T): void | boolean;
+
+  handleEnterDown?(e: KeyboardEvent, context: T): void | boolean;
+  handleSpaceDown?(e: KeyboardEvent, context: T): void | boolean;
+  handleTabDown?(e: KeyboardEvent, context: T): void | boolean;
+  handleArrowKeyDown?(e: KeyboardEvent, context: T): void | boolean;
+  handleDeleteDown?(e: KeyboardEvent, context: T): void | boolean;
+  handleBackspaceDown?(e: KeyboardEvent, context: T): void | boolean;
+  handleEscapeDown?(e: KeyboardEvent, context: T): void | boolean;
+  handleHomeDown?(e: KeyboardEvent, context: T): void | boolean;
+  handleEndDown?(e: KeyboardEvent, context: T): void | boolean;
+  handlePageUpDown?(e: KeyboardEvent, context: T): void | boolean;
+  handlePageDownDown?(e: KeyboardEvent, context: T): void | boolean;
+
+  handleEnterUp?(e: KeyboardEvent, context: T): void | boolean;
+  handleSpaceUp?(e: KeyboardEvent, context: T): void | boolean;
+  handleTabUp?(e: KeyboardEvent, context: T): void | boolean;
+  handleArrowKeyUp?(e: KeyboardEvent, context: T): void | boolean;
+  handleDeleteUp?(e: KeyboardEvent, context: T): void | boolean;
+  handleBackspaceUp?(e: KeyboardEvent, context: T): void | boolean;
+  handleEscapeUp?(e: KeyboardEvent, context: T): void | boolean;
+  handleHomeUp?(e: KeyboardEvent, context: T): void | boolean;
+  handleEndUp?(e: KeyboardEvent, context: T): void | boolean;
+  handlePageUpUp?(e: KeyboardEvent, context: T): void | boolean;
+  handlePageDownUp?(e: KeyboardEvent, context: T): void | boolean;
+}
+
+export interface InlineHandler
+  extends FineHandlerMethods<InlineRangedEventContext> {
+  handleMouseDown?(e: MouseEvent, context: InlineEventContext): void | boolean;
+  handleMouseUp?(e: MouseEvent, context: InlineEventContext): void | boolean;
+  handleMouseMove?(e: MouseEvent, context: InlineEventContext): void | boolean;
+  handleClick?(e: MouseEvent, context: InlineEventContext): void | boolean;
+  handleContextMenu?(
+    e: MouseEvent,
+    context: InlineEventContext
+  ): void | boolean;
+  handleInsideBeforeInput?(
+    e: InputEvent,
+    context: InlineRangedEventContext
   ): void | boolean;
 }
 
-export function dispatchKeyDown(
-  handler: KeyDispatchedHandler,
+export function dispatchKeyEvent<
+  T extends RangedEventContext = RangedEventContext
+>(
+  handler: FineHandlerMethods<T>,
   e: KeyboardEvent,
-  context: RangedEventContext
+  context: T
 ): boolean | void {
   if (e.type === "keyup") {
     if (e.key == "Enter" && handler.handleEnterUp) {

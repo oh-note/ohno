@@ -6,16 +6,24 @@
 import { LinkedDict } from "@/struct/linkeddict";
 import { Command, History } from "./history";
 import { RefLocation } from "./range";
+import { EventContext } from "./handler";
 
 export interface IComponent {
   parent?: IComponent;
   root: HTMLElement;
 
   setParent(parent?: IContainer): void;
+  detach(): void;
   serialize(option?: any): string;
   // deserialize(): IComponent;
   equals(component?: IComponent): boolean;
-  detach(): void;
+}
+
+export interface IComponentManager {
+  name: string;
+  parent?: IComponent;
+  root: HTMLElement;
+  setParent(parent?: IContainer): void;
 }
 
 export type Editable = HTMLElement;
@@ -172,10 +180,6 @@ export interface IBlockContainer
     ISelectionManager,
     IHistoryManager {}
 
-export interface IPlugin extends IComponent {
-  hook(): void;
-}
-
 export interface IHistoryManager {
   readonly history: History;
   executeCommand(command: Command<any>, executed?: boolean): void;
@@ -197,4 +201,16 @@ export interface ICard extends IBlockContainer {
   hide(): void;
   open(): void;
   float(ref: HTMLElement, option?: any): void;
+}
+
+export interface IPlugin extends IComponentManager {
+  destory(): void;
+}
+
+export interface IInline extends IComponentManager {
+  destory(): void;
+  create(payload: any): HTMLLabelElement;
+  hover(label: HTMLLabelElement, context: EventContext): void;
+  edit(label: HTMLLabelElement, context: EventContext): void;
+  exit(): void;
 }

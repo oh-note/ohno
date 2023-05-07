@@ -2,9 +2,9 @@ import { getDefaultRange } from "@/helper/document";
 import {
   EventContext,
   Handler,
-  KeyDispatchedHandler,
+  FineHandlerMethods,
   RangedEventContext,
-  dispatchKeyDown,
+  dispatchKeyEvent,
 } from "@/system/handler";
 import { BlockCreate, BlockReplace } from "@/contrib/commands/block";
 import { containHTMLElement } from "@/helper/element";
@@ -15,10 +15,10 @@ import {
 } from "../paragraph";
 import { Blockquote } from "./block";
 
-export class BlockQuoteHandler extends Handler implements KeyDispatchedHandler {
+export class BlockQuoteHandler extends Handler implements FineHandlerMethods {
   handleKeyPress(e: KeyboardEvent, context: EventContext): boolean | void {}
   handleKeyDown(e: KeyboardEvent, context: RangedEventContext): boolean | void {
-    return dispatchKeyDown(this, e, context);
+    return dispatchKeyEvent(this, e, context);
   }
   handleDeleteDown(
     e: KeyboardEvent,
@@ -50,6 +50,7 @@ export class BlockQuoteHandler extends Handler implements KeyDispatchedHandler {
       return true;
     }
   }
+
   handleBackspaceDown(
     e: KeyboardEvent,
     { block, page }: EventContext

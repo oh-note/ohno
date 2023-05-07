@@ -1,0 +1,7 @@
+.oh-is-backlink.inline {
+  background-color: white;
+  padding: 4px;
+  padding-left: 8px;
+  z-index: 10000;
+  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+}

@@ -1,15 +1,19 @@
-import { EventContext, Handler } from "@/system/handler";
+import {
+  EventContext,
+  Handler,
+  HandlerMethod,
+  HandlerMethods,
+} from "@/system/handler";
 
 import { FormatText } from "@/contrib/commands/format";
 import { HTMLElementTagName } from "@/helper/document";
 import {
   createRange,
   setLocation,
-  setRange,
   tryGetBoundsRichNode,
   validateRange,
 } from "@/system/range";
-import { getTagName } from "@/helper/element";
+import { ElementFilter, getTagName } from "@/helper/element";
 import { IBlockRemove } from "@/contrib/commands/inlineblock";
 
 import { elementOffset, tokenBetweenRange } from "@/system/position";
@@ -21,9 +25,10 @@ import {
 } from "@/contrib/commands/text";
 
 export function defaultHandleBeforeInput(
-  handler: Handler,
+  handler: HandlerMethods,
   e: TypedInputEvent,
-  context: EventContext
+  context: EventContext,
+  token_filter?: ElementFilter
 ): boolean | void {
   const { page, block, range } = context;
   e.preventDefault();
@@ -37,7 +42,10 @@ export function defaultHandleBeforeInput(
   let command;
   const editable = block.findEditable(range.startContainer)!;
   const index = block.getEditableIndex(editable);
-  let start = block.getBias([range.startContainer, range.startOffset]);
+  let start = block.getBias(
+    [range.startContainer, range.startOffset],
+    token_filter
+  );
   if (e.inputType === "insertText") {
     if (range.startContainer instanceof HTMLLabelElement) {
       start++;
@@ -50,6 +58,7 @@ export function defaultHandleBeforeInput(
         plain: true,
         start,
         index,
+        token_filter,
       });
     } else {
       command = new ListCommandBuilder(context)
@@ -71,6 +80,7 @@ export function defaultHandleBeforeInput(
             plain: true,
             start,
             index,
+            token_filter,
           });
         })
         .build();
@@ -177,7 +187,14 @@ export function defaultHandleBeforeInput(
         token_number = -tokenBetweenRange(prevRange);
       }
 
-      command = new TextDelete({ block, page, start, token_number, index });
+      command = new TextDelete({
+        block,
+        page,
+        start,
+        token_number,
+        index,
+        token_filter,
+      });
     }
   } else if (
     e.inputType === "deleteContentForward" ||
@@ -228,7 +245,14 @@ export function defaultHandleBeforeInput(
         );
         token_number = tokenBetweenRange(nextRange);
       }
-      command = new TextDelete({ page, block, start, token_number, index });
+      command = new TextDelete({
+        page,
+        block,
+        start,
+        token_number,
+        index,
+        token_filter,
+      });
     }
   } else if (e.inputType === "formatBold" || e.inputType === "formatItalic") {
     const end = block.getBias([range.endContainer, range.endOffset]);

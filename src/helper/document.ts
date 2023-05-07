@@ -151,3 +151,4 @@ export function tryGetDefaultRange(): Range | null {
 
   return null;
 }
+

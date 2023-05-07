@@ -4,10 +4,19 @@ import {
   createFlagNode,
   splitUniqueSpace,
 } from "@/helper/document";
-import { isHintHTMLElement, isHintLeft } from "@/helper/element";
+import {
+  isHintHTMLElement,
+  isHintLeft,
+  parentElementWithTag,
+} from "@/helper/element";
 import { EventContext, Handler, RangedEventContext } from "@/system/handler";
 import { tokenBetweenRange } from "@/system/position";
-import { createRange, setLocation, setRange } from "@/system/range";
+import {
+  createRange,
+  setLocation,
+  setRange,
+  validateRange,
+} from "@/system/range";
 
 export class CompositionHandler extends Handler {
   handleKeyDown(e: KeyboardEvent, context: EventContext): boolean | void {
@@ -20,12 +29,9 @@ export class CompositionHandler extends Handler {
   // Composition Start 用于解决输入时存在选中内容的情况
   handleCompositionStart(
     e: CompositionEvent,
-    { block, range, page }: EventContext
+    { block, range, page }: RangedEventContext
   ): boolean | void {
-    if (!range) {
-      throw new NoRangeError();
-    }
-
+    validateRange(range);
     // CompositionHandler 先与 Block Container
     // 所以 CompositionHandler 的 Start 事件只处理非 multiblock（事件不会到这里），非 multi container （必须由 multi container block 自己处理）的情况
     if (block.isMultiEditable && !range.collapsed) {
@@ -120,9 +126,20 @@ export class CompositionHandler extends Handler {
       range.setEndAfter(right);
     }
     const editable = block.findEditable(range.startContainer)!;
+
+    const label = parentElementWithTag(
+      range.startContainer,
+      "label",
+      block.root
+    );
+    const token_filter =
+      label && range.startContainer != label ? () => false : undefined;
+
     const start =
-      block.getBias([range.startContainer, range.startOffset]) - e.data!.length;
+      block.getBias([range.startContainer, range.startOffset], token_filter) -
+      e.data!.length;
     const index = block.getEditableIndex(editable);
+
     const command = new TextInsert({
       page,
       block,
@@ -130,6 +147,7 @@ export class CompositionHandler extends Handler {
       plain: true,
       start,
       index,
+      token_filter,
     });
 
     page.executeCommand(command, true);

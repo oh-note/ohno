@@ -8,8 +8,8 @@ import { formatTags } from "@/system/format";
 import {
   MultiBlockEventContext,
   Handler,
-  dispatchKeyDown,
-  KeyDispatchedHandler,
+  dispatchKeyEvent,
+  FineHandlerMethods,
   EventContext,
   RangedEventContext,
 } from "@/system/handler";
@@ -219,7 +219,7 @@ function prepareDeleteMultiArea(
   return builder;
 }
 
-export class MultiBlockHandler extends Handler implements KeyDispatchedHandler {
+export class MultiBlockHandler extends Handler implements FineHandlerMethods {
   handleCopy(
     e: ClipboardEvent,
     context: MultiBlockEventContext
@@ -254,7 +254,7 @@ export class MultiBlockHandler extends Handler implements KeyDispatchedHandler {
     e: KeyboardEvent,
     context: MultiBlockEventContext
   ): boolean | void {
-    if (dispatchKeyDown(this, e, context)) {
+    if (dispatchKeyEvent(this, e, context)) {
       return true;
     } else if (e.metaKey) {
       if (e.key === "z") {

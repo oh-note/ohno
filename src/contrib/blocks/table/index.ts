@@ -9,7 +9,7 @@ export function TableBlock(): BlockComponent {
   return {
     blockType: Table,
     handlers: {
-      blocks: { list: new TableHandler() },
+      blocks: { table: new TableHandler() },
     },
   };
 }

@@ -6,6 +6,7 @@ import {
   isEntityNode,
   isHTMLElement,
   isHintHTMLElement,
+  isHintLeft,
   isParent,
   isTextNode,
   isTokenHTMLElement,
@@ -193,7 +194,8 @@ export function isLastLine(root: HTMLElement, range: Range) {
 export function getValidAdjacent(
   container: ValidNode,
   where: "afterbegin" | "afterend" | "beforebegin" | "beforeend",
-  norm: boolean = true
+  norm: boolean = true,
+  token_filter = isTokenHTMLElement
 ): RefLocation {
   if (container instanceof Text) {
     if (where === "afterbegin" || where === "beforebegin") {
@@ -238,7 +240,7 @@ export function getValidAdjacent(
       }
       return [parent, indexOfNode(container) + 1];
     } else if (where === "afterbegin") {
-      if (isTokenHTMLElement(container)) {
+      if (token_filter(container)) {
         return [container, 0];
       }
       const child = firstValidChild(container);
@@ -258,7 +260,7 @@ export function getValidAdjacent(
       }
     } else {
       // "beforeend"
-      if (isTokenHTMLElement(container)) {
+      if (token_filter(container)) {
         return [container, 0];
       }
       const child = lastValidChild(container);
@@ -789,10 +791,12 @@ export function normalizeContainer(
   });
 
   if (tgt) {
-    return getValidAdjacent(
-      tgt,
-      direction === "left" ? "beforebegin" : "afterend"
-    );
+    if (isTokenHTMLElement(tgt)) {
+      return getValidAdjacent(
+        tgt,
+        direction === "left" ? "beforebegin" : "afterend"
+      );
+    }
   }
   if (container instanceof HTMLElement) {
     if (!container.childNodes[offset]) {

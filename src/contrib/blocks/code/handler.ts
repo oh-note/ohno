@@ -2,9 +2,9 @@ import { HTMLElementTagName } from "@/helper/document";
 import {
   EventContext,
   Handler,
-  KeyDispatchedHandler,
+  FineHandlerMethods,
   RangedEventContext,
-  dispatchKeyDown,
+  dispatchKeyEvent,
 } from "@/system/handler";
 import {
   elementOffset,
@@ -125,10 +125,10 @@ export function defaultHandleBeforeInput(
   }
 }
 
-export class CodeHandler extends Handler implements KeyDispatchedHandler {
+export class CodeHandler extends Handler implements FineHandlerMethods {
   handleKeyPress(e: KeyboardEvent, context: EventContext): boolean | void {}
   handleKeyDown(e: KeyboardEvent, context: RangedEventContext): boolean | void {
-    return dispatchKeyDown(this, e, context);
+    return dispatchKeyEvent(this, e, context);
   }
 
   handleMouseDown(e: MouseEvent, context: EventContext): boolean | void {}

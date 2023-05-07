@@ -16,6 +16,7 @@ export interface InsertNodePayload {
 export class NodeInsert extends Command<InsertNodePayload> {
   declare buffer: {
     token_number: number;
+    current: ValidNode;
   };
   execute(): void {
     const { block, node, start, index } = this.payload;
@@ -35,15 +36,13 @@ export class NodeInsert extends Command<InsertNodePayload> {
     mergeAroundLeft(node);
     mergeAroundRight(node);
     this.buffer = {
+      current: node,
       token_number: token_number,
     };
   }
   undo(): void {
     const { block, start, index } = this.payload;
-    const range = block.getRange(
-      { start: start, end: start + this.buffer.token_number },
-      index
-    )!;
-    range.deleteContents();
+    const loc = block.getLocation(start + 1, index)![0] as HTMLLabelElement;
+    loc.remove();
   }
 }

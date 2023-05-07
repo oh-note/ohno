@@ -8,6 +8,8 @@ import { ElementTagName, createElement } from "./document";
 
 export type ValidNode = Text | HTMLElement | Element;
 
+export type ElementFilter<T = Node> = (el: T) => boolean;
+
 export interface Condition {
   emptyText?: boolean;
   whiteText?: boolean;
@@ -31,8 +33,12 @@ export function isHTMLElement(el?: Node | null): boolean {
   return false;
 }
 
-export function isTokenHTMLElement(el: Node) {
-  return isHTMLElement(el) && el instanceof HTMLLabelElement;
+export function isTokenHTMLElement(
+  el: Node,
+  filter: ElementFilter<HTMLElement> = (el: HTMLElement) =>
+    el instanceof HTMLLabelElement
+) {
+  return isHTMLElement(el) && filter(el as HTMLElement);
 }
 
 export function isHintLeft(el: HTMLElement) {
@@ -87,7 +93,7 @@ export function isEntityNode(el: Node) {
 
 export function firstValidChild(
   el: ValidNode,
-  filter: (el: Node) => boolean = isValidNode
+  filter: ElementFilter = isValidNode
 ): ValidNode | null {
   let cur = el.firstChild as Node;
   while (cur) {
@@ -123,7 +129,7 @@ export function calcDepths(child: Node, parent: Node) {
 
 export function lastValidChild(
   el: ValidNode,
-  filter: (el: Node) => boolean = isValidNode
+  filter: ElementFilter = isValidNode
 ): ValidNode | null {
   let cur = el.lastChild as Node;
   while (cur) {
@@ -137,7 +143,7 @@ export function lastValidChild(
 
 export function prevValidSibling(
   el: Node,
-  filter: (el: Node) => boolean = isValidNode
+  filter: ElementFilter = isValidNode
 ): ValidNode | null {
   while (el) {
     el = el.previousSibling as Node;
@@ -150,7 +156,7 @@ export function prevValidSibling(
 
 export function nextValidSibling(
   el: Node,
-  filter: (el: Node) => boolean = isValidNode
+  filter: ElementFilter = isValidNode
 ): ValidNode | null {
   while (el) {
     el = el.nextSibling as Node;
@@ -164,7 +170,7 @@ export function nextValidSibling(
 export function parentElementWithFilter(
   el: Node,
   root: Node,
-  filter: (el: Node) => boolean
+  filter: ElementFilter
 ) {
   var cur = el as HTMLElement;
   // el.parentElement

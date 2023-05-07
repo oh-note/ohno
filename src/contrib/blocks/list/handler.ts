@@ -2,9 +2,9 @@ import { createElement } from "@/helper/document";
 import {
   EventContext,
   Handler,
-  KeyDispatchedHandler,
+  FineHandlerMethods,
   RangedEventContext,
-  dispatchKeyDown,
+  dispatchKeyEvent,
 } from "@/system/handler";
 import {
   LAST_POSITION,
@@ -224,14 +224,14 @@ export function removeSelection({ range, page, block }: EventContext) {
   return builder;
 }
 
-export class ListHandler extends Handler implements KeyDispatchedHandler {
+export class ListHandler extends Handler implements FineHandlerMethods {
   handleKeyPress(
     e: KeyboardEvent,
     context: RangedEventContext
   ): boolean | void {}
 
   handleKeyDown(e: KeyboardEvent, context: RangedEventContext): boolean | void {
-    return dispatchKeyDown(this, e, context);
+    return dispatchKeyEvent(this, e, context);
   }
   // 在 CompositionStart 时处理选中内容
   handleCompositionStart(
@@ -241,7 +241,7 @@ export class ListHandler extends Handler implements KeyDispatchedHandler {
     //  只有在 单
     if (range.collapsed) {
       // 应该由 composition 解决
-      throw new Error("Can't handle this situation");
+      return;
     }
     let command;
 

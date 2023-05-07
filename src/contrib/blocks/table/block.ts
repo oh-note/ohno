@@ -1,5 +1,6 @@
 import { createElement, getDefaultRange } from "@/helper/document";
 import { indexOfNode, parentElementWithTag } from "@/helper/element";
+import { EditableFlag } from "@/system/base";
 import { Block, BlockInit } from "@/system/block";
 
 export interface TableInit extends BlockInit {
@@ -74,6 +75,10 @@ export class Table extends Block<TableInit> {
     this.rows = table;
   }
 
+  public get inner(): HTMLElement {
+    return this.table;
+  }
+
   public get rowNumber(): number {
     return 1 + this.tbody.childNodes.length;
   }
@@ -96,21 +101,30 @@ export class Table extends Block<TableInit> {
     return p;
   }
 
-  findContainer(node: Node): HTMLElement | null {
+  findEditable(node: Node): HTMLElement | null;
+  findEditable(node: Node, raise?: boolean | undefined): HTMLElement;
+  findEditable(node: Node, raise?: boolean | undefined): HTMLElement | null {
     const tgt = parentElementWithTag(node, "p", this.root);
+    if (raise && !tgt) {
+      throw new Error("editable not found.");
+    }
     return tgt;
   }
 
-  getContainer(index?: number) {
-    if (index === undefined) {
-      throw new Error("must be number");
+  getContainer(index?: number) {}
+  getEditable(flag: EditableFlag): HTMLElement {
+    if (typeof flag === "number") {
+      if (flag === undefined) {
+        throw new Error("must be number");
+      }
+      if (flag < 0) {
+        const res = this.root.querySelectorAll("p");
+        return res[res.length + flag];
+      }
+      // selector 从 1 开始，index 从 0 开始
+      return this.root.querySelectorAll(`p`)[flag] as HTMLElement;
     }
-    if (index < 0) {
-      const res = this.root.querySelectorAll("p");
-      return res[res.length + index];
-    }
-    // selector 从 1 开始，index 从 0 开始
-    return this.root.querySelectorAll(`p`)[index] as HTMLElement;
+    return flag;
   }
 
   getColId(el: HTMLElement) {
@@ -140,7 +154,7 @@ export class Table extends Block<TableInit> {
     return [this.getRowId(el), this.getColId(el)];
   }
 
-  leftContainer(el?: HTMLElement) {
+  getLeftEditable(el?: HTMLElement) {
     if (!el) {
       return null;
     }
@@ -151,7 +165,7 @@ export class Table extends Block<TableInit> {
     return null;
   }
 
-  rightContainer(el?: HTMLElement) {
+  getRightEditable(el?: HTMLElement) {
     if (!el) {
       return null;
     }
@@ -162,7 +176,7 @@ export class Table extends Block<TableInit> {
     return null;
   }
 
-  aboveContainer(el?: HTMLElement) {
+  getAboveEditable(el?: HTMLElement) {
     if (!el) {
       return null;
     }
@@ -172,7 +186,7 @@ export class Table extends Block<TableInit> {
     }
     return null;
   }
-  belowContainer(el?: HTMLElement) {
+  getBelowEditable(el?: HTMLElement) {
     if (!el) {
       return null;
     }
@@ -182,7 +196,7 @@ export class Table extends Block<TableInit> {
     }
     return null;
   }
-  prevContainer(el?: HTMLElement | undefined): HTMLElement | null {
+  getPrevEditable(el?: HTMLElement | undefined): HTMLElement | null {
     if (!el) {
       return null;
     }
@@ -194,7 +208,7 @@ export class Table extends Block<TableInit> {
     }
     return null;
   }
-  nextContainer(el?: HTMLElement | undefined): HTMLElement | null {
+  getNextEditable(el?: HTMLElement | undefined): HTMLElement | null {
     if (!el) {
       return null;
     }
@@ -207,20 +221,20 @@ export class Table extends Block<TableInit> {
     return null;
   }
 
-  firstContainer() {
+  getFirstEditable() {
     return this.getContainerByXY(0, 0) as HTMLElement;
   }
-  lastContainer() {
+  getLastEditable() {
     return this.getContainerByXY(
       this.rowNumber - 1,
       this.colNumber - 1
     ) as HTMLElement;
   }
-  containers(): HTMLElement[] {
+  getEditables(): HTMLElement[] {
     return Array.from(this.root.querySelectorAll("p"));
   }
 
-  getIndexOfContainer(container: HTMLElement, reverse?: boolean): number {
+  getEditableIndex(container: HTMLElement, reverse?: boolean): number {
     const [x, y] = this.getXYOfContainer(container);
     return x * this.colNumber + y;
   }

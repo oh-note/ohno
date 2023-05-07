@@ -1,23 +1,13 @@
 import "./style.css";
 import "./inlineStyle.css";
 import { Page } from "./system/page";
-import {
-  createElement,
-  innerHTMLToNodeList,
-  makeInlineBlock,
-} from "./helper/document";
-import katex from "katex";
 
 import { List, ListBlock } from "@/contrib/blocks/list";
-import dropdown from "./contrib/plugins/dropdown";
-import math from "./contrib/inlines/math";
+import { KatexMathInline } from "./contrib/inlines/math";
 
-import { BlockCreate } from "./contrib/commands/block";
 import { OrderedList, OrderedListBlock } from "./contrib/blocks/orderedList";
 import { Code, CodeBlock } from "./contrib/blocks/code";
-import { Table } from "./contrib/blocks/table";
-import { Figure } from "./contrib/blocks/figure";
-import { Equation } from "./contrib/blocks/equation";
+import { Table, TableBlock } from "./contrib/blocks/table";
 import { DefaultBlockHandlerEntry } from "./core/default";
 import { MultiBlockHandlerEntry } from "./core/multiblock";
 import { CompositionHandlerEntry } from "./core/composition";
@@ -30,6 +20,14 @@ import {
   Paragraph,
   ParagraphBlock,
 } from "./contrib/blocks";
+import { DragablePlugin } from "./contrib/plugins/dragable";
+import { SlashMenuPlugin } from "./contrib/plugins/slashmenu";
+import { ToolbarPlugin } from "./contrib/plugins/toolbar";
+import { InlineSupportPlugin } from "./contrib/plugins/inlineSupport";
+import { InlineSupport } from "./contrib/plugins/inlineSupport/plugin";
+import { KatexMath } from "./contrib/inlines/math/inline";
+import { BackLinkInline } from "./contrib/inlines/backlink";
+import { BackLink } from "./contrib/inlines/backlink/inline";
 
 const page = new Page({
   components: {
@@ -40,19 +38,47 @@ const page = new Page({
       ListBlock(),
       OrderedListBlock(),
       CodeBlock(),
-      // HeadingsBlockEntry,
-      // BlockquoteBlockEntry,
-      // OrderedListBlockEntry,
-      // ListBlockEntry,
-      // TableBlockEntry,
-      // FigureBlockEntry,
-      // CodeBlockEntry,
+      TableBlock(),
     ],
     extraHandlers: [
       DefaultBlockHandlerEntry(),
       MultiBlockHandlerEntry(),
       CompositionHandlerEntry(),
       InlineHandlerEntry(),
+    ],
+    plugins: [
+      DragablePlugin(),
+      SlashMenuPlugin(),
+      ToolbarPlugin(),
+      InlineSupportPlugin(),
+    ],
+    inlines: [
+      KatexMathInline(),
+      BackLinkInline({
+        onLoad: (content) => {
+          return new Promise((resolve) => {
+            if (content === "I") {
+              resolve([
+                { cite: "1", content: "I am", type: "page" },
+                { cite: "4", content: "I mine", type: "block" },
+                { cite: "2", content: "I i", type: "plain" },
+                { cite: "3", content: "I are", type: "link" },
+              ]);
+            } else if (content === "S") {
+              setTimeout(() => {
+                resolve([
+                  { cite: "1", content: "S am", type: "page" },
+                  { cite: "4", content: "S mine", type: "block" },
+                  { cite: "2", content: "S i", type: "plain" },
+                  { cite: "3", content: "S are", type: "link" },
+                ]);
+              }, 1000);
+            } else {
+              resolve([]);
+            }
+          });
+        },
+      }),
     ],
     // plugins: [
     //   dropdown([
@@ -86,15 +112,12 @@ if (el) {
   page.render(el);
 }
 
-const formula = "\\int_{a}^{b} f(x) dx"; // 要插入的公式
-// { displayMode: true }
-const renderedFormula = katex.renderToString(formula, { output: "mathml" });
+const inlinePlugin = page.getPlugin<InlineSupport>("inlinesupport");
+const mathManager = inlinePlugin.getInlineManager<KatexMath>("math");
+const wrap = mathManager.create("\\int_{a}^{b} f(x) dx");
 
-const wrap = makeInlineBlock({
-  attributes: { value: formula },
-  el: innerHTMLToNodeList(renderedFormula),
-  serailizer: "katex",
-});
+const backlinkManager = inlinePlugin.getInlineManager<BackLink>("backlink");
+const backlink = backlinkManager.create("This is Short Quote.");
 
 let innerHTML =
   "Lor<em>em ipsum</em> ipsum <b>dolor <i>sit <code>amet</code></i></b>, consectetur adipiscing elit, sed do eiusmod <code>tempor <b><i>code incididunt code</i></b></code> ut labore et dolore magna aliqua.";
@@ -108,8 +131,8 @@ page.appendBlock(new Headings({ level: 1, innerHTML: "Heading 1" }));
 // page.appendBlock(new Paragraph({ innerHTML, children: [wrap] }));
 // page.appendBlock(new Paragraph({ innerHTML, children: [wrap] }));
 page.appendBlock(new Code({ code: "print('hello world!')" }));
-// page.appendBlock(new Table({ shape: { row: 3, col: 3 } }));
-page.appendBlock(new Blockquote({ innerHTML, children: [wrap] }));
+page.appendBlock(new Table({ shape: { row: 3, col: 3 } }));
+page.appendBlock(new Blockquote({ children: [backlink] }));
 // page.appendBlock(new Equation({ src: "f(a) = a^2 + bx" }));
 // page.appendBlock(
 //   new Paragraph({ innerHTML: Array(20).fill("long text ").join(" ") })

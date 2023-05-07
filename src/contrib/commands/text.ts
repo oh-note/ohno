@@ -4,23 +4,21 @@ import {
   innerHTMLToNodeList,
 } from "@/helper/document";
 import {
+  ElementFilter,
   ValidNode,
   calcDepths,
   mergeAroundLeft,
   mergeAroundRight,
-  outerHTML,
 } from "@/helper/element";
 import { addMarkdownHint } from "@/helper/markdown";
-import { EditableFlag, IBlock } from "@/system/base";
 import { AnyBlock } from "@/system/block";
 import {
   Command,
-  CommandBuffer,
   CommandCallback,
   CommandCallbackWithBuffer,
 } from "@/system/history";
 import { Page } from "@/system/page";
-import { elementOffset, getTokenSize } from "@/system/position";
+import { getTokenSize } from "@/system/position";
 import {
   createRange,
   getValidAdjacent,
@@ -36,6 +34,7 @@ export interface TextInsertPayload {
   start: number;
   innerHTML: string;
   plain?: boolean;
+  token_filter?: ElementFilter;
 }
 
 export interface TextDeletePayload {
@@ -44,6 +43,7 @@ export interface TextDeletePayload {
   index: number;
   start: number;
   token_number: number;
+  token_filter?: ElementFilter;
 }
 
 export class TextDelete extends Command<TextDeletePayload> {
@@ -55,16 +55,26 @@ export class TextDelete extends Command<TextDeletePayload> {
     index,
     start,
     token_number,
+    token_filter,
   }) => {
-    setLocation(block.getLocation(start + token_number, index)!);
+    setLocation(block.getLocation(start + token_number, index, token_filter)!);
   };
-  onUndoFn?: CommandCallback<TextDeletePayload> = ({ block, index, start }) => {
-    setLocation(block.getLocation(start, index)!);
+  onUndoFn?: CommandCallback<TextDeletePayload> = ({
+    block,
+    index,
+    start,
+    token_filter,
+  }) => {
+    setLocation(block.getLocation(start, index, token_filter)!);
   };
   execute(): void {
-    const { block, index, start, token_number } = this.payload;
-    const startLoc = block.getLocation(start, index)!;
-    const endLoc = block.getLocation(start + token_number, index)!;
+    const { block, index, start, token_number, token_filter } = this.payload;
+    const startLoc = block.getLocation(start, index, token_filter)!;
+    const endLoc = block.getLocation(
+      start + token_number,
+      index,
+      token_filter
+    )!;
     const range =
       token_number > 0
         ? createRange(...startLoc, ...endLoc)
@@ -76,8 +86,14 @@ export class TextDelete extends Command<TextDeletePayload> {
     range.deleteContents();
   }
   undo(): void {
-    const { start, index, block, token_number } = this.payload;
-    const tgt = block.getLocation(start + token_number, index)!;
+    const { start, index, block, token_number, token_filter } = this.payload;
+
+    const tgt = block.getLocation(
+      token_number > 0 ? start : start + token_number,
+      index,
+      token_filter
+    )!;
+
     const range = createRange(...tgt);
     const node = createTextNode(this.buffer.innerHTML);
     range.insertNode(node);
@@ -208,14 +224,14 @@ export class TextInsert extends Command<TextInsertPayload> {
   onExecuteFn: CommandCallbackWithBuffer<
     TextInsertPayload,
     TextInsert["buffer"]
-  > = ({ block, index: query }, { token_number, bias }) => {
-    const loc = block.getLocation(bias + token_number, query)!;
+  > = ({ block, index: query, token_filter }, { token_number, bias }) => {
+    const loc = block.getLocation(bias + token_number, query, token_filter)!;
     // afterOffset = block.correctOffset(afterOffset);
     setLocation(loc);
   };
   onUndoFn: CommandCallbackWithBuffer<TextInsertPayload, TextInsert["buffer"]> =
-    ({ block, index: query, start: bias }) => {
-      const loc = block.getLocation(bias, query)!;
+    ({ block, index: query, start: bias, token_filter }) => {
+      const loc = block.getLocation(bias, query, token_filter)!;
       setLocation(loc);
     };
 
@@ -226,15 +242,21 @@ export class TextInsert extends Command<TextInsertPayload> {
 
   constructor(p: TextInsertPayload) {
     super(p);
-    const { block, plain, index: query, start: bias } = this.payload;
-    const loc = block.getLocation(bias, query)!;
-    const posBias = bias < 0 ? block.getBias(loc) : bias;
+    const {
+      block,
+      plain,
+      index: query,
+      start: bias,
+      token_filter,
+    } = this.payload;
+    const loc = block.getLocation(bias, query, token_filter)!;
+    const posBias = bias < 0 ? block.getBias(loc, token_filter) : bias;
     const nodes = innerHTMLToNodeList(
       this.payload.innerHTML,
       plain
     ) as ValidNode[];
     addMarkdownHint(...nodes);
-    const token_number = getTokenSize(nodes);
+    const token_number = getTokenSize(nodes, undefined, token_filter);
     this.buffer = {
       bias: posBias,
       token_number: token_number,
@@ -242,9 +264,15 @@ export class TextInsert extends Command<TextInsertPayload> {
   }
 
   execute(): void {
-    const { block, plain, index: query, start: bias } = this.payload;
+    const {
+      block,
+      plain,
+      index: query,
+      start: bias,
+      token_filter,
+    } = this.payload;
 
-    const loc = block.getLocation(bias, query)!;
+    const loc = block.getLocation(bias, query, token_filter)!;
     const range = createRange(...loc);
     const nodes = innerHTMLToNodeList(
       this.payload.innerHTML,
@@ -261,12 +289,13 @@ export class TextInsert extends Command<TextInsertPayload> {
   }
 
   undo(): void {
-    const { block, index: query } = this.payload;
+    const { block, index: query, token_filter } = this.payload;
 
-    const startLoc = block.getLocation(this.buffer.bias, query)!;
+    const startLoc = block.getLocation(this.buffer.bias, query, token_filter)!;
     const endLoc = block.getLocation(
       this.buffer.bias + this.buffer.token_number,
-      query
+      query,
+      token_filter
     )!;
 
     const range = createRange(...startLoc, ...endLoc);

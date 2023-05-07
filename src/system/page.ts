@@ -11,15 +11,22 @@ import { DictNode, LinkedDict } from "@/struct/linkeddict";
 import { AnyBlock } from "./block";
 import { ROOT_CLASS } from "./config";
 import { createElement, getDefaultRange } from "@/helper/document";
-import { BlockQuery, IComponent, IContainer, IPage } from "./base";
+import {
+  BlockQuery,
+  IComponent,
+  IContainer,
+  IInline,
+  IPage,
+  IPlugin,
+} from "./base";
 import { History, Command } from "./history";
 import { Paragraph } from "@/contrib/blocks";
 
 export class PageHandler {
   pluginHandlers: Handler[] = [];
   multiBlockHandlers: Handler[] = [];
-  globalHandlers: Handler[] = [];
   blockHandlers: { [key: string]: Handler[] } = {};
+  globalHandlers: Handler[] = [];
   inlineHandler: { [key: string]: Handler[] } = {};
   // handlers: Handler[] = [];
   // afterHandlers: { [key: string]: Handler[] } = {};
@@ -155,7 +162,7 @@ export class PageHandler {
     return el;
   }
 
-  getContextFromRange(range: Range): EventContext {
+  getContextFromRange(range: Range): EventContext | MultiBlockEventContext {
     let blockContext = this.getContext(range.startContainer);
     if (!blockContext) {
       if (range.startContainer === this.page.blockRoot) {
@@ -174,6 +181,23 @@ export class PageHandler {
       : this.findBlock(range.endContainer)!;
     blockContext.endBlock = endBlock;
     blockContext.range = range;
+    if (endBlock) {
+      blockContext.isMultiBlock = true;
+      const blocks = [blockContext.block];
+      let cur = blockContext.block;
+      while ((cur = this.page.getNextBlock(cur)!)) {
+        blocks.push(cur);
+        if (cur.order === endBlock.order) {
+          break;
+        }
+      }
+      // blockContext.blocks = blocks;
+      return {
+        ...blockContext,
+        blocks,
+      } as MultiBlockEventContext;
+    }
+
     return blockContext;
   }
 
@@ -216,8 +240,11 @@ export class PageHandler {
     eventName: keyof HandlerMethods
   ) {
     for (let i = 0; i < handlers.length; i++) {
-      const handler = handlers[i];
+      const handler = handlers[i] as any;
       const method = handler[eventName] as HandlerMethod<K>;
+      if (!method) {
+        continue;
+      }
       const res = method.call(handler, e, context);
       if (res) {
         console.log("Stoped", handler, eventName);
@@ -240,25 +267,10 @@ export class PageHandler {
     }
 
     if (endBlock && endBlock !== block) {
-      const blocks = [block];
-      let cur = block;
-      while ((cur = this.page.getNextBlock(cur)!)) {
-        blocks.push(cur);
-        if (cur.order === endBlock.order) {
-          break;
-        }
-      }
       if (!range) {
         throw new NoRangeError();
       }
-      const mbContext = {
-        block,
-        endBlock,
-        blocks: blocks, //TODO
-        page: this.page,
-        range,
-      };
-      this._dispatchEvent(this.multiBlockHandlers, mbContext, e, eventName);
+      this._dispatchEvent(this.multiBlockHandlers, context, e, eventName);
       return;
     }
 
@@ -293,6 +305,7 @@ export class PageHandler {
     if (!blocks.block) {
       return;
     }
+    console.log(e);
     this.dispatchEvent<FocusEvent>(blocks, e, "handleBlur");
   }
 
@@ -365,14 +378,22 @@ export class PageHandler {
     this.dispatchEvent<MouseEvent>(context, e, "handleMouseLeave");
   }
   handleMouseUp(e: MouseEvent): void | boolean {
-    const context = this.getContextFromRange(getDefaultRange());
-    if (!context.block) {
+    const range = getDefaultRange();
+    const context = this.findBlock(range.startContainer)
+      ? this.getContextFromRange(range)
+      : this.getContext(document.elementFromPoint(e.clientX, e.clientY));
+
+    if (!context) {
       return;
     }
     this.dispatchEvent<MouseEvent>(context, e, "handleMouseUp");
   }
   handleClick(e: MouseEvent): void | boolean {
-    const context = this.getContextFromRange(getDefaultRange());
+    const range = getDefaultRange();
+    const context = this.findBlock(range.startContainer)
+      ? this.getContextFromRange(range)
+      : this.getContext(document.elementFromPoint(e.clientX, e.clientY));
+
     if (!context) {
       return;
     }
@@ -445,7 +466,6 @@ export class PageHandler {
     if (!blocks.block) {
       return;
     }
-
     this.dispatchEvent<CompositionEvent>(blocks, e, "handleCompositionStart");
   }
   handleCompositionUpdate(e: CompositionEvent): void | boolean {
@@ -466,10 +486,12 @@ export interface HandlerEntry {
   global?: HandlerFlag;
   blocks?: { [key: string]: HandlerFlag };
   inlines?: { [key: string]: HandlerFlag };
+  onPageCreated?(page: Page): void;
 }
 
 export interface Component {
   handlers?: HandlerEntry;
+  onPageCreated?(page: Page): void;
 }
 
 export interface BlockComponent extends Component {
@@ -478,12 +500,12 @@ export interface BlockComponent extends Component {
 }
 export interface PluginComponent extends Component {
   // 负责维护一个可选的 HTMLElement，并可以通过 handler 调用该 Manager 显示在必要位置上
-  manager: any;
+  manager: IPlugin;
 }
 
 export interface InlineComponent extends Component {
   // 负责维护一个可选的 HTMLElement，用于在 inline 被激活时提供必要的操作
-  manager: any;
+  manager: IInline;
 }
 
 export type ComponentEntryFn = (init: any) => Component;
@@ -500,16 +522,16 @@ export interface PageInit {
 }
 
 export class Page implements IPage {
+  parent?: IComponent;
   chain: LinkedDict<string, AnyBlock> = new LinkedDict();
   selected: Set<string>;
   active?: AnyBlock;
-  activeInline?: HTMLElement;
+  activeInline?: HTMLLabelElement;
   hover?: AnyBlock | undefined;
   outer: HTMLElement;
   inner: HTMLElement;
   pluginRoot: HTMLElement;
-  parent?: IComponent;
-
+  pluginManagers: { [key: string]: IPlugin } = {};
   rangeDirection: "prev" | "next" | undefined;
   selectionMode: "block" | "text" = "text";
 
@@ -522,33 +544,41 @@ export class Page implements IPage {
     this.outer = createElement("div", { className: "oh-is-root" });
     this.inner = createElement("div", { className: ROOT_CLASS });
     this.inner.contentEditable = "true";
-    this.pluginRoot = createElement("div", { className: "oh-is-plugin" });
+    this.pluginRoot = createElement("div", { className: "oh-is-plugins" });
     this.outer.append(this.pluginRoot, this.inner);
     this.pageHandler = new PageHandler(this);
     this.pageHandler.bindEventListener(this.inner);
     const { components, blocks } = init || {};
     this.history = new History();
+    const pageCreatedListener: Component["onPageCreated"][] = [];
     if (components) {
       const { blocks, plugins, inlines, extraHandlers } = components;
       if (blocks) {
         // blocks
         blocks.forEach((item) => {
           this.pageHandler.registerHandlers(item.handlers || {});
+          item.onPageCreated && pageCreatedListener.push(item.onPageCreated);
         });
       }
       if (plugins) {
         plugins.forEach((item) => {
+          item.manager.setParent(this);
+          this.pluginManagers[item.manager.name] = item.manager;
+          this.pluginRoot.appendChild(item.manager.root);
           this.pageHandler.registerHandlers(item.handlers || {});
+          item.onPageCreated && pageCreatedListener.push(item.onPageCreated);
         });
       }
       if (inlines) {
         inlines.forEach((item) => {
           this.pageHandler.registerHandlers(item.handlers || {});
+          item.onPageCreated && pageCreatedListener.push(item.onPageCreated);
         });
       }
       if (extraHandlers) {
         extraHandlers.forEach((item) => {
           this.pageHandler.registerHandlers(item);
+          item.onPageCreated && pageCreatedListener.push(item.onPageCreated);
         });
       }
     }
@@ -561,6 +591,11 @@ export class Page implements IPage {
     } else {
       this.appendBlock(new Paragraph());
     }
+
+    pageCreatedListener.forEach((item) => {
+      item!(this);
+    });
+    new Event("PluginLoaded", { cancelable: false });
   }
 
   public get root(): HTMLElement {
@@ -605,31 +640,34 @@ export class Page implements IPage {
     }
   }
 
-  setActiveInline(inline?: HTMLElement | undefined): boolean {
+  setActiveInline(inline?: HTMLLabelElement | undefined): boolean {
     if (this.activeInline === inline) {
+      // 已在激活状态的不做处理
       return false;
     }
     if (this.activeInline) {
-      // TODO
+      this.activeInline.classList.remove("active");
     }
     if (inline) {
-      // TODO
-      this.activeInline = inline;
+      inline.classList.add("active");
     }
+    this.activeInline = inline;
     return true;
   }
 
   setActivate(block?: AnyBlock | undefined): void {
     if (this.active === block) {
+      // 已在激活状态的不做处理
       return;
     }
     if (this.active) {
-      // TODO
+      this.active.root.classList.remove("active");
     }
     if (block) {
-      // TODO
-      this.active = block;
+      block.root.classList.remove("active");
     }
+    this.active = block;
+    // this.pageHandler.handleBlockActivated
   }
   toggleSelect(flag: BlockQuery): void {
     let target;
@@ -642,6 +680,7 @@ export class Page implements IPage {
         this.selected.add(target.order);
       }
     }
+    // this.pageHandler.handleBlockSelected
   }
   toggleAllSelect(): void {
     let node = this.chain.first!;
@@ -674,6 +713,14 @@ export class Page implements IPage {
     }
     return res[0];
   }
+
+  getPlugin<T = IPlugin>(name: string): T {
+    if (!this.pluginManagers[name]) {
+      throw new Error(`plugin ${name} not found.`);
+    }
+    return this.pluginManagers[name] as T;
+  }
+
   getNextBlock(flag: BlockQuery): AnyBlock | null {
     let target;
     if ((target = this.query(flag))) {
@@ -758,6 +805,7 @@ export class Page implements IPage {
     }
 
     const [tgt, _] = result;
+    tgt.setOrder("");
     tgt.setParent();
     tgt.root.remove();
     return tgt;
@@ -787,6 +835,20 @@ export class Page implements IPage {
   serialize(el: IComponent, option?: any): string {
     throw new Error("Method not implemented.");
   }
+
+  focusEditable(callback?: (e: Event) => void) {
+    if (callback) {
+      this.blockRoot.addEventListener(
+        "focus",
+        (e) => {
+          callback(e);
+        },
+        { once: true }
+      );
+    }
+    this.blockRoot.focus();
+  }
+
   deserialize(): IComponent {
     throw new Error("Method not implemented.");
   }

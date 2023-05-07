@@ -2,9 +2,9 @@ import { getDefaultRange } from "@/helper/document";
 import {
   EventContext,
   Handler,
-  KeyDispatchedHandler,
+  FineHandlerMethods,
   RangedEventContext,
-  dispatchKeyDown,
+  dispatchKeyEvent,
 } from "@/system/handler";
 import { FIRST_POSITION, intervalToRange } from "@/system/position";
 import { BlockCreate, BlockReplace } from "@/contrib/commands/block";
@@ -17,14 +17,14 @@ import {
 import { Headings } from "./block";
 import { createRange } from "@/system/range";
 
-export class HeadingsHandler extends Handler implements KeyDispatchedHandler {
+export class HeadingsHandler extends Handler implements FineHandlerMethods {
   name: string = "headings";
   handleKeyPress(
     e: KeyboardEvent,
     context: RangedEventContext
   ): boolean | void {}
   handleKeyDown(e: KeyboardEvent, context: RangedEventContext): boolean | void {
-    return dispatchKeyDown(this, e, context);
+    return dispatchKeyEvent(this, e, context);
   }
   handleDeleteDown(
     e: KeyboardEvent,
@@ -77,25 +77,36 @@ export class HeadingsHandler extends Handler implements KeyDispatchedHandler {
     e: KeyboardEvent,
     { page, block, range }: EventContext
   ): boolean | void {
-    const command = prepareEnterCommand({ page, block, range })
-      .withLazyCommand(({ block, page }, { innerHTML }) => {
-        if (innerHTML === undefined) {
-          throw new Error("sanity check");
-        }
-        const paragraph = new Paragraph({
-          innerHTML: innerHTML,
-        });
-        
-        return new BlockCreate({
-          block: block,
-          newBlock: paragraph,
-          where: "after",
-          page: page,
-        });
-      })
-      .build();
+    if (e.shiftKey) {
+      const newBlock = new Paragraph();
+      const command = new BlockCreate({
+        page,
+        block,
+        where: "after",
+        newBlock,
+      });
+      page.executeCommand(command);
+    } else {
+      const command = prepareEnterCommand({ page, block, range })
+        .withLazyCommand(({ block, page }, { innerHTML }) => {
+          if (innerHTML === undefined) {
+            throw new Error("sanity check");
+          }
+          const paragraph = new Paragraph({
+            innerHTML: innerHTML,
+          });
 
-    page.executeCommand(command);
+          return new BlockCreate({
+            block: block,
+            newBlock: paragraph,
+            where: "after",
+            page: page,
+          });
+        })
+        .build();
+
+      page.executeCommand(command);
+    }
     return true;
   }
   handleSpaceDown(

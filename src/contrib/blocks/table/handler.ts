@@ -1,13 +1,13 @@
 import {
   EventContext,
   Handler,
-  KeyDispatchedHandler,
+  FineHandlerMethods,
   RangedEventContext,
-  dispatchKeyDown,
+  dispatchKeyEvent,
 } from "@/system/handler";
-import { createRange, setRange } from "@/system/range";
+import { createRange, setLocation, setRange } from "@/system/range";
 
-export class TableHandler extends Handler implements KeyDispatchedHandler {
+export class TableHandler extends Handler implements FineHandlerMethods {
   handleKeyPress(
     e: KeyboardEvent,
     context: RangedEventContext
@@ -17,10 +17,10 @@ export class TableHandler extends Handler implements KeyDispatchedHandler {
     if (range) {
       if (
         range?.collapsed &&
-        !block.findContainer(range!.commonAncestorContainer)
+        !block.findEditable(range!.commonAncestorContainer)
       ) {
-        const container = block.firstContainer();
-        setRange(createRange(...block.getLocation(0, { container })!));
+        const container = block.getFirstEditable();
+        setLocation(block.getLocation(0, container)!);
       }
     }
   }
@@ -30,7 +30,7 @@ export class TableHandler extends Handler implements KeyDispatchedHandler {
   }
 
   handleKeyDown(e: KeyboardEvent, context: RangedEventContext): boolean | void {
-    return dispatchKeyDown(this, e, context);
+    return dispatchKeyEvent(this, e, context);
   }
 
   // 在 CompositionStart 时处理选中内容
@@ -50,16 +50,16 @@ export class TableHandler extends Handler implements KeyDispatchedHandler {
 
   handleTabDown(e: KeyboardEvent, context: RangedEventContext): boolean | void {
     const { block, range } = context;
-    const container = block.findContainer(range.commonAncestorContainer);
+    const container = block.findEditable(range.commonAncestorContainer);
     if (container) {
-      const container = block.findContainer(range.startContainer);
+      const container = block.findEditable(range.startContainer);
       if (container) {
         const next = e.shiftKey
-          ? block.prevContainer(container)
-          : block.nextContainer(container);
+          ? block.getPrevEditable(container)
+          : block.getNextEditable(container);
         if (next) {
-          const start = block.getLocation(0, { container: next })!;
-          const end = block.getLocation(-1, { container: next })!;
+          const start = block.getLocation(0, next)!;
+          const end = block.getLocation(-1, next)!;
           setRange(createRange(...start, ...end));
         }
       }
@@ -81,13 +81,13 @@ export class TableHandler extends Handler implements KeyDispatchedHandler {
     context: RangedEventContext
   ): boolean | void {
     const { block, range } = context;
-    const container = block.findContainer(range.commonAncestorContainer);
+    const container = block.findEditable(range.commonAncestorContainer);
     if (container) {
       const next = e.shiftKey
-        ? block.prevContainer(container)
-        : block.nextContainer(container);
+        ? block.getPrevEditable(container)
+        : block.getNextEditable(container);
       if (next) {
-        const res = block.getLocation(0, { container: next })!;
+        const res = block.getLocation(0, next)!;
         setRange(createRange(...res));
       }
     } else {

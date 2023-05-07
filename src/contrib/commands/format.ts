@@ -206,9 +206,9 @@ export class FormatText extends Command<FormatPayload> {
       );
       this.buffer.offsets = offsets;
 
-      this.payload.execute = {
-        elements: flatFathers,
-      };
+      // this.payload.execute = {
+      //   elements: flatFathers,
+      // };
       if (!this.onExecuteFn) {
         const range = intervalToRange(container, boundingOffset)!;
         // 2023.04.19 替换，虽然可能增加了一些开销，但简化了代码实现
@@ -280,17 +280,6 @@ export interface FormatAreasPayload {
   page: Page;
   areas: { block: AnyBlock; offset: EditableInterval }[];
   format: HTMLElementTagName;
-  // remove?: boolean;
-  execute?: {
-    elements: ValidNode[];
-  };
-  undo_hint?: {
-    areas: { block: AnyBlock; offsets: EditableInterval[] }[];
-    op?: FormatOp;
-  };
-  intime?: {
-    range: Range;
-  };
 }
 
 export class FormatMultipleText extends Command<FormatAreasPayload> {
@@ -337,7 +326,7 @@ export class FormatMultipleText extends Command<FormatAreasPayload> {
       // enformat
       allStatus.forEach(({ block, container, status, offset }) => {
         const { offsets } = addFormat(container, format, status);
-        this.payload.undo_hint?.areas.push({
+        this.buffer.areas.push({
           block,
           offsets: offsets.map((item) => {
             return { ...item, index: offset.index };
@@ -348,7 +337,7 @@ export class FormatMultipleText extends Command<FormatAreasPayload> {
   }
   undo(): void {
     const { format } = this.payload;
-    const { areas, op } = this.payload.undo_hint!;
+    const { areas, op } = this.buffer;
     areas.forEach(({ block, offsets }) => {
       offsets
         .sort((a, b) => {

@@ -2,9 +2,9 @@ import {
   EventContext,
   Handler,
   HandlerOption,
-  KeyDispatchedHandler,
+  FineHandlerMethods,
   RangedEventContext,
-  dispatchKeyDown,
+  dispatchKeyEvent,
 } from "@/system/handler";
 import { getPrevLocation } from "@/system/range";
 import { NodeInsert } from "@/contrib/commands/html";
@@ -29,7 +29,7 @@ export interface InlineHandlerOption {
 
 export class InlineActivateHandler
   extends Handler
-  implements KeyDispatchedHandler
+  implements FineHandlerMethods
 {
   declare option: InlineHandlerOption;
   constructor(option?: InlineHandlerOption) {
@@ -37,10 +37,10 @@ export class InlineActivateHandler
   }
 
   handleKeyDown(e: KeyboardEvent, context: RangedEventContext): boolean | void {
-    return dispatchKeyDown(this, e, context);
+    return dispatchKeyEvent(this, e, context);
   }
   handleKeyUp(e: KeyboardEvent, context: RangedEventContext): boolean | void {
-    return dispatchKeyDown(this, e, context);
+    return dispatchKeyEvent(this, e, context);
   }
 
   findInlineBlock(node: Node, blockRoot: HTMLElement) {

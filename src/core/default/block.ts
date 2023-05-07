@@ -5,9 +5,9 @@
 import {
   EventContext,
   Handler,
-  KeyDispatchedHandler,
+  FineHandlerMethods,
   RangedEventContext,
-  dispatchKeyDown,
+  dispatchKeyEvent,
 } from "@/system/handler";
 import { defaultHandleArrowDown } from "./arrowDown";
 import { getDefaultRange } from "@/helper/document";
@@ -22,10 +22,7 @@ import {
 import { defaultHandleBeforeInput } from "./beforeInput";
 import { getTokenSize } from "@/system/position";
 
-export class DefaultBlockHandler
-  extends Handler
-  implements KeyDispatchedHandler
-{
+export class DefaultBlockHandler extends Handler implements FineHandlerMethods {
   handleClick(e: MouseEvent, context: EventContext): boolean | void {}
 
   handleMouseEnter(e: MouseEvent, context: EventContext): boolean | void {}
@@ -38,15 +35,18 @@ export class DefaultBlockHandler
   }
 
   handleMouseUp(e: MouseEvent, context: EventContext): boolean | void {
-    const range = getDefaultRange();
-    const collapsed = range.collapsed;
-    normalizeRange(context.block.root, range);
-    if (collapsed) {
-      const rect = range.getBoundingClientRect();
-      const bound = rect.x + rect.width / 2;
-      // 鼠标在右边的时候
-      console.log(bound, e.clientX);
-      range.collapse(e.clientX < bound);
+    const { range } = context;
+    if (range) {
+      const collapsed = range.collapsed;
+      normalizeRange(context.block.root, range);
+      if (collapsed) {
+        const rect = range.getBoundingClientRect();
+        const bound = rect.x + rect.width / 2;
+        // 鼠标在右边的时候
+        console.log(bound, e.clientX);
+        range.collapse(e.clientX < bound);
+      }
+      return true;
     }
   }
 
@@ -96,7 +96,7 @@ export class DefaultBlockHandler
   handleKeyDown(e: KeyboardEvent, context: RangedEventContext): boolean | void {
     // const { range, block } = context;
 
-    if (dispatchKeyDown(this, e, context)) {
+    if (dispatchKeyEvent(this, e, context)) {
       return true;
     } else if (e.metaKey) {
       if (e.key === "z") {

@@ -1,13 +1,18 @@
-import { PluginEntry } from "@/system/page";
+import { InlineComponent } from "@/system/page";
 import { InlineMathHandler } from "./handler";
-import { InlineMath, Option } from "./instance";
+import { KatexMath, Option } from "./inline";
+import { InlineSupport } from "@/contrib/plugins/inlineSupport/plugin";
 
-export default function (): PluginEntry {
-  const instance = new InlineMath();
-
+export function KatexMathInline(): InlineComponent {
+  const instance = new KatexMath();
+  const handler = new InlineMathHandler();
   return {
-    name: "math",
-    instance: instance,
-    handler: new InlineMathHandler({ instance }),
+    manager: instance,
+    onPageCreated: (page) => {
+      const inline = page.getPlugin<InlineSupport>("inlinesupport");
+      if (inline) {
+        inline.registerHandler(handler, instance);
+      }
+    },
   };
 }

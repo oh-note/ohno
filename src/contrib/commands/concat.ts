@@ -77,6 +77,10 @@ export class ListCommandBuilder<T> {
     this.commands.push(lazy);
     return this;
   }
+  withCommand(command: Command<any>) {
+    this.commands.push(() => command);
+    return this;
+  }
   build() {
     return new ListCommand(this.payload, this.commands);
   }

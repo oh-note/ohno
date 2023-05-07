@@ -1,4 +1,4 @@
-import { BlockComponent, HandlerEntry } from "@/system/page";
+import { BlockComponent } from "@/system/page";
 import { BlockQuoteHandler } from "./handler";
 import { Blockquote } from "./block";
 

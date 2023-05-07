@@ -22,7 +22,7 @@ import {
 } from "./range";
 import { Page } from "./page";
 import { BLOCK_CLASS } from "./config";
-import { ValidNode, isParent } from "@/helper/element";
+import { ElementFilter, ValidNode, isParent } from "@/helper/element";
 import { getNextLocation } from "./range";
 import { getPrevWordLocation } from "./range";
 import {
@@ -111,6 +111,10 @@ export class Block<T extends BlockInit> implements IBlock {
   }
 
   setOrder(order: string): void {
+    if (order === "") {
+      this.order = "";
+      return;
+    }
     if (this.order) {
       // if ((left && left > this.order) || (right && right > this.order)) {
       //   throw new Error(
@@ -211,12 +215,16 @@ export class Block<T extends BlockInit> implements IBlock {
     return createRange(...start, ...end);
   }
 
-  getLocation(bias: number, query: EditableFlag): RefLocation | null {
+  getLocation(
+    bias: number,
+    query: EditableFlag,
+    token_filter?: ElementFilter
+  ): RefLocation | null {
     const editable = this.getEditable(query);
     if (!editable) {
       throw new Error("editable not found.");
     }
-    let result = biasToLocation(editable, bias);
+    let result = biasToLocation(editable, bias, token_filter);
     if (!result) {
       return null;
     }
@@ -227,12 +235,12 @@ export class Block<T extends BlockInit> implements IBlock {
     return result;
   }
 
-  getBias(loc: RefLocation): number {
+  getBias(loc: RefLocation, token_filter?: ElementFilter): number {
     const editable = this.findEditable(loc[0]);
     if (!editable) {
       throw new Error("editable not found");
     }
-    return locationToBias(editable, ...loc);
+    return locationToBias(editable, ...loc, token_filter);
   }
 
   getGlobalBias(loc: RefLocation): number {

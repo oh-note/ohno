@@ -1,0 +1,133 @@
+import {
+  EventContext,
+  Handler,
+  FineHandlerMethods,
+  MultiBlockEventContext,
+  RangedEventContext,
+  dispatchKeyEvent,
+} from "@/system/handler";
+import { Dragable } from "./plugin";
+import { BlockMove, BlocksMove } from "@/contrib/commands/block";
+import { createRange, setLocation, setRange } from "@/system/range";
+
+export class DragablePluginHandler
+  extends Handler
+  implements FineHandlerMethods
+{
+  handleKeyPress(e: KeyboardEvent, context: EventContext): boolean | void {}
+  handleKeyDown(e: KeyboardEvent, context: RangedEventContext): boolean | void {
+    return dispatchKeyEvent(this, e, context);
+  }
+
+  handleKeyUp(e: KeyboardEvent, context: RangedEventContext): boolean | void {
+    return dispatchKeyEvent(this, e, context);
+  }
+
+  handleMouseDown(e: MouseEvent, context: EventContext): boolean | void {
+    console.log(e);
+    const { page, block, endBlock } = context;
+    if (!endBlock) {
+      const plugin = page.getPlugin<Dragable>("dragable");
+      plugin.span(block);
+    }
+  }
+
+  handleArrowKeyDown(
+    e: KeyboardEvent,
+    context: RangedEventContext | MultiBlockEventContext
+  ): boolean | void {
+    const { page, block, range, isMultiBlock, endBlock } = context;
+
+    if (e.altKey && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+      const where = e.key === "ArrowDown" ? "after" : "before";
+      if (isMultiBlock) {
+        const { blocks } = context as MultiBlockEventContext;
+        const ref =
+          e.key === "ArrowDown"
+            ? page.getNextBlock(blocks[blocks.length - 1])
+            : page.getPrevBlock(blocks[0]);
+        const startBias = blocks[0].getGlobalBias([
+          range.startContainer,
+          range.startOffset,
+        ]);
+        const endBias = blocks[blocks.length - 1].getGlobalBias([
+          range.endContainer,
+          range.endOffset,
+        ]);
+        if (ref) {
+          const command = new BlocksMove({
+            page,
+            orders: blocks.map((item) => item.order),
+            ref,
+            where,
+          })
+            .onExecute(({ orders }, { newOrders }) => {
+              const startBlock = page.query(newOrders[0])!;
+              const endBlock = page.query(newOrders[newOrders.length - 1])!;
+              const startLoc = startBlock.getGlobalLocation(startBias);
+              const endLoc = endBlock.getGlobalLocation(endBias);
+              setRange(createRange(...startLoc!, ...endLoc!));
+            })
+            .onUndo(({ orders }) => {
+              const startBlock = page.query(orders[0])!;
+              const endBlock = page.query(orders[orders.length - 1])!;
+              const startLoc = startBlock.getGlobalLocation(startBias);
+              const endLoc = endBlock.getGlobalLocation(endBias);
+              setRange(createRange(...startLoc!, ...endLoc!));
+            });
+          page.executeCommand(command);
+        }
+      } else {
+        const bias = block.getGlobalBias([
+          range.startContainer,
+          range.startOffset,
+        ]);
+        const ref =
+          e.key === "ArrowDown"
+            ? page.getNextBlock(block)
+            : page.getPrevBlock(block);
+        if (ref) {
+          const command = new BlockMove({
+            page,
+            order: block.order,
+            ref,
+            where,
+          })
+            .onExecute(({ order }, { newOrder }) => {
+              const block = page.query(newOrder)!;
+              setLocation(block.getGlobalLocation(bias)!);
+            })
+            .onUndo(({ order }) => {
+              const block = page.query(order)!;
+              setLocation(block.getGlobalLocation(bias)!);
+            });
+          page.executeCommand(command);
+        }
+      }
+
+      return true;
+    }
+  }
+
+  handleArrowKeyUp(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): boolean | void {
+    const { page, block, endBlock } = context;
+    if (!endBlock) {
+      const plugin = page.getPlugin<Dragable>("dragable");
+      plugin.span(block);
+    }
+  }
+  handleDeleteDown(e: KeyboardEvent, context: EventContext): boolean | void {}
+  handleBackspaceDown(
+    e: KeyboardEvent,
+    context: EventContext
+  ): boolean | void {}
+
+  handleEnterDown(e: KeyboardEvent, context: EventContext): boolean | void {}
+  handleSpaceDown(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): boolean | void {}
+}

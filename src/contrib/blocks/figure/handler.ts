@@ -1,12 +1,12 @@
 import {
   EventContext,
   Handler,
-  KeyDispatchedHandler,
+  FineHandlerMethods,
   RangedEventContext,
-  dispatchKeyDown,
+  dispatchKeyEvent,
 } from "@/system/handler";
 
-export class FigureHandler extends Handler implements KeyDispatchedHandler {
+export class FigureHandler extends Handler implements FineHandlerMethods {
   name: string = "figure";
   handleKeyPress(
     e: KeyboardEvent,
@@ -14,7 +14,7 @@ export class FigureHandler extends Handler implements KeyDispatchedHandler {
   ): boolean | void {}
 
   handleKeyDown(e: KeyboardEvent, context: RangedEventContext): boolean | void {
-    return dispatchKeyDown(this, e, context);
+    return dispatchKeyEvent(this, e, context);
   }
   // 在 CompositionStart 时处理选中内容
   handleCompositionStart(

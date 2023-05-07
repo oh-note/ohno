@@ -8,9 +8,6 @@ import {
   lastValidChild,
 } from "./element";
 
-function makeHint(content: string): HTMLElement {
-  return createElement("span", { textContent: content, className: OH_MDHINT });
-}
 function makeHintLeft(content: string): HTMLElement {
   return createElement("span", {
     textContent: content,
@@ -31,6 +28,11 @@ const tagToHint: { [key: string]: string } = {
   code: "`",
   em: " ",
   label: " ",
+  q: "[[",
+};
+
+const tagToHintRight: { [key: string]: string } = {
+  q: "]]",
 };
 
 export function removeMarkdownHint(...roots: ValidNode[]) {
@@ -76,8 +78,11 @@ export function addMarkdownHint(...roots: ValidNode[]) {
 
     const hintContent = tagToHint[getTagName(root)];
     if (hintContent) {
+      const hintContentRight = tagToHintRight[getTagName(root)];
       const hintLeft = makeHintLeft(hintContent);
-      const hintRight = makeHintRight(hintContent);
+      const hintRight = makeHintRight(
+        hintContentRight ? hintContentRight : hintContent
+      );
       root.insertBefore(hintLeft, firstValidChild(root as HTMLElement));
       root.appendChild(hintRight);
     }

@@ -7,6 +7,7 @@
 
 import { createTextNode, getDefaultRange } from "@/helper/document";
 import {
+  ElementFilter,
   ValidNode,
   firstValidChild,
   indexOfNode,
@@ -77,11 +78,16 @@ export const FULL_BLOCK: Offset = {
 export function locationToBias(
   root: Node,
   container: Node,
-  offset: number
+  offset: number,
+  token_filter?: ElementFilter
 ): number {
   let size = 0;
   let cur: Node | null = container;
   let curSize: number;
+
+  if (!token_filter) {
+    token_filter = isTokenHTMLElement;
+  }
 
   if (!isParent(container, root)) {
     throw new Error(
@@ -102,7 +108,7 @@ export function locationToBias(
       if (isTextNode(cur)) {
         // <b>text|</b>
         curSize = getTokenSize(cur);
-      } else if (isTokenHTMLElement(cur)) {
+      } else if (token_filter(cur)) {
         // <b><label>...</label>|</b>
         curSize = 2;
       } else {
@@ -143,7 +149,7 @@ export function locationToBias(
     if (cur) {
       if (isTextNode(cur)) {
         curSize = getTokenSize(cur);
-      } else if (isTokenHTMLElement(cur)) {
+      } else if (token_filter(cur)) {
         curSize = 2;
       } else {
         curSize = getTokenSize(cur) + 2;
@@ -167,14 +173,15 @@ export function makeBiasPos(root: Node, bias?: number): number | undefined {
 
 export function biasToLocation(
   root: ValidNode,
-  bias: number
+  bias: number,
+  token_filter: ElementFilter = isTokenHTMLElement
 ): [Node, number] | null {
   if (bias === -1) {
     return getValidAdjacent(root, "beforeend");
   }
 
   if (bias < 0) {
-    bias += getTokenSize(root) + 1;
+    bias += getTokenSize(root, undefined, token_filter) + 1;
     if (bias < 0) {
       return null;
     }
@@ -207,7 +214,7 @@ export function biasToLocation(
     if (!isValidNode(cur)) {
       throw new Error("Cannot process invalid node.");
     }
-    const tokenN = getTokenSize(cur);
+    const tokenN = getTokenSize(cur, undefined, token_filter);
     if (isTextNode(cur) && tokenN + delta < bias) {
       // 因为是从外往内递归遍历
       // 所以不会出现 nextValid 为空而还没有找到元素的情况
@@ -234,10 +241,14 @@ export function biasToLocation(
     } else {
       if (isTextNode(cur)) {
         return [cur, bias - delta];
-      } else if (isTokenHTMLElement(cur as HTMLElement)) {
+      } else if (token_filter(cur as HTMLElement)) {
         return [cur, 0];
       } else {
-        return biasToLocation(cur as HTMLElement, bias - delta - 1);
+        return biasToLocation(
+          cur as HTMLElement,
+          bias - delta - 1,
+          token_filter
+        );
       }
     }
   }
@@ -355,8 +366,13 @@ export function elementOffset(
  */
 export function getTokenSize(
   root: Node | Node[] | DocumentFragment,
-  with_root: boolean = false
+  with_root: boolean = false,
+  token_filter?: ElementFilter<Node>
 ): number {
+  if (!token_filter) {
+    token_filter = isTokenHTMLElement;
+  }
+
   let res = 0;
   if (Array.isArray(root)) {
     root.forEach((item) => {
@@ -370,7 +386,7 @@ export function getTokenSize(
   if (with_root) {
     res += 2;
   }
-  if (isTokenHTMLElement(root)) {
+  if (token_filter(root)) {
     return res;
   }
   for (let i = 0; i < root.childNodes.length; i++) {
@@ -379,7 +395,7 @@ export function getTokenSize(
       if (isHintHTMLElement(cur)) {
         // <span>**</span>
         continue;
-      } else if (isTokenHTMLElement(cur)) {
+      } else if (token_filter(cur)) {
         // <label>...</label>
         // <label></label>
         // ↑      ↑       ↑

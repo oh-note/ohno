@@ -1,78 +1,79 @@
 import {
   EventContext,
-  KeyDispatchedHandler,
+  Handler,
+  InlineRangedEventContext,
+  FineHandlerMethods,
   RangedEventContext,
-  dispatchKeyDown,
+  dispatchKeyEvent,
+  InlineHandler,
+  InlineEventContext,
 } from "@/system/handler";
-import { InlineMath } from "./instance";
+import { KatexMath } from "./inline";
 import { getPrevLocation } from "@/system/range";
 import { NodeInsert } from "@/contrib/commands/html";
 import { ListCommandBuilder } from "@/contrib/commands/concat";
-import { TextDeleteSelection } from "@/contrib/commands/text";
-import { InlineHandler } from "@/system/inline";
+import { InlineSupport } from "@/contrib/plugins/inlineSupport/plugin";
+import { TextDelete } from "@/contrib/commands";
 
-export class InlineMathHandler
-  extends InlineHandler
-  implements KeyDispatchedHandler
-{
-  declare instance: InlineMath;
-  handleKeyDown(e: KeyboardEvent, context: RangedEventContext): boolean | void {
-    return dispatchKeyDown(this, e, context);
+export class InlineMathHandler implements InlineHandler {
+  handleMouseDown(e: MouseEvent, context: InlineEventContext): boolean | void {
+    // const { page, inline, manager } = context;
+    // manager.edit(inline, context);
+    // return true;
   }
-  handleKeyUp(e: KeyboardEvent, context: RangedEventContext): boolean | void {
-    return dispatchKeyDown(this, e, context);
+  handleMouseUp(e: MouseEvent, context: InlineEventContext): boolean | void {
+    const { page, inline, manager } = context;
+    (manager as KatexMath).edit(inline, context);
+    return true;
   }
 
-  handleEnterDown(
+  handleEscapeDown(
+    e: KeyboardEvent,
+    context: InlineRangedEventContext
+  ): boolean | void {
+    return true;
+  }
+  handleSpaceDown(
     e: KeyboardEvent,
     context: RangedEventContext
+  ): boolean | void {}
+  handleEnterDown(
+    e: KeyboardEvent,
+    context: InlineRangedEventContext
   ): boolean | void {
-    const { range } = context;
-    let inline;
-    if ((inline = this.instance.findInline(range.startContainer))) {
-      this.instance.edit(context, inline);
-      return true;
-    }
+    const { page, inline, manager } = context;
+    manager.edit(inline, context);
+    return true;
+  }
+  handleClick(
+    e: MouseEvent,
+    context: InlineRangedEventContext
+  ): boolean | void {
+    // const { range, inline, manager } = context;
+    // manager.edit(inline, context);
+    // return true;
   }
 
-  handleMouseUp(e: MouseEvent, context: EventContext): boolean | void {
-    const { range, page } = context;
-    if (range?.collapsed) {
-      if (this.instance.findInline(range.startContainer)) {
-        return true;
-      } else {
-        this.instance.deactivate();
-      }
-    }
-  }
-
-  handleMouseDown(e: MouseEvent, context: EventContext): boolean | void {
-    this.instance.hide();
-  }
-
-  handleClick(e: MouseEvent, context: EventContext): boolean | void {
-    const { range } = context;
-    let inline;
-    if (range) {
-      if ((inline = this.instance.findInline(range.startContainer))) {
-        this.instance.edit(context, inline);
-        return true;
-      }
-    }
+  handleArrowKeyDown(
+    e: KeyboardEvent,
+    context: InlineRangedEventContext
+  ): boolean | void {
+    const { manager, inline } = context;
+    manager.hover(inline, context);
   }
 
   handleArrowKeyUp(
     e: KeyboardEvent,
-    context: RangedEventContext
+    context: InlineRangedEventContext
   ): boolean | void {
-    const { range } = context;
+    // const { range, manager } = context;
     let inline;
-    if ((inline = this.instance.findInline(range.startContainer))) {
-      this.instance.activate(context, inline);
-    } else {
-      this.instance.deactivate();
-    }
   }
+
+  handleInsideBeforeInput(
+    e: InputEvent,
+    context: InlineRangedEventContext
+  ): boolean | void {}
 
   handleBeforeInput(
     e: TypedInputEvent,
@@ -90,41 +91,54 @@ export class InlineMathHandler
       }
 
       let matchIndex: number;
-      if ((matchIndex = range.startContainer.textContent!.indexOf("$")) >= 0) {
+      if (
+        (matchIndex = range.startContainer.textContent!.lastIndexOf(
+          "$",
+          range.startOffset
+        )) >= 0
+      ) {
+        const plugin = page.getPlugin<InlineSupport>("inlinesupport");
+        const manager = plugin.getInlineManager<KatexMath>("math");
+
         // 删除之前的 $，创建一个 Math
         const text = range.startContainer.textContent!.slice(
           matchIndex + 1,
           range.startOffset
         );
-        const node = this.instance.create(text);
-        const offset = block.getOffset();
-        // const offset.
-        const command = new ListCommandBuilder({ block, page, node, offset })
-          .withLazyCommand(({ page, block, offset }) => {
-            return new TextDeleteSelection({
+        const node = manager.create(text);
+
+        // debugger;
+        const bias = block.getBias([range.startContainer, range.startOffset]);
+        const index = block.findEditableIndex(range.startContainer);
+        const command = new ListCommandBuilder({
+          block,
+          page,
+          node,
+          bias,
+          index,
+        })
+          .withLazyCommand(({ page, block, index }) => {
+            return new TextDelete({
               page,
               block,
-              delOffset: {
-                start: offset.start - text.length - 1,
-                end: offset.start,
-                index: offset.index,
-              },
+              start: bias,
+              index,
+              token_number: -text.length - 1,
             });
           })
-          .withLazyCommand(({ page, block, offset, node }) => {
+          .withLazyCommand(({ page, block, index, node }) => {
             return new NodeInsert({
               page,
               block,
-              insertOffset: {
-                start: offset.start - text.length - 1,
-                index: offset.index,
-              },
+              index,
+              start: bias - text.length - 1,
               node,
             });
           })
           .build();
         page.executeCommand(command);
-        this.instance.edit(context, node);
+        page.setActiveInline(node);
+        manager.edit(node, context);
         return true;
       }
     }

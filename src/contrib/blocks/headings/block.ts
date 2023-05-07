@@ -1,8 +1,11 @@
 import { createElement } from "@/helper/document";
 import { Block, BlockInit } from "@/system/block";
+
+export type HeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;
+
 export interface HeadingsInit extends BlockInit {
   innerHTML?: string;
-  level: 1 | 2 | 3 | 4 | 5 | 6;
+  level: HeadingLevel;
   children?: HTMLElement[];
 }
 

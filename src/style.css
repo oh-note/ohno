@@ -131,11 +131,6 @@ label.active ::selection {
   overflow-y: auto;
 }
 
-.oh-is-option {
-  padding: 2px;
-  padding-left: 4px;
-}
-
 .oh-is-page h1,
 h2,
 h3,

@@ -1,9 +1,9 @@
 import {
   EventContext,
   Handler,
-  KeyDispatchedHandler,
+  FineHandlerMethods,
   RangedEventContext,
-  dispatchKeyDown,
+  dispatchKeyEvent,
 } from "@/system/handler";
 import { getTokenSize, tokenBetweenRange } from "@/system/position";
 import {
@@ -125,14 +125,14 @@ export function prepareEnterCommand({ page, block, range }: EventContext) {
   return builder;
 }
 
-export class ParagraphHandler extends Handler implements KeyDispatchedHandler {
+export class ParagraphHandler extends Handler implements FineHandlerMethods {
   handleKeyPress(
     e: KeyboardEvent,
     context: RangedEventContext
   ): boolean | void {}
 
   handleKeyDown(e: KeyboardEvent, context: RangedEventContext): boolean | void {
-    return dispatchKeyDown(this, e, context);
+    return dispatchKeyEvent(this, e, context);
   }
 
   handleDeleteDown(
@@ -262,24 +262,36 @@ export class ParagraphHandler extends Handler implements KeyDispatchedHandler {
     e: KeyboardEvent,
     { page, block, range }: RangedEventContext
   ): boolean | void {
-    const command = prepareEnterCommand({ page, block, range })
-      .withLazyCommand(({ block, page }, { innerHTML }) => {
-        if (innerHTML === undefined) {
-          throw new Error("sanity check");
-        }
-        const paragraph = new Paragraph({
-          innerHTML: innerHTML,
-        });
-        return new BlockCreate({
-          page: page,
-          block: block,
-          newBlock: paragraph,
-          where: "after",
-        });
-      }) // 将新文本添加到
-      .build();
+    if (e.shiftKey) {
+      const newBlock = new Paragraph();
+      const command = new BlockCreate({
+        page,
+        block,
+        newBlock,
+        where: "after",
+      });
+      page.executeCommand(command);
+    } else {
+      const command = prepareEnterCommand({ page, block, range })
+        .withLazyCommand(({ block, page }, { innerHTML }) => {
+          if (innerHTML === undefined) {
+            throw new Error("sanity check");
+          }
+          const paragraph = new Paragraph({
+            innerHTML: innerHTML,
+          });
+          return new BlockCreate({
+            page: page,
+            block: block,
+            newBlock: paragraph,
+            where: "after",
+          });
+        }) // 将新文本添加到
+        .build();
 
-    page.executeCommand(command);
+      page.executeCommand(command);
+    }
+
     return true;
   }
   handleSpaceDown(
