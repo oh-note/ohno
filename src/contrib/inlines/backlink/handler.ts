@@ -3,6 +3,7 @@ import {
   RangedEventContext,
   InlineHandler,
   InlineEventContext,
+  EventContext,
 } from "@/system/handler";
 import { BackLink } from "./inline";
 import { NodeInsert } from "@/contrib/commands/html";
@@ -41,9 +42,22 @@ export class BackLinkHandler implements InlineHandler {
   }
 
   handleMouseDown(e: MouseEvent, context: InlineEventContext): boolean | void {
+    if (e.metaKey) {
+      return;
+    }
     if (context.first) {
       return this.handleMouseUp(e, context);
     }
+  }
+
+  handleMouseEnter(e: MouseEvent, context: InlineEventContext): boolean | void {
+    const { inline, manager } = context;
+    (manager as BackLink).hoverLabel(inline);
+  }
+
+  handleMouseLeave(e: MouseEvent, context: InlineEventContext): boolean | void {
+    const { inline, manager } = context;
+    (manager as BackLink).unHoverLabel(inline);
   }
 
   handleEscapeDown(
@@ -61,23 +75,30 @@ export class BackLinkHandler implements InlineHandler {
     context: InlineRangedEventContext
   ): boolean | void {
     const { page, inline, manager } = context;
-    manager.edit(inline, context);
+    (manager as BackLink).simulateEnter();
     return true;
   }
   handleClick(
     e: MouseEvent,
     context: InlineRangedEventContext
   ): boolean | void {
-    // const { range, inline, manager } = context;
+    const { range, inline, manager } = context;
+    if (e.metaKey) {
+      const option = (manager as BackLink).parseOption(inline);
+      const { cite, type } = option;
+      if (type === "link") {
+        window.open(cite, "_blank");
+      }
+    }
     // manager.edit(inline, context);
-    // return true;
+    return true;
   }
 
   handleArrowKeyDown(
     e: KeyboardEvent,
     context: InlineRangedEventContext
   ): boolean | void {
-    const { inline, range, first, manager } = context;
+    const { page, block, inline, range, first, manager } = context;
     const slot = inline.querySelector("q")!;
     if (first) {
       manager.edit(inline, context);
@@ -89,16 +110,28 @@ export class BackLinkHandler implements InlineHandler {
       return true;
     } else {
       // 这里不需要 return  true，在边界时，将位置设置为 label，并由 default 行为来处理光标移动
+      const typedManager = manager as BackLink;
+      if (typedManager.resultSize <= 0) {
+        return;
+      }
       if (
         e.key === "ArrowLeft" &&
         getPrevLocation(range.startContainer, range.startOffset, slot) === null
       ) {
-        setLocation([inline, 0]);
+        (manager as BackLink).exit();
+        page.setLocation([inline, 0], block);
       } else if (
         e.key === "ArrowRight" &&
         getNextLocation(range.startContainer, range.startOffset, slot) === null
       ) {
-        setLocation([inline, 0]);
+        (manager as BackLink).exit();
+        page.setLocation([inline, 0], block);
+      } else if (e.key === "ArrowUp") {
+        (manager as BackLink).simulateArrowUp();
+        return true;
+      } else if (e.key === "ArrowDown") {
+        (manager as BackLink).simulateArrowDown();
+        return true;
       }
     }
   }
@@ -133,21 +166,13 @@ export class BackLinkHandler implements InlineHandler {
     e: KeyboardEvent,
     context: InlineRangedEventContext
   ): boolean | void {
-    const { range, manager, page, inline, first } = context;
+    const { block, range, manager, page, inline, first } = context;
     if (first) {
       if (e.key === "ArrowUp" || e.key === "ArrowDown") {
         const slot = inline.querySelector("q")!;
         const loc = biasToLocation(slot, 0)!;
-        setLocation(loc);
+        page.setLocation(loc, block);
       }
-      //   const slot = inline.querySelector("q")!;
-      //   const loc = biasToLocation(slot, -1)!;
-      //   setLocation(loc);
-      // } else if (e.key === "ArrowRight") {
-      //   const slot = inline.querySelector("q")!;
-      //   const loc = biasToLocation(slot, 0)!;
-      //   setLocation(loc);
-      // }
       return true;
     }
   }
@@ -193,7 +218,7 @@ export class BackLinkHandler implements InlineHandler {
         const plugin = page.getPlugin<InlineSupport>("inlinesupport");
         const manager = plugin.getInlineManager<BackLink>("backlink");
 
-        const node = manager.create("");
+        const node = manager.create();
 
         const bias = block.getBias([range.startContainer, range.startOffset]);
         const index = block.findEditableIndex(range.startContainer);

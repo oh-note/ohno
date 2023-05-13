@@ -7,6 +7,7 @@ export * from "./block";
 
 export function ListBlock(): BlockComponent {
   return {
+    name: "list",
     blockType: List,
     handlers: {
       blocks: { list: new ListHandler() },

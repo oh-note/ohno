@@ -6,7 +6,6 @@ import {
   isEntityNode,
   isHTMLElement,
   isHintHTMLElement,
-  isHintLeft,
   isParent,
   isTextNode,
   isTokenHTMLElement,
@@ -21,6 +20,7 @@ import {
 import { findCharAfterPosition, findCharBeforePosition } from "@/helper/string";
 import { addMarkdownHint } from "@/helper/markdown";
 import { createElement, createTextNode } from "@/helper/document";
+import { biasToLocation } from "./position";
 
 export type RefLocation = [Node, number];
 export interface LineInfo {
@@ -615,7 +615,7 @@ export function getPrevWordLocation(
       return checkLocation([cur, res], root);
     }
     // container = cur;
-    const prev = prevValidSibling(cur) as Node;
+    const prev = prevValidSibling(cur, isEntityNode) as Node;
     if (isTextNode(prev)) {
       curOffset = prev.textContent!.length;
       cur = prev;
@@ -639,7 +639,7 @@ export function getNextWordLocation(
       return checkLocation([cur, res + curOffset + 1], root);
     }
 
-    const next = nextValidSibling(cur) as Node;
+    const next = nextValidSibling(cur, isEntityNode) as Node;
     if (isTextNode(next)) {
       curOffset = 0;
       cur = next;
@@ -791,12 +791,10 @@ export function normalizeContainer(
   });
 
   if (tgt) {
-    if (isTokenHTMLElement(tgt)) {
-      return getValidAdjacent(
-        tgt,
-        direction === "left" ? "beforebegin" : "afterend"
-      );
-    }
+    return getValidAdjacent(
+      tgt,
+      direction === "left" ? "beforebegin" : "afterend"
+    );
   }
   if (container instanceof HTMLElement) {
     if (!container.childNodes[offset]) {
@@ -1106,4 +1104,22 @@ export function getSoftLineTail(
     }
   }
   throw new Error("Cannot find tail");
+}
+
+export function clipRange(node: ValidNode, range: Range): Range | null {
+  if (isParent(range.commonAncestorContainer, node)) {
+    return range;
+  }
+  if (isParent(node, range.commonAncestorContainer)) {
+    const newRange = range.cloneRange();
+    if (!isParent(range.startContainer, node)) {
+      newRange.setStart(...biasToLocation(node, 0)!);
+    }
+    if (!isParent(range.endContainer, node)) {
+      newRange.setEnd(...biasToLocation(node, 0)!);
+    }
+    return newRange;
+  }
+  // 互相独立无重叠
+  return null;
 }

@@ -1,4 +1,5 @@
 import { Command } from "@/system/history";
+import { Page } from "@/system/page";
 
 export type LazyCommand<T> = (
   payload: T,
@@ -64,6 +65,21 @@ class ListCommand<T> extends Command<T> {
         command.onUndoFn(command.payload, command.buffer);
       }
     }
+  }
+  notifyExecute(page: Page): void {
+    this.commands!.forEach((item) => {
+      item.notifyExecute(page);
+    });
+  }
+  notifyUndo(page: Page): void {
+    this.commands!.forEach((item) => {
+      item.notifyUndo(page);
+    });
+  }
+  notifyRedo(page: Page): void {
+    this.commands!.forEach((item) => {
+      item.notifyRedo(page);
+    });
   }
 }
 

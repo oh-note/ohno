@@ -1,16 +1,16 @@
-import { BlockEntry, HandlerEntry } from "@/system/page";
-import { EquationHandler } from "./handler";
+import { BlockComponent, HandlerEntry } from "@/system/page";
 import { Equation } from "./block";
+import { EquationHandler } from "./handler";
 
 export * from "./handler";
 export * from "./block";
 
-export const EquationHandlers: HandlerEntry = {
-  blockHandler: new EquationHandler(),
-};
-
-export const EquationBlockEntry: BlockEntry = {
-  name: "equation",
-  blockType: Equation,
-  handler: new EquationHandler(),
-};
+export function EquationBlock(): BlockComponent {
+  return {
+    name: "equation",
+    blockType: Equation,
+    handlers: {
+      blocks: { equation: new EquationHandler() },
+    },
+  };
+}

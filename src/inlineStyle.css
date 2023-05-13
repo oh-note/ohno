@@ -1,58 +1,62 @@
 .oh-is-page label {
-    display: inline-block;
+  display: inline-block;
 }
 
 .oh-is-page label {
-    padding-left: 0.25em;
-    padding-right: 0.25em;
-    cursor: pointer;
-    border-radius: 4px;
+  padding-left: 0.25em;
+  padding-right: 0.25em;
+  cursor: pointer;
+  border-radius: 4px;
 }
 
 .oh-is-page label:hover {
-    background-color: rgb(239, 249, 255);
+  background-color: rgb(239, 249, 255);
 }
 
 .oh-is-page label.active {
-    background-color: rgb(215, 240, 255);
+  background-color: rgb(215, 240, 255);
 }
-
+/* 
+.oh-is-page label.active ::selection {
+  color: transparent;
+  background-color: transparent;
+} */
 
 .oh-is-page em {
-    font-style: normal;
-    background-color: yellow;
-    border-radius: 4px;
-    padding-left: -0.4em;
-    padding-right: -0.4em;
-    /* margin-left: 0.4em;
+  font-style: normal;
+  background-color: yellow;
+  border-radius: 4px;
+  padding-left: -0.4em;
+  padding-right: -0.4em;
+  /* margin-left: 0.4em;
     margin-right: 0.4em; */
 }
 
 .oh-is-page em.em-red {
-    background: lightcoral;
+  background: lightcoral;
 }
 
 .oh-is-page em.em-blank {
-    background: black;
+  background: black;
 }
 
 .oh-is-page em.em-blank:hover,
 .oh-is-page em.em-blank-open {
-    background: lightslategray;
+  background: lightslategray;
 }
 
 .oh-is-page em.em-green {
-    background: lightgreen;
+  background: lightgreen;
 }
 
 .oh-is-page em.em-blue {
-    background: lightskyblue;
+  background: lightskyblue;
 }
 
 .oh-is-page em.em-green {
-    background: lightgreen;
+  background: lightgreen;
 }
 
 .oh-is-page em.em-yellow {
-    background: lightgoldenrodyellow;
+  background: lightgoldenrodyellow;
 }

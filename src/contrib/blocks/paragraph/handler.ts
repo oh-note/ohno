@@ -47,7 +47,7 @@ export function prepareDeleteCommand({
           index: 0,
           innerHTML: nextBlock.root.innerHTML,
         }).onExecute(({ block, start, index }) => {
-          setLocation(block.getLocation(start, index)!);
+          page.setLocation(block.getLocation(start, index)!, block);
         });
       }
       return null;
@@ -94,7 +94,7 @@ export function prepareEnterCommand({ page, block, range }: EventContext) {
       if (block.isLocationInRight([range.startContainer, range.startOffset])) {
         extra["innerHTML"] = "";
         return new Empty({ block, start }).onUndo(({ block, start }) => {
-          setLocation(block.getLocation(start, 0)!);
+          page.setLocation(block.getLocation(start, 0)!, block);
         });
       }
       // 2. 否则，将右侧内容放到下一行
@@ -118,7 +118,7 @@ export function prepareEnterCommand({ page, block, range }: EventContext) {
         start,
         token_number: full_token_number - start,
       }).onUndo(({ block, start }) => {
-        setLocation(block.getLocation(start, 0)!);
+        page.setLocation(block.getLocation(start, 0)!, block);
       });
     });
 
@@ -181,7 +181,7 @@ export class ParagraphHandler extends Handler implements FineHandlerMethods {
             start,
             index: -1,
           }).onExecute(({ block, start, index }) => {
-            setLocation(block.getLocation(start, index)!);
+            page.setLocation(block.getLocation(start, index)!, block);
           });
         })
         .build();
@@ -227,7 +227,7 @@ export class ParagraphHandler extends Handler implements FineHandlerMethods {
           page,
           block,
         }).onUndo(({ block }) => {
-          setLocation(block.getLocation(0, 0)!);
+          page.setLocation(block.getLocation(0, 0)!, block);
         });
       })
       .withLazyCommand(({ page, block, prevBlock }, extra, status) => {
@@ -242,7 +242,7 @@ export class ParagraphHandler extends Handler implements FineHandlerMethods {
             // insertOffset: { index: -1, start: -1 },
             innerHTML: block.root.innerHTML,
           }).onExecute(({ block }) => {
-            setLocation(block.getLocation(token_number, -1)!);
+            page.setLocation(block.getLocation(token_number, -1)!, block);
           });
         } else {
           // 2/2. 如果是个空 Block，直接在删除后将内容放到上面去
@@ -286,7 +286,7 @@ export class ParagraphHandler extends Handler implements FineHandlerMethods {
             newBlock: paragraph,
             where: "after",
           });
-        }) // 将新文本添加到
+        })
         .build();
 
       page.executeCommand(command);
@@ -310,7 +310,7 @@ export class ParagraphHandler extends Handler implements FineHandlerMethods {
 
     const prefix = prefixRange.cloneContents().textContent!;
     let matchRes, command;
-    if ((matchRes = prefix.match(/^(#{1,6})/))) {
+    if ((matchRes = prefix.match(/^(#{1,6})$/))) {
       const level = matchRes[1].length as 1 | 2 | 3 | 4 | 5 | 6;
       const newBlock = new Headings({
         level,
@@ -321,7 +321,7 @@ export class ParagraphHandler extends Handler implements FineHandlerMethods {
         block,
         newBlock,
       });
-    } else if ((matchRes = prefix.match(/^[>》]([!? ])?/))) {
+    } else if ((matchRes = prefix.match(/^[>》]([!? ])?$/))) {
       const newBlock = new Blockquote({
         innerHTML: block.root.innerHTML.replace(/^(》|&gt;)([!? ])?/, ""),
       });
@@ -330,9 +330,9 @@ export class ParagraphHandler extends Handler implements FineHandlerMethods {
         block,
         newBlock,
       });
-    } else if (prefix.match(/^ *- */)) {
+    } else if (prefix.match(/^ *- *$/)) {
       const newBlock = new List({
-        firstLiInnerHTML: block.root.innerHTML.replace(/^ *(-*) */, ""),
+        innerHTMLs: block.root.innerHTML.replace(/^ *- */, ""),
       });
       command = new BlockReplace({
         page,
@@ -341,7 +341,7 @@ export class ParagraphHandler extends Handler implements FineHandlerMethods {
       });
     } else if (prefix.match(/^ *([0-9]+\.) *$/)) {
       const newBlock = new OrderedList({
-        firstLiInnerHTML: block.root.innerHTML.replace(/^ *([0-9]+\.) *$/, ""),
+        innerHTMLs: block.root.innerHTML.replace(/^ *([0-9]+\.) */, ""),
       });
       command = new BlockReplace({
         page,

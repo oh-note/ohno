@@ -22,10 +22,16 @@ import {
 } from "./range";
 import { Page } from "./page";
 import { BLOCK_CLASS } from "./config";
-import { ElementFilter, ValidNode, isParent } from "@/helper/element";
+import {
+  ElementFilter,
+  ValidNode,
+  isParent,
+  outerHTML,
+} from "@/helper/element";
 import { getNextLocation } from "./range";
 import { getPrevWordLocation } from "./range";
 import {
+  BlockSerializedData,
   EditableFlag,
   EditableInterval,
   IBlock,
@@ -53,14 +59,17 @@ export class Block<T extends BlockInit> implements IBlock {
   order: Order = "";
   parent?: Page | undefined;
 
-  constructor(init: T) {
+  constructor(type: string, init: T) {
     const { el, order } = init as BlockInit;
     if (!el) {
       throw new Error("root el should be created befire constructor");
     }
 
+    this.type = type;
     this.root = el;
     el.classList.add(BLOCK_CLASS);
+    el.classList.add(this.type);
+    el.setAttribute("type", this.type);
 
     if (order) {
       this.order = order;
@@ -94,12 +103,10 @@ export class Block<T extends BlockInit> implements IBlock {
     this.parent = parent;
   }
 
-  serialize(option?: any): string {
-    throw new Error("Method not implemented.");
+  serialize(option?: any): BlockSerializedData<T> {
+    return [{ type: this.type, init: this.init }];
   }
-  // deserialize(): IComponent {
-  //   throw new Error("Method not implemented.");
-  // }
+
   equals(component?: IComponent | undefined): boolean {
     return component !== undefined && component.root === this.root;
   }
@@ -374,6 +381,16 @@ export class Block<T extends BlockInit> implements IBlock {
       throw new EditableNotFound(cur, this.order);
     }
     return getNextWordLocation(cur, curOffset, editable);
+  }
+  toMarkdown(range?: Range | undefined): string {
+    if (!range || range.collapsed) {
+      return this.inner.textContent || "";
+    } else {
+      return range.cloneContents().textContent || "";
+    }
+  }
+  toHTML(range?: Range): string {
+    return outerHTML(this.inner);
   }
 }
 

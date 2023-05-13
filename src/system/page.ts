@@ -8,7 +8,7 @@ import {
 } from "./handler";
 import { createOrderString } from "@/helper/string";
 import { DictNode, LinkedDict } from "@/struct/linkeddict";
-import { AnyBlock } from "./block";
+import { AnyBlock, BlockInit } from "./block";
 import { ROOT_CLASS } from "./config";
 import { createElement, getDefaultRange } from "@/helper/document";
 import {
@@ -18,9 +18,18 @@ import {
   IInline,
   IPage,
   IPlugin,
+  InlineSerializer,
 } from "./base";
 import { History, Command } from "./history";
 import { Paragraph } from "@/contrib/blocks";
+import {
+  BlockActiveEvent,
+  BlockDeActiveEvent,
+  BlockUpdateEvent,
+  PageEvent,
+} from "./pageevent";
+import { RefLocation, setLocation } from "./range";
+import { throttle } from "@/helper/lodash";
 
 export class PageHandler {
   pluginHandlers: Handler[] = [];
@@ -31,9 +40,11 @@ export class PageHandler {
   // handlers: Handler[] = [];
   // afterHandlers: { [key: string]: Handler[] } = {};
 
+  mouseEnteredBlock?: AnyBlock;
   page: Page;
   constructor(page: Page) {
     this.page = page;
+    this.handleMouseMove = throttle(this.handleMouseMove, 100).bind(this);
   }
 
   private deflag(entry: HandlerFlag): Handler[] {
@@ -97,6 +108,7 @@ export class PageHandler {
     el.removeEventListener("mousedown", this.handleMouseDown.bind(this));
 
     // should be bind manully
+
     el.removeEventListener("mousemove", this.handleMouseMove.bind(this));
     el.removeEventListener("mouseenter", this.handleMouseEnter.bind(this));
     el.removeEventListener("mouseleave", this.handleMouseLeave.bind(this));
@@ -132,7 +144,6 @@ export class PageHandler {
     el.addEventListener("keyup", this.handleKeyUp.bind(this));
     el.addEventListener("mousedown", this.handleMouseDown.bind(this));
 
-    // should be bind manully
     el.addEventListener("mousemove", this.handleMouseMove.bind(this));
     el.addEventListener("mouseenter", this.handleMouseEnter.bind(this));
     el.addEventListener("mouseleave", this.handleMouseLeave.bind(this));
@@ -140,8 +151,8 @@ export class PageHandler {
     el.addEventListener("click", this.handleClick.bind(this));
     el.addEventListener("input", this.handleInput.bind(this));
     el.addEventListener("contextmenu", this.handleContextMenu.bind(this));
-
     el.addEventListener("beforeinput", this.handleBeforeInput.bind(this));
+    el.addEventListener("drop", this.handleDrop.bind(this));
 
     el.addEventListener(
       "selectionchange",
@@ -181,7 +192,7 @@ export class PageHandler {
       : this.findBlock(range.endContainer)!;
     blockContext.endBlock = endBlock;
     blockContext.range = range;
-    if (endBlock) {
+    if (endBlock && endBlock !== blockContext.block) {
       blockContext.isMultiBlock = true;
       const blocks = [blockContext.block];
       let cur = blockContext.block;
@@ -219,21 +230,10 @@ export class PageHandler {
   }
 
   findBlock(target: EventTarget | Node | null | undefined): AnyBlock | null {
-    if (!target) {
-      return null;
-    }
-    let el = target as Element;
-    while (el && (el.nodeType != 1 || !el.classList.contains("oh-is-block"))) {
-      el = el.parentElement!;
-    }
-    if (el) {
-      const block = this.page.chain.find(el.getAttribute("order")!)![0];
-      return block;
-    }
-    return null;
+    return this.page.findBlock(target);
   }
 
-  _dispatchEvent<K extends Event>(
+  _dispatchEvent<K extends Event | PageEvent>(
     handlers: Handler[],
     context: EventContext | RangedEventContext | MultiBlockEventContext,
     e: K,
@@ -256,27 +256,29 @@ export class PageHandler {
     return false;
   }
 
-  dispatchEvent<K extends Event>(
+  dispatchEvent<K extends Event | PageEvent>(
     context: EventContext,
     e: K,
     eventName: keyof HandlerMethods
   ) {
-    const { block, endBlock, range } = context;
+    const { block, endBlock, range, isMultiBlock } = context;
     if (this._dispatchEvent(this.pluginHandlers, context, e, eventName)) {
       return;
     }
 
-    if (endBlock && endBlock !== block) {
-      if (!range) {
-        throw new NoRangeError();
+    if (isMultiBlock) {
+      if (!range || !endBlock) {
+        throw new Error("Saniti check");
       }
       this._dispatchEvent(this.multiBlockHandlers, context, e, eventName);
       return;
     }
 
-    const blockHandlers = this.blockHandlers[block.type] || [];
-    if (this._dispatchEvent(blockHandlers, context, e, eventName)) {
-      return;
+    if (block) {
+      const blockHandlers = this.blockHandlers[block.type] || [];
+      if (this._dispatchEvent(blockHandlers, context, e, eventName)) {
+        return;
+      }
     }
 
     if (this._dispatchEvent(this.globalHandlers, context, e, eventName)) {
@@ -369,6 +371,30 @@ export class PageHandler {
     }
 
     this.dispatchEvent<MouseEvent>(context, e, "handleMouseMove");
+
+    const pointContext = this.getContext(
+      document.elementFromPoint(e.clientX, e.clientY)
+    );
+    if (pointContext) {
+      if (pointContext.block !== this.mouseEnteredBlock) {
+        if (this.mouseEnteredBlock) {
+          pointContext.endBlock = this.mouseEnteredBlock;
+
+          this.dispatchEvent<MouseEvent>(
+            {
+              ...pointContext,
+              block: pointContext.endBlock,
+              endBlock: pointContext.block,
+            },
+            e,
+            "handleMouseLeave"
+          );
+        }
+
+        this.mouseEnteredBlock = pointContext.block;
+        this.dispatchEvent<MouseEvent>(pointContext, e, "handleMouseEnter");
+      }
+    }
   }
   handleMouseLeave(e: MouseEvent): void | boolean {
     const context = this.getContext(e.target);
@@ -419,6 +445,12 @@ export class PageHandler {
       return;
     }
     this.dispatchEvent<InputEvent>(blocks, e, "handleBeforeInput");
+  }
+  handleDrop(e: DragEvent): void | boolean {
+    console.log(e);
+    // debugger;
+    // e.preventDefault();
+    // e.stopPropagation();
   }
   handleSelectStart(e: Event): void | boolean {
     console.log(e);
@@ -475,6 +507,22 @@ export class PageHandler {
     }
     this.dispatchEvent<CompositionEvent>(blocks, e, "handleCompositionUpdate");
   }
+
+  dispatchPageEvent(e: PageEvent) {
+    // 要解决一些问题
+    // 1. pageevent 发给谁
+    // 论证：如果 code 内的更改要通过 code handler 来 update 的话，
+    // 那 multiblock 很明显也会导致 code 的更改，但不会通知到 code
+    // 所以更改不能发生在自身的 handler ，要将该事件重新通知出去
+    //
+    if (e instanceof BlockUpdateEvent) {
+      this.dispatchEvent<BlockUpdateEvent>(e, e, "handleBlockUpdated");
+    } else if (e instanceof BlockActiveEvent) {
+      this.dispatchEvent<BlockActiveEvent>(e, e, "handleBlockActivated");
+    } else if (e instanceof BlockDeActiveEvent) {
+      this.dispatchEvent<BlockDeActiveEvent>(e, e, "handleBlockDeActivated");
+    }
+  }
 }
 
 export type HandlerFlag = Handler[] | Handler | undefined;
@@ -495,6 +543,7 @@ export interface Component {
 }
 
 export interface BlockComponent extends Component {
+  name: string;
   blockType: new () => AnyBlock;
   // Block Manager 负责创建、序列化、反序列化 Block
 }
@@ -534,9 +583,11 @@ export class Page implements IPage {
   pluginManagers: { [key: string]: IPlugin } = {};
   rangeDirection: "prev" | "next" | undefined;
   selectionMode: "block" | "text" = "text";
-
+  supportedBlocks: { [key: string]: new (init?: any) => AnyBlock } = {};
   pageHandler: PageHandler;
   history: History;
+
+  inlineSerializer: InlineSerializer;
 
   constructor(init?: PageInit) {
     this.selected = new Set();
@@ -549,7 +600,8 @@ export class Page implements IPage {
     this.pageHandler = new PageHandler(this);
     this.pageHandler.bindEventListener(this.inner);
     const { components, blocks } = init || {};
-    this.history = new History();
+    this.history = new History(this, { max_history: 200 });
+    this.inlineSerializer = new InlineSerializer();
     const pageCreatedListener: Component["onPageCreated"][] = [];
     if (components) {
       const { blocks, plugins, inlines, extraHandlers } = components;
@@ -557,6 +609,7 @@ export class Page implements IPage {
         // blocks
         blocks.forEach((item) => {
           this.pageHandler.registerHandlers(item.handlers || {});
+          this.supportedBlocks[item.name] = item.blockType;
           item.onPageCreated && pageCreatedListener.push(item.onPageCreated);
         });
       }
@@ -606,12 +659,12 @@ export class Page implements IPage {
     return this.inner;
   }
 
+  dispatchPageEvent(pageEvent: PageEvent) {
+    this.pageHandler.dispatchPageEvent(pageEvent);
+  }
+
   executeCommand(command: Command<any>, executed?: boolean | undefined): void {
-    if (executed) {
-      this.history.append(command);
-    } else {
-      this.history.execute(command);
-    }
+    this.history.execute(command, executed);
   }
 
   undoCommand(): boolean {
@@ -655,28 +708,45 @@ export class Page implements IPage {
     return true;
   }
 
+  /** activated 意味着光标（range）已经在对应的 HTMLElement 内了 */
   setActivate(block?: AnyBlock | undefined): void {
-    if (this.active === block) {
-      // 已在激活状态的不做处理
-      return;
+    // debugger;
+    if (this.active !== undefined) {
+      if (
+        this.active === block &&
+        this.active.root.classList.contains("active")
+      ) {
+        return;
+      }
     }
     if (this.active) {
       this.active.root.classList.remove("active");
+      this.dispatchPageEvent(
+        new BlockDeActiveEvent({
+          block: this.active,
+          page: this,
+          from: "Page",
+          to: block,
+        })
+      );
     }
     if (block) {
-      block.root.classList.remove("active");
+      block.root.classList.add("active");
+      this.pageHandler.dispatchPageEvent(
+        new BlockActiveEvent({ block, page: this, from: "Page" })
+      );
     }
     this.active = block;
-    // this.pageHandler.handleBlockActivated
   }
+
   toggleSelect(flag: BlockQuery): void {
     let target;
     if ((target = this.query(flag))) {
       if (this.selected.has(target.order)) {
-        // TODO remove selection class attr
+        target.root.classList.remove("active");
         this.selected.delete(target.order);
       } else {
-        // TODO remove selection class attr
+        target.root.classList.add("active");
         this.selected.add(target.order);
       }
     }
@@ -714,6 +784,13 @@ export class Page implements IPage {
     return res[0];
   }
 
+  createBlock<T = AnyBlock, I extends BlockInit = BlockInit>(
+    name: string,
+    init?: I
+  ): T {
+    return new this.supportedBlocks[name](init) as T;
+  }
+
   getPlugin<T = IPlugin>(name: string): T {
     if (!this.pluginManagers[name]) {
       throw new Error(`plugin ${name} not found.`);
@@ -741,7 +818,12 @@ export class Page implements IPage {
   getLastBlock(): AnyBlock {
     return this.chain.getLast()[0];
   }
+  private removeBlockStatus(block: AnyBlock) {
+    block.root.classList.remove("active");
+    block.root.classList.remove("select");
+  }
   appendBlock(newBlock: AnyBlock): string {
+    this.removeBlockStatus(newBlock);
     const oldLast = this.getLastBlock();
     if (oldLast) {
       newBlock.setOrder(createOrderString(oldLast.order));
@@ -751,13 +833,16 @@ export class Page implements IPage {
     this.chain.append(newBlock.order, newBlock);
     this.blockRoot.appendChild(newBlock.root);
     newBlock.setParent(this);
+    // newBlock
     return newBlock.order;
   }
+
   insertBlockAdjacent(
     newBlock: AnyBlock,
     where: "after" | "before",
     flag?: BlockQuery | undefined
   ): string {
+    this.removeBlockStatus(newBlock);
     let target;
     if (!flag) {
       if (where === "after") {
@@ -795,6 +880,7 @@ export class Page implements IPage {
 
     throw new Error("Block not found.");
   }
+
   removeBlock(flag: BlockQuery): AnyBlock {
     if (typeof flag !== "string") {
       flag = flag.order;
@@ -805,16 +891,18 @@ export class Page implements IPage {
     }
 
     const [tgt, _] = result;
+    this.removeBlockStatus(tgt);
     tgt.setOrder("");
     tgt.setParent();
     tgt.root.remove();
     return tgt;
   }
+
   replaceBlock(newBlock: AnyBlock, flag: BlockQuery): AnyBlock {
     if (typeof flag !== "string") {
       flag = flag.order;
     }
-
+    this.removeBlockStatus(newBlock);
     const result = this.chain.find(flag);
     if (!result) {
       throw new Error("Block not found.");
@@ -832,7 +920,8 @@ export class Page implements IPage {
   setParent(parent?: IContainer): void {
     this.parent = parent;
   }
-  serialize(el: IComponent, option?: any): string {
+
+  serialize(el: IComponent, option?: any): { [key: string]: any } {
     throw new Error("Method not implemented.");
   }
 
@@ -871,5 +960,36 @@ export class Page implements IPage {
   }
   combine(start: string, end: string): void {
     throw new Error("Method not implemented.");
+  }
+
+  setLocation(loc: RefLocation, block?: AnyBlock) {
+    setLocation(loc);
+    if (!block) {
+      block = this.findBlock(loc[0])!;
+      if (!block) {
+        throw new Error("Can not set location out of block");
+      }
+    }
+    this.setActivate(block);
+  }
+  setRange(range: Range) {}
+
+  findBlock(target: EventTarget | Node | null | undefined): AnyBlock | null {
+    if (!target) {
+      return null;
+    }
+    let el = target as Element;
+    while (el && (el.nodeType != 1 || !el.classList.contains("oh-is-block"))) {
+      el = el.parentElement!;
+    }
+    if (el) {
+      const block = this.chain.find(el.getAttribute("order")!)![0];
+      return block;
+    }
+    return null;
+  }
+
+  toMarkdown(range?: Range): string {
+    return "";
   }
 }

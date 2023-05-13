@@ -1,0 +1,10 @@
+.oh-is-page h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  width: 500px;
+  min-height: 1.5em;
+  background-color: #fff;
+}

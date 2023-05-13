@@ -29,6 +29,8 @@ import {
   setRange,
 } from "@/system/range";
 import { RichTextDelete, TextInsert } from "@/contrib/commands/text";
+import { OhNoClipboardData } from "@/system/base";
+import { defaultHandlePaste } from "../default/paste";
 
 function handleBeforeInputFormat(
   handler: Handler,
@@ -185,10 +187,16 @@ function prepareDeleteMultiArea(
       // return new TextDeleteSelection({ block: endBlock, page, delOffset });
     })
     .withLazyCommand(({ block, page }, { startContainer, startIndex }) => {
+      // 删第一个的 container
+      // debugger;
       if (!block.isMultiEditable) {
         return;
       }
       if (startIndex === block.getEditables().length - 1) {
+        return;
+      }
+      if (!block.mergeable) {
+        // TODO 只删文字
         return;
       }
       const index = Array.from(
@@ -199,6 +207,10 @@ function prepareDeleteMultiArea(
     })
     .withLazyCommand(({ endBlock, page }, { endContainer, endIndex }) => {
       if (!endBlock.isMultiEditable || endIndex === 0) {
+        return;
+      }
+      if (!endBlock.mergeable) {
+        // TODO 只删文字
         return;
       }
       // TODO 如果是要合并的话，就 endIndex + 1，否则是 endIndex
@@ -213,7 +225,7 @@ function prepareDeleteMultiArea(
     })
     .withLazyCommand(({ block, page }, { startPosition, startIndex }) => {
       return new Empty({ page, block }).onExecute(({ block }) => {
-        setLocation(block.getLocation(startPosition, startIndex)!);
+        page.setLocation(block.getLocation(startPosition, startIndex)!, block);
       });
     });
   return builder;
@@ -224,13 +236,34 @@ export class MultiBlockHandler extends Handler implements FineHandlerMethods {
     e: ClipboardEvent,
     context: MultiBlockEventContext
   ): void | boolean {
-    console.log("handleCopy", e, context.block);
+    const { blocks, block, endBlock, range } = context;
+    const data = blocks.map((curBlock) => {
+      let text, html, json;
+      text = curBlock.toMarkdown(range);
+      html = curBlock.toHTML(range);
+      json = curBlock.serialize(range);
+      return { text: text, html: html, json: json };
+    });
+    const markdown = data.map((item) => item.text).join("\n");
+    const html = data.map((item) => item.html).join("");
+    const json: OhNoClipboardData = {
+      data: data.flatMap((item) => item.json),
+      inline: false,
+    };
+
+    e.clipboardData!.setData("text/plain", markdown);
+    e.clipboardData!.setData("text/html", html);
+    e.clipboardData!.setData("text/ohno", JSON.stringify(json));
+
+    return true;
   }
   handlePaste(
     e: ClipboardEvent,
     context: MultiBlockEventContext
   ): void | boolean {
-    console.log("handlePaste", e, context.block);
+    const command = prepareDeleteMultiArea(this, context).build();
+    context.page.executeCommand(command);
+    return defaultHandlePaste(this, e, context);
   }
   handleBlur(e: FocusEvent, context: MultiBlockEventContext): void | boolean {
     console.log("handleBlur", e, context.block);
@@ -375,17 +408,20 @@ export class MultiBlockHandler extends Handler implements FineHandlerMethods {
             endBlock.isMultiEditable &&
             endBlock.getNextEditable(endContainer)
           ) {
-            return new ContainerRemove({ block: endBlock, indexs: [0], page });
+            if (endBlock.mergeable) {
+              return new ContainerRemove({
+                block: endBlock,
+                indexs: [0],
+                page,
+              });
+            } else {
+              return;
+            }
           }
           return new BlockRemove({ block: endBlock, page });
         })
         .withLazyCommand(({ block, page }, extra) => {
           const { startContainer, innerHTML } = extra;
-          // const insertOffset = {
-          //   index: block.getEditableIndex(startContainer),
-          //   start: getTokenSize(startContainer),
-          // };
-          // extra["insertOffset"] = insertOffset;
           const start = getTokenSize(startContainer);
           const index = block.getEditableIndex(startContainer);
           extra["start"] = start;
@@ -397,7 +433,7 @@ export class MultiBlockHandler extends Handler implements FineHandlerMethods {
             start,
             index,
           }).onExecute(({ block, start, index }) => {
-            setLocation(block.getLocation(start, index)!);
+            page.setLocation(block.getLocation(start, index)!, block);
           });
         });
 
@@ -492,7 +528,7 @@ export class MultiBlockHandler extends Handler implements FineHandlerMethods {
           start,
           index,
         }).onExecute(({ block, start, index }) => {
-          setLocation(block.getLocation(start, index)!);
+          page.setLocation(block.getLocation(start, index)!, block);
         });
       });
     const command = builder.build();

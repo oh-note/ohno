@@ -1,3 +1,9 @@
+import { defaultHandleBeforeInputOfPlainText } from "@/core/default/beforeInput";
+import {
+  isParent,
+  parentElementWithFilter,
+  parentElementWithTag,
+} from "@/helper/element";
 import {
   EventContext,
   Handler,
@@ -5,9 +11,27 @@ import {
   RangedEventContext,
   dispatchKeyEvent,
 } from "@/system/handler";
+import {
+  BlockActiveEvent,
+  BlockDeActiveEvent,
+  BlockUpdateEvent,
+} from "@/system/pageevent";
+import { setLocation } from "@/system/range";
+import { Equation } from "./block";
 
 export class EquationHandler extends Handler implements FineHandlerMethods {
-  name: string = "equation";
+  handleBlockUpdated(e: BlockUpdateEvent, context: any): boolean | void {
+    const { page, block } = e;
+    (block as Equation).update();
+  }
+  handleBlockActivated(e: BlockActiveEvent, context: any): boolean | void {
+    const { block } = e;
+    (block as Equation).floatMode();
+  }
+  handleBlockDeActivated(e: BlockDeActiveEvent, context: any): boolean | void {
+    const { block } = e;
+    (block as Equation).hideMode();
+  }
   handleKeyPress(
     e: KeyboardEvent,
     context: RangedEventContext
@@ -31,17 +55,42 @@ export class EquationHandler extends Handler implements FineHandlerMethods {
     return true;
   }
 
-  handleBackspaceDown(e: KeyboardEvent, context: EventContext): boolean | void {
-    // 向前合并
-    return true;
+  handleMouseDown(e: MouseEvent, context: EventContext): boolean | void {}
+  handleMouseUp(e: MouseEvent, context: EventContext): boolean | void {
+    const { range, block, page } = context;
+    const node = range
+      ? range.startContainer
+      : document.elementFromPoint(e.clientX, e.clientY)!;
+    if (!node) {
+      return;
+    }
+    if (!isParent(node, block.inner)) {
+      const loc = block.getLocation(0, 0);
+      page.setLocation(loc!, block);
+      return true;
+    }
   }
+
+  handleBackspaceDown(
+    e: KeyboardEvent,
+    context: EventContext
+  ): boolean | void {}
 
   handleEnterDown(e: KeyboardEvent, context: EventContext): boolean | void {
+    const { page, block } = context;
+    const next = page.getNextBlock(block);
+    if (next) {
+      page.setLocation(next.getLocation(0, 0)!, next);
+    }
     return true;
   }
 
-  handleBeforeInput(e: TypedInputEvent, context: EventContext): boolean | void {
+  handleBeforeInput(
+    e: TypedInputEvent,
+    context: RangedEventContext
+  ): boolean | void {
+    return defaultHandleBeforeInputOfPlainText(this, e, context);
     // const { block, page, range } = context;
-    return true;
+    // return true;
   }
 }

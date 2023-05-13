@@ -36,11 +36,18 @@ export class SlashMenuHandler extends Handler implements FineHandlerMethods {
     }
     const plugin = page.getPlugin<SlashMenu>("slashmenu");
     if (plugin.isOpen) {
-      if (e.key === "ArrowDown") {
-        plugin.simulateArrowDown();
-        return true;
-      } else if (e.key === "ArrowUp") {
-        plugin.simulateArrowUp();
+      if (plugin.visibleElements.length > 0) {
+        if (e.key === "ArrowDown") {
+          plugin.simulateArrowDown();
+          return true;
+        } else if (e.key === "ArrowUp") {
+          plugin.simulateArrowUp();
+          return true;
+        } else {
+          plugin.close();
+        }
+      } else {
+        plugin.close();
         return true;
       }
     }
@@ -59,16 +66,16 @@ export class SlashMenuHandler extends Handler implements FineHandlerMethods {
     e: KeyboardEvent,
     context: RangedEventContext
   ): boolean | void {
-    const { page, block, isMultiBlock } = context;
-    if (isMultiBlock) {
-      return;
-    }
-    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-      const plugin = page.getPlugin<SlashMenu>("slashmenu");
-      if (plugin.isOpen) {
-        plugin.close();
-      }
-    }
+    // const { page, block, isMultiBlock } = context;
+    // if (isMultiBlock) {
+    //   return;
+    // }
+    // if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+    //   const plugin = page.getPlugin<SlashMenu>("slashmenu");
+    //   if (plugin.isOpen) {
+    //     plugin.close();
+    //   }
+    // }
   }
   handleDeleteDown(e: KeyboardEvent, context: EventContext): boolean | void {}
   handleBackspaceDown(
@@ -83,7 +90,11 @@ export class SlashMenuHandler extends Handler implements FineHandlerMethods {
     }
     const plugin = page.getPlugin<SlashMenu>("slashmenu");
     if (plugin.isOpen) {
-      plugin.simulateEnter();
+      if (plugin.visibleElements.length > 0) {
+        plugin.simulateEnter();
+      } else {
+        plugin.close();
+      }
       return true;
     }
   }
@@ -91,15 +102,7 @@ export class SlashMenuHandler extends Handler implements FineHandlerMethods {
     e: KeyboardEvent,
     context: RangedEventContext
   ): boolean | void {
-    const { page, block, isMultiBlock } = context;
-    if (isMultiBlock) {
-      return;
-    }
-    const plugin = page.getPlugin<SlashMenu>("slashmenu");
-    if (plugin.isOpen) {
-      plugin.simulateEnter();
-      return true;
-    }
+    return this.handleEnterDown(e, context);
   }
 
   handleBeforeInput(
@@ -116,12 +119,14 @@ export class SlashMenuHandler extends Handler implements FineHandlerMethods {
     if (slashmenu.isOpen) {
       const line = range.startContainer.textContent!;
       if (e.inputType === "insertText") {
-        const index = line.lastIndexOf("/", range.startOffset);
-        const text =
-          index === -1
-            ? undefined
-            : line.slice(index + 1, range.startOffset) + e.data!;
-        slashmenu.setFilter(text, context);
+        if (e.data !== "/") {
+          const index = line.lastIndexOf("/", range.startOffset);
+          const text =
+            index === -1
+              ? undefined
+              : line.slice(index + 1, range.startOffset) + e.data!;
+          slashmenu.setFilter(text, context);
+        }
       } else if (e.inputType === "deleteContentBackward") {
         const index = line.lastIndexOf("/", range.startOffset);
         if (index === range.startOffset - 1) {

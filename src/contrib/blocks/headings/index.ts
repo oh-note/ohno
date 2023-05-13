@@ -9,6 +9,7 @@ export * from "./block";
 
 export function HeadingsBlock(): BlockComponent {
   return {
+    name: "headings",
     blockType: Headings,
     handlers: {
       blocks: { headings: new HeadingsHandler() },

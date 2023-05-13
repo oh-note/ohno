@@ -9,6 +9,7 @@ export * from "./block";
 
 export function ParagraphBlock(): BlockComponent {
   return {
+    name: "paragraph",
     blockType: Paragraph,
     handlers: {
       blocks: { paragraph: new ParagraphHandler() },

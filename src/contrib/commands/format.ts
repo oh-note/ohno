@@ -285,7 +285,7 @@ export interface FormatAreasPayload {
 export class FormatMultipleText extends Command<FormatAreasPayload> {
   declare buffer: {
     areas: { block: AnyBlock; offsets: EditableInterval[] }[];
-    op?: FormatOp;
+    op: FormatOp;
   };
   execute(): void {
     // 获取全部区域的 status

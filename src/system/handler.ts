@@ -2,21 +2,16 @@
 import { IInline } from "./base";
 import { AnyBlock } from "./block";
 import { Page } from "./page";
+import {
+  BlockActiveEvent,
+  BlockDeActiveEvent,
+  BlockUpdateEvent,
+} from "./pageevent";
 
 export interface HandlerOption {
   [key: string]: any;
 }
 
-export interface ExtraEvent {
-  page: Page;
-  original?: Event;
-}
-export interface PageCreateEvent {
-  type: "pagecreated";
-}
-export interface BlockActivatedEvent {
-  type: "blockactivated";
-}
 /**
  * 
  * 预计要逐步添加对下面事件的支持
@@ -79,11 +74,15 @@ export type MultiBlockHandlerMethod<K> = (
 ) => boolean | void;
 
 export interface HandlerMethods {
-  handlePageCreated?(e: PageCreateEvent): void;
-  handleBlockCreated?(e: PageCreateEvent): void;
-  handleBlockRemoved?(e: PageCreateEvent): void;
-  handleBlockUpdated?(e: PageCreateEvent): void;
-  handlePluginLoaded?(e: PageCreateEvent): void;
+  handleBlockUpdated?(e: BlockUpdateEvent, context: any): void | boolean;
+  handleBlockActivated?(e: BlockActiveEvent, context: any): void | boolean;
+  handleBlockDeActivated?(e: BlockDeActiveEvent, context: any): void | boolean;
+
+  // handlePageCreated?(e: PageCreateEvent): void;
+  // // handleBlockSelected?(e:)
+  // handleBlockCreated?(e: PageCreateEvent): void;
+  // handleBlockRemoved?(e: PageCreateEvent): void;
+  // handlePluginLoaded?(e: PageCreateEvent): void;
   handleSelect?(e: Event, context: EventContext): void | boolean;
   handleSelectionChange?(e: Event, context: EventContext): void | boolean;
   handleSelectStart?(e: Event, context: EventContext): void | boolean;
@@ -215,11 +214,7 @@ export class Handler<T = HandlerOption> implements FineHandlerMethods {
     e: KeyboardEvent,
     context: RangedEventContext
   ): boolean | void {}
-  handlePageCreated?(e: PageCreateEvent): void {}
-  handleBlockCreated?(e: PageCreateEvent): void {}
-  handleBlockRemoved?(e: PageCreateEvent): void {}
-  handleBlockUpdated?(e: PageCreateEvent): void {}
-  handlePluginLoaded?(e: PageCreateEvent): void {}
+
   handleSelect?(e: Event, context: EventContext): boolean | void {}
   handleSelectionChange?(e: Event, context: EventContext): boolean | void {}
   handleSelectStart?(e: Event, context: EventContext): boolean | void {}
@@ -291,6 +286,8 @@ export interface InlineHandler
   handleMouseDown?(e: MouseEvent, context: InlineEventContext): void | boolean;
   handleMouseUp?(e: MouseEvent, context: InlineEventContext): void | boolean;
   handleMouseMove?(e: MouseEvent, context: InlineEventContext): void | boolean;
+  handleMouseEnter?(e: MouseEvent, context: InlineEventContext): void | boolean;
+  handleMouseLeave?(e: MouseEvent, context: InlineEventContext): void | boolean;
   handleClick?(e: MouseEvent, context: InlineEventContext): void | boolean;
   handleContextMenu?(
     e: MouseEvent,

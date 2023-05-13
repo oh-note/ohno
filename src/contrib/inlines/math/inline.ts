@@ -51,9 +51,13 @@ export class KatexMath extends InlineBase {
       if (e.key === "Enter") {
         this.submit();
         this.hover(this.current!, this.context!);
+        e.preventDefault();
+        e.stopPropagation();
       } else if (e.key === "Escape") {
         this.cancel();
         this.hover(this.current!, this.context!);
+        e.preventDefault();
+        e.stopPropagation();
       }
     });
     this.components.ok.addEventListener("click", () => {
@@ -86,13 +90,31 @@ export class KatexMath extends InlineBase {
     const root = createElement("label", {
       attributes: { name: "math", value: math },
     });
-    const renderedFormula = katex.renderToString(math, { output: "mathml" });
+    let renderedFormula;
+    try {
+      // 尝试使用 katex.renderToString 渲染表达式
+      renderedFormula = katex.renderToString(math, { output: "mathml" });
+    } catch (error) {
+      // 渲染失败，将错误信息作为 HTML 内容返回
+      renderedFormula = `<span style="color: red;">${
+        (error as any).message
+      }</span>`;
+    }
     root.innerHTML = renderedFormula;
     return root;
   }
 
   update(math: string) {
-    const renderedFormula = katex.renderToString(math, { output: "mathml" });
+    let renderedFormula;
+    try {
+      // 尝试使用 katex.renderToString 渲染表达式
+      renderedFormula = katex.renderToString(math, { output: "mathml" });
+    } catch (error) {
+      // 渲染失败，将错误信息作为 HTML 内容返回
+      renderedFormula = `<span style="color: red;">${
+        (error as any).message
+      }</span>`;
+    }
     this.current!.innerHTML = ` ${renderedFormula} `;
     this.current!.setAttribute("value", math);
   }

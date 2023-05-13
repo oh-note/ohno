@@ -1,6 +1,8 @@
 import { createElement } from "@/helper/document";
+import { BlockSerializedData } from "@/system/base";
 import { Block, BlockInit } from "@/system/block";
-
+import { clipRange } from "@/system/range";
+import "./style.css";
 export type HeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;
 
 export interface HeadingsInit extends BlockInit {
@@ -10,7 +12,6 @@ export interface HeadingsInit extends BlockInit {
 }
 
 export class Headings extends Block<HeadingsInit> {
-  type: string = "headings";
   constructor(init?: HeadingsInit) {
     init = init || { level: 2 };
     if (!init.el) {
@@ -29,6 +30,26 @@ export class Headings extends Block<HeadingsInit> {
       });
     }
 
-    super(init);
+    super("headings", init);
+  }
+
+  public get head(): string {
+    return "#".repeat(this.init.level) + " ";
+  }
+
+  toMarkdown(range?: Range | undefined): string {
+    if (!range || range.collapsed) {
+      return this.head + (this.inner.textContent || "");
+    }
+    const innerRange = clipRange(this.inner, range);
+    if (innerRange) {
+      return this.head + innerRange.cloneContents().textContent;
+    }
+    return "";
+  }
+  serialize(option?: any): BlockSerializedData<HeadingsInit> {
+    const init = { level: this.init.level, innerHTML: this.root.innerHTML };
+    return [{ type: this.type, init }];
+    // return { level: this.init.level, innerHTML: this.root.innerHTML };
   }
 }

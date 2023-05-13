@@ -59,7 +59,8 @@ type Punc =
 type NumberStr = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "0";
 type KeyString = Alphabet | NumberStr | Arrow | Meta | Punc;
 
-export interface IShortCur {
+export interface IShortcut {
+  registKey(namespace: string, key: string,): void;
   matchString(e: KeyboardEvent, ...keys: KeyString[]): boolean;
   searilizeKey(e: KeyboardEvent): Set<KeyString>;
   match(e: KeyboardEvent, name: string): boolean;

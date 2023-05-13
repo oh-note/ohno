@@ -1,16 +1,15 @@
-import { BlockEntry, HandlerEntry } from "@/system/page";
-import { FigureHandler } from "./handler";
+import { BlockComponent, HandlerEntry } from "@/system/page";
 import { Figure } from "./block";
-
+import { FigureHandler } from "./handler";
 export * from "./handler";
 export * from "./block";
 
-export const FigureHandlers: HandlerEntry = {
-  blockHandler: new FigureHandler(),
-};
-
-export const FigureBlockEntry: BlockEntry = {
-  name: "figure",
-  blockType: Figure,
-  handler: new FigureHandler(),
-};
+export function FigureBlock(): BlockComponent {
+  return {
+    name: "figure",
+    blockType: Figure,
+    handlers: {
+      blocks: { figure: new FigureHandler() },
+    },
+  };
+}

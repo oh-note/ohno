@@ -7,6 +7,7 @@ export * from "./block";
 
 export function TableBlock(): BlockComponent {
   return {
+    name: "table",
     blockType: Table,
     handlers: {
       blocks: { table: new TableHandler() },

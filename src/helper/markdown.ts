@@ -35,7 +35,7 @@ const tagToHintRight: { [key: string]: string } = {
   q: "]]",
 };
 
-export function removeMarkdownHint(...roots: ValidNode[]) {
+export function removeMarkdownHint(...roots: Node[]) {
   roots.forEach((root) => {
     const childNodes = root.childNodes;
     if (!childNodes) {

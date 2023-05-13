@@ -1,0 +1,28 @@
+.oh-is-page pre {
+  position: relative;
+  tab-size: 4;
+}
+
+.oh-is-page pre code {
+  background: transparent;
+  display: block;
+  pointer-events: none;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  position: absolute;
+
+  top: 0;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  -o-user-select: none;
+}
+
+.oh-is-page pre code ::selection {
+  background: transparent;
+  color: transparent;
+}

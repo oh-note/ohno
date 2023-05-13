@@ -17,6 +17,8 @@ export class InlineSupportPluginHandler
   extends Handler
   implements FineHandlerMethods
 {
+  currentInline?: HTMLLabelElement;
+
   handleKeyDown(e: KeyboardEvent, context: RangedEventContext): boolean | void {
     const { page, range, isMultiBlock } = context;
     if (!isMultiBlock) {
@@ -157,6 +159,7 @@ export class InlineSupportPluginHandler
     const { page, block, isMultiBlock } = context;
     if (!isMultiBlock) {
       const plugin = page.getPlugin<InlineSupport>("inlinesupport");
+      // 鼠标没发现，此时如果默认的 mouseevent 定位在 label 里，说明可能遇到了inline 在尾部的行为，交由默认行为将光标移出去
       const node = document.elementFromPoint(e.clientX, e.clientY);
       let label;
       if (node && (label = plugin.findInline(node, context))) {
@@ -173,6 +176,53 @@ export class InlineSupportPluginHandler
         this.deactivateInline(context);
       }
     }
+  }
+
+  handleMouseMove(e: MouseEvent, context: EventContext): boolean | void {
+    const { page, isMultiBlock } = context;
+    if (e.button !== 1 && !isMultiBlock) {
+      const plugin = page.getPlugin<InlineSupport>("inlinesupport");
+      const node = document.elementFromPoint(e.clientX, e.clientY);
+      let label;
+      if (node && (label = plugin.findInline(node, context))) {
+        const handler = plugin.getInlineHandler(label);
+        if (this.currentInline !== label) {
+          if (this.currentInline) {
+            const oldInlineHandler = plugin.getInlineHandler(
+              this.currentInline
+            );
+            oldInlineHandler.handleMouseLeave?.(e, {
+              ...context,
+              first: false,
+              inline: this.currentInline,
+              manager: plugin.getInlineManager(this.currentInline),
+            });
+          }
+          this.currentInline = label;
+          handler.handleMouseEnter?.(e, {
+            ...context,
+            first: false,
+            inline: label,
+            manager: plugin.getInlineManager(label),
+          });
+        }
+      } else if (this.currentInline) {
+        const oldInlineHandler = plugin.getInlineHandler(this.currentInline);
+        oldInlineHandler.handleMouseLeave?.(e, {
+          ...context,
+          first: false,
+          inline: this.currentInline,
+          manager: plugin.getInlineManager(this.currentInline),
+        });
+        this.currentInline = undefined;
+      }
+    }
+  }
+  handleMouseEnter(e: MouseEvent, context: EventContext): boolean | void {
+    console.log(["Enter", context.block.type]);
+  }
+  handleMouseLeave(e: MouseEvent, context: EventContext): boolean | void {
+    console.log(["Leave", context.block.type]);
   }
 
   handleBeforeInput(

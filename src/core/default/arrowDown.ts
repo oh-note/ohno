@@ -96,7 +96,7 @@ export function defaultHandleArrowDown(
       const prevEditable = anchorBlock.getAboveEditable(editable);
       let prev;
       if (prevEditable) {
-        const bias = anchorBlock.getBias(anchorLoc, editable);
+        const bias = anchorBlock.getBias(anchorLoc);
         const tempLoc = getValidAdjacent(prevEditable, "beforeend");
         prev = anchorBlock.getSoftLineLocation(tempLoc, bias);
         if (!prev) {
@@ -109,7 +109,7 @@ export function defaultHandleArrowDown(
           // 激活，并且光标位移到上一个 block 的最后一行
           page.setActivate(prevBlock);
           const prevContainer = prevBlock.getLastEditable();
-          const bias = anchorBlock.getBias(anchorLoc, editable);
+          const bias = anchorBlock.getBias(anchorLoc);
           const tempLoc = getValidAdjacent(prevContainer, "beforeend");
           prev = prevBlock.getSoftLineLocation(tempLoc, bias);
           if (!prev) {
@@ -159,12 +159,12 @@ export function defaultHandleArrowDown(
         const nextBlock = page.getNextBlock(anchorBlock);
         if (nextBlock) {
           // activate and move cursor to next block's first line
-          page.setActivate(nextBlock);
           const bias = anchorBlock.getSoftLineBias(anchorLoc);
           next = nextBlock.getLocation(bias, 0)!;
           if (!next) {
             next = nextBlock.getLocation(-1, 0)!;
           }
+          page.setActivate(nextBlock);
         }
         // else {
         //   // end of the document

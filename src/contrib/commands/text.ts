@@ -18,6 +18,7 @@ import {
   CommandCallbackWithBuffer,
 } from "@/system/history";
 import { Page } from "@/system/page";
+import { BlockUpdateEvent } from "@/system/pageevent";
 import { getTokenSize } from "@/system/position";
 import {
   createRange,
@@ -51,21 +52,26 @@ export class TextDelete extends Command<TextDeletePayload> {
     innerHTML: string;
   };
   onExecuteFn?: CommandCallback<TextDeletePayload> = ({
+    page,
     block,
     index,
     start,
     token_number,
     token_filter,
   }) => {
-    setLocation(block.getLocation(start + token_number, index, token_filter)!);
+    page.setLocation(
+      block.getLocation(start + token_number, index, token_filter)!,
+      block
+    );
   };
   onUndoFn?: CommandCallback<TextDeletePayload> = ({
+    page,
     block,
     index,
     start,
     token_filter,
   }) => {
-    setLocation(block.getLocation(start, index, token_filter)!);
+    page.setLocation(block.getLocation(start, index, token_filter)!, block);
   };
   execute(): void {
     const { block, index, start, token_number, token_filter } = this.payload;
@@ -125,6 +131,19 @@ export class TextDelete extends Command<TextDeletePayload> {
 
     return true;
   }
+
+  notifyExecute(page: Page): void {
+    const { block } = this.payload;
+    page.dispatchPageEvent(
+      new BlockUpdateEvent({ page, block, undo: false, from: "TextDelete" })
+    );
+  }
+  notifyUndo(page: Page): void {
+    const { block } = this.payload;
+    page.dispatchPageEvent(
+      new BlockUpdateEvent({ page, block, undo: true, from: "TextDelete" })
+    );
+  }
 }
 
 /**
@@ -140,12 +159,13 @@ export class RichTextDelete extends Command<TextDeletePayload> {
     trimed_end: number;
   };
   onExecuteFn?: CommandCallback<TextDeletePayload> = ({
+    page,
     block,
     index,
     start,
     token_number,
   }) => {
-    setLocation(block.getLocation(start, index)!);
+    page.setLocation(block.getLocation(start, index)!, block);
   };
 
   onUndoFn?: CommandCallback<TextDeletePayload> = ({
@@ -218,21 +238,34 @@ export class RichTextDelete extends Command<TextDeletePayload> {
     addMarkdownHint(...nodesOfRange(fullRange));
     // TODO  default set Range
   }
+
+  notifyExecute(page: Page): void {
+    const { block } = this.payload;
+    page.dispatchPageEvent(
+      new BlockUpdateEvent({ page, block, undo: false, from: "RichTextDelete" })
+    );
+  }
+  notifyUndo(page: Page): void {
+    const { block } = this.payload;
+    page.dispatchPageEvent(
+      new BlockUpdateEvent({ page, block, undo: true, from: "RichTextDelete" })
+    );
+  }
 }
 
 export class TextInsert extends Command<TextInsertPayload> {
   onExecuteFn: CommandCallbackWithBuffer<
     TextInsertPayload,
     TextInsert["buffer"]
-  > = ({ block, index: query, token_filter }, { token_number, bias }) => {
+  > = ({ page, block, index: query, token_filter }, { token_number, bias }) => {
     const loc = block.getLocation(bias + token_number, query, token_filter)!;
     // afterOffset = block.correctOffset(afterOffset);
-    setLocation(loc);
+    page.setLocation(loc, block);
   };
   onUndoFn: CommandCallbackWithBuffer<TextInsertPayload, TextInsert["buffer"]> =
-    ({ block, index: query, start: bias, token_filter }) => {
+    ({ page, block, index: query, start: bias, token_filter }) => {
       const loc = block.getLocation(bias, query, token_filter)!;
-      setLocation(loc);
+      page.setLocation(loc, block);
     };
 
   declare buffer: {
@@ -304,5 +337,18 @@ export class TextInsert extends Command<TextInsertPayload> {
 
   public get label(): string {
     return `insert ${this.payload.innerHTML}`;
+  }
+
+  notifyExecute(page: Page): void {
+    const { block } = this.payload;
+    page.dispatchPageEvent(
+      new BlockUpdateEvent({ page, block, undo: false, from: "TextInsert" })
+    );
+  }
+  notifyUndo(page: Page): void {
+    const { block } = this.payload;
+    page.dispatchPageEvent(
+      new BlockUpdateEvent({ page, block, undo: true, from: "TextInsert" })
+    );
   }
 }

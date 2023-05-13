@@ -308,3 +308,7 @@ export function tryConcatLeft(el: ValidNode): ValidNode {
     return el;
   }
 }
+
+export function isEmpty(node: Node): boolean {
+  return (node.textContent || "") === "";
+}

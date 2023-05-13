@@ -1,76 +1,85 @@
 import { createElement, getDefaultRange } from "@/helper/document";
 import { indexOfNode, parentElementWithTag } from "@/helper/element";
-import { EditableFlag } from "@/system/base";
+import { BlockSerializedData, EditableFlag } from "@/system/base";
 import { Block, BlockInit } from "@/system/block";
-
+import "./style.css";
 export interface TableInit extends BlockInit {
   shape?: {
     row: number;
     col: number;
+    innerHTMLs?: (string | undefined)[][];
   };
 
-  children?: HTMLLIElement[][];
+  children?: HTMLParagraphElement[][];
 }
 
 export class Table extends Block<TableInit> {
-  type: string = "table";
   isMultiEditable: boolean = true;
   mergeable: boolean = false;
   rows: HTMLTableRowElement[];
   table: HTMLTableElement;
-  thead: HTMLTableSectionElement;
+  // thead: HTMLTableSectionElement;
   tbody: HTMLTableSectionElement;
   constructor(init?: TableInit) {
     init = init || {};
     init.el = createElement("table", {
       attributes: {},
     });
-    const { shape, children } = init;
-    let row = -1,
-      col = -1;
-    if (shape) {
-      row = shape.row;
-      col = shape.col;
+    const { children } = init;
+    let shape = init.shape;
+
+    if (children && shape) {
+      throw new Error("children and shape should assign only one at once.");
     }
 
-    if (children) {
-      row = Math.max(children.length, row);
-      col = Math.max(children[0].length, col);
-    }
     const tableEl = createElement("table");
-    const thead = createElement("thead");
+    // const thead = createElement("thead");
     const tbody = createElement("tbody");
-    // 初始化
-    const table = Array(row)
+    let table;
+    if (children) {
+      table = children.map((row, rid) => {
+        const tr = row.map((cellEl, cid) => {
+          return createElement("td", { children: [cellEl] });
+        });
+        const rowEl = createElement("tr", { children: tr });
+        tbody.appendChild(rowEl);
+        return rowEl;
+      });
+    }
+
+    if (!shape) {
+      shape = { row: 3, col: 3 };
+    }
+
+    const { row, col, innerHTMLs } = shape;
+    table = Array(row)
       .fill(0)
-      .map((item, rid) => {
+      .map((_, rid) => {
+        const rowInnerHTMLs = (innerHTMLs && innerHTMLs[rid]) || [];
         const tr = Array(col)
           .fill(0)
-          .map((item, cid) => {
+          .map((_, cid) => {
+            const cellInnerHTML = rowInnerHTMLs[cid] || "";
             const cell = createElement("p");
-            cell.innerHTML = "1";
-            if (rid === 0) {
-              return createElement("th", { children: [cell] });
-              // return createElement("th", {  });
-            } else {
-              return createElement("td", { children: [cell] });
-              // return createElement("td", {  });
-            }
+            cell.innerHTML = cellInnerHTML;
+            return createElement("td", { children: [cell] });
+            // if (rid === 0) {
+            //   return createElement("th", { children: [cell] });
+            // } else {
+            // }
           });
-        const row = createElement("tr", { children: tr });
-        if (rid === 0) {
-          thead.appendChild(row);
-        } else {
-          tbody.appendChild(row);
-        }
-        return row;
+        const rowEl = createElement("tr", { children: tr });
+        tbody.appendChild(rowEl);
+        return rowEl;
       });
 
-    super(init);
+    // 初始化
+
+    super("table", init);
     this.root.appendChild(tableEl);
-    tableEl.append(thead, tbody);
+    tableEl.append(tbody);
     this.table = tableEl;
-    this.thead = thead;
+    // this.thead = thead;
     this.tbody = tbody;
     this.rows = table;
   }
@@ -80,11 +89,11 @@ export class Table extends Block<TableInit> {
   }
 
   public get rowNumber(): number {
-    return 1 + this.tbody.childNodes.length;
+    return this.tbody.childNodes.length;
   }
 
   public get colNumber(): number {
-    return this.thead.querySelectorAll("th").length;
+    return this.tbody.firstElementChild!.querySelectorAll("td").length;
   }
 
   // 所有多 Container 下的 currentContainer 只考虑 range.startContainer 位置
@@ -134,20 +143,24 @@ export class Table extends Block<TableInit> {
 
   getRowId(el: HTMLElement) {
     // p -> td -> tr -> tbody/thead
-    if (el.parentElement!.parentElement!.parentElement === this.thead) {
-      return 0;
-    } else {
-      return indexOfNode(el.parentElement!.parentElement!) + 1;
-    }
+    return indexOfNode(el.parentElement!.parentElement!);
+    // if (el.parentElement!.parentElement!.parentElement === this.thead) {
+    //   return 0;
+    // } else {
+    //   return indexOfNode(el.parentElement!.parentElement!) + 1;
+    // }
   }
 
-  getContainerByXY(rid: number, cid: number) {
-    if (rid === 0) {
-      return this.thead.querySelector(`th:nth-child(${cid + 1})`)?.firstChild;
-    } else {
-      const row = this.tbody.childNodes[rid - 1] as HTMLElement;
-      return row.querySelector(`td:nth-child(${cid + 1})`)?.firstChild;
-    }
+  getContainerByXY(rid: number, cid: number): HTMLElement {
+    const row = this.tbody.childNodes[rid] as HTMLElement;
+    return row.querySelector(`td:nth-child(${cid + 1})`)
+      ?.firstElementChild as HTMLElement;
+    // if (rid === 0) {
+    //   return this.thead.querySelector(`th:nth-child(${cid + 1})`)?.firstChild;
+    // } else {
+    //   const row = this.tbody.childNodes[rid - 1] as HTMLElement;
+    //   return row.querySelector(`td:nth-child(${cid + 1})`)?.firstChild;
+    // }
   }
 
   getXYOfContainer(el: HTMLElement): [number, number] {
@@ -237,5 +250,64 @@ export class Table extends Block<TableInit> {
   getEditableIndex(container: HTMLElement, reverse?: boolean): number {
     const [x, y] = this.getXYOfContainer(container);
     return x * this.colNumber + y;
+  }
+
+  serialize(option?: any): BlockSerializedData<TableInit> {
+    const init = {
+      shape: {
+        col: this.colNumber,
+        row: this.rowNumber,
+        innerHTMLs: this.rows.map((item) => {
+          const cellEl = item.querySelectorAll("p");
+          return Array.from(cellEl).map((item) => item.innerHTML);
+        }),
+      },
+    };
+    return [{ type: this.type, init, unmergeable: true }];
+  }
+
+  addRow(index: number) {
+    const old = this.rows[index];
+    const newRow = Array(this.colNumber)
+      .fill(0)
+      .map((_, cid) => {
+        const cell = createElement("p");
+        return createElement("td", { children: [cell] });
+      });
+
+    const rowEl = createElement("tr", { children: newRow });
+    if (old) {
+      this.tbody.insertBefore(rowEl, old);
+    } else {
+      this.tbody.appendChild(rowEl);
+    }
+    this.rows.splice(index, 0, rowEl);
+  }
+
+  addColumn(index: number) {
+    this.rows.forEach((item) => {
+      const old = item.childNodes[index];
+      const cell = createElement("p");
+      const cellEl = createElement("td", { children: [cell] });
+      if (old) {
+        item.insertBefore(cellEl, old);
+      } else {
+        item.appendChild(cellEl);
+      }
+    });
+  }
+
+  removeColummn(index: number): HTMLElement[] {
+    return this.rows.map((item) => {
+      const old = item.childNodes[index];
+      old.remove();
+      return old as HTMLElement;
+    });
+  }
+  removeRow(index: number): HTMLElement {
+    const snap = this.tbody.childNodes[index] as HTMLElement;
+    this.tbody.childNodes[index].remove();
+    this.rows.splice(index, 1);
+    return snap;
   }
 }

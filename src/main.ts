@@ -28,6 +28,7 @@ import { InlineSupport } from "./contrib/plugins/inlineSupport/plugin";
 import { KatexMath } from "./contrib/inlines/math/inline";
 import { BackLinkInline } from "./contrib/inlines/backlink";
 import { BackLink } from "./contrib/inlines/backlink/inline";
+import { EquationBlock, Equation } from "./contrib/blocks/equation";
 
 const page = new Page({
   components: {
@@ -39,6 +40,7 @@ const page = new Page({
       OrderedListBlock(),
       CodeBlock(),
       TableBlock(),
+      EquationBlock(),
     ],
     extraHandlers: [
       DefaultBlockHandlerEntry(),
@@ -57,53 +59,47 @@ const page = new Page({
       BackLinkInline({
         onLoad: (content) => {
           return new Promise((resolve) => {
-            if (content === "I") {
+            if (content.length > 8) {
               resolve([
-                { cite: "1", content: "I am", type: "page" },
-                { cite: "4", content: "I mine", type: "block" },
-                { cite: "2", content: "I i", type: "plain" },
-                { cite: "3", content: "I are", type: "link" },
+                {
+                  cite: "https://github.com/sailist",
+                  content: "Welcome to visit my homepage",
+                  type: "link",
+                },
+                {
+                  cite: "https://github.com/sailist/ohno",
+                  content: "Ohno is an open source project.",
+                  type: "link",
+                },
               ]);
-            } else if (content === "S") {
+            } else if (content.length < 3) {
+              resolve([
+                {
+                  cite: "https://github.com/sailist",
+                  content: "Welcome to visit my homepage",
+                  type: "link",
+                },
+                {
+                  cite: "https://github.com/sailist/ohno",
+                  content: "Ohno is an open source project.",
+                  type: "link",
+                },
+              ]);
+            } else {
               setTimeout(() => {
                 resolve([
-                  { cite: "1", content: "S am", type: "page" },
-                  { cite: "4", content: "S mine", type: "block" },
-                  { cite: "2", content: "S i", type: "plain" },
-                  { cite: "3", content: "S are", type: "link" },
+                  {
+                    cite: "",
+                    content: "BackLink options are dynamicly loaded.",
+                    type: "plain",
+                  },
                 ]);
               }, 1000);
-            } else {
-              resolve([]);
             }
           });
         },
       }),
     ],
-    // plugins: [
-    //   dropdown([
-    //     {
-    //       plain: "Heading 1",
-    //       type: "plain",
-    //       filter: "Heading 1",
-    //       onSelect: ({ page, block }) => {
-    //         const newBlock = new Headings();
-    //         const command = new BlockCreate({
-    //           block,
-    //           page,
-    //           newBlock,
-    //           where: "after",
-    //         });
-    //         page.executeCommand(command);
-    //       },
-    //     },
-    //     { plain: "Heading 2", type: "plain", filter: "Heading 2" },
-    //     { plain: "Heading 3", type: "plain", filter: "Heading 3" },
-    //     { plain: "Heading 4", type: "plain", filter: "Heading 4" },
-    //     { plain: "Heading 5", type: "plain", filter: "Heading 5" },
-    //   ]),
-    //   math(),
-    // ],
   },
 });
 
@@ -117,7 +113,7 @@ const mathManager = inlinePlugin.getInlineManager<KatexMath>("math");
 const wrap = mathManager.create("\\int_{a}^{b} f(x) dx");
 
 const backlinkManager = inlinePlugin.getInlineManager<BackLink>("backlink");
-const backlink = backlinkManager.create("This is Short Quote.");
+const backlink = backlinkManager.create();
 
 let innerHTML =
   "Lor<em>em ipsum</em> ipsum <b>dolor <i>sit <code>amet</code></i></b>, consectetur adipiscing elit, sed do eiusmod <code>tempor <b><i>code incididunt code</i></b></code> ut labore et dolore magna aliqua.";
@@ -131,16 +127,19 @@ page.appendBlock(new Headings({ level: 1, innerHTML: "Heading 1" }));
 // page.appendBlock(new Paragraph({ innerHTML, children: [wrap] }));
 // page.appendBlock(new Paragraph({ innerHTML, children: [wrap] }));
 page.appendBlock(new Code({ code: "print('hello world!')" }));
-page.appendBlock(new Table({ shape: { row: 3, col: 3 } }));
+page.appendBlock(
+  new Table({ shape: { row: 3, col: 4, innerHTMLs: [["3", undefined, "4"]] } })
+);
 page.appendBlock(new Blockquote({ children: [backlink] }));
-// page.appendBlock(new Equation({ src: "f(a) = a^2 + bx" }));
+page.appendBlock(new Equation({ src: "f(a) = a^2 + bx" }));
+// page.appendBlock(new Paragraph({ innerHTML, children: [wrap] }));
 // page.appendBlock(
 //   new Paragraph({ innerHTML: Array(20).fill("long text ").join(" ") })
 // );
 
 // page.appendBlock(new Figure({ src: "/vite.svg" }));
-page.appendBlock(new OrderedList({ firstLiInnerHTML: innerHTML }));
-page.appendBlock(new List({ firstLiInnerHTML: innerHTML }));
+page.appendBlock(new OrderedList({ innerHTMLs: [innerHTML] }));
+page.appendBlock(new List({ innerHTMLs: [innerHTML, innerHTML] }));
 // page.appendBlock(
 //   new List({
 //     children: [

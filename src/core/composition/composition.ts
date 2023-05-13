@@ -56,7 +56,7 @@ export class CompositionHandler extends Handler {
         token_number,
         index,
       }).onExecute(({ block, index, start }) => {
-        setLocation(block.getLocation(start, index)!);
+        page.setLocation(block.getLocation(start, index)!, block);
       });
       page.executeCommand(command);
     }

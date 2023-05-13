@@ -124,9 +124,8 @@ export class HeadingsHandler extends Handler implements FineHandlerMethods {
     );
 
     const prefix = prefixRange.cloneContents().textContent!;
-    // debugger;
     let matchRes;
-    if ((matchRes = prefix.match(/^(#{1,6})/))) {
+    if ((matchRes = prefix.match(/^(#{1,6})$/))) {
       const level = matchRes[1].length as 1 | 2 | 3 | 4 | 5 | 6;
       let newBlock;
       if ((block as Headings).init.level === level) {

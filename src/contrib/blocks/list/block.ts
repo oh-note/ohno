@@ -17,56 +17,16 @@
  */
 import { createElement, getDefaultRange } from "@/helper/document";
 import { indexOfNode, parentElementWithTag } from "@/helper/element";
-import { EditableFlag } from "@/system/base";
+import { BlockSerializedData, EditableFlag } from "@/system/base";
 import { Block, BlockInit } from "@/system/block";
 
 export interface ListInit extends BlockInit {
-  firstLiInnerHTML?: string;
-  firstLiChildren?: HTMLElement[];
+  innerHTMLs?: string[];
+  // firstLiChildren?: HTMLElement[];
   children?: HTMLLIElement[];
 }
 
-export class List extends Block<ListInit> {
-  type: string = "list";
-  isMultiEditable: boolean = true;
-  constructor(init?: ListInit) {
-    init = init || {};
-    if (!init.el) {
-      init.el = createElement("ul", {
-        attributes: {},
-      });
-    }
-    let { children } = init;
-    if (!children) {
-      children = [createElement("li")];
-    }
-
-    // Sanity check
-    children.forEach((item) => {
-      if (!(item instanceof HTMLLIElement)) {
-        throw new Error(
-          `children must be a  <li></li> element list, 
-          use firstLiChildren to assign children for first <li> element`
-        );
-      }
-      init!.el!.appendChild(item.cloneNode(true));
-    });
-
-    const firstChild = init.el!.firstElementChild as HTMLElement;
-    if (init.firstLiInnerHTML) {
-      firstChild.innerHTML = init.firstLiInnerHTML;
-    }
-    if (init.firstLiChildren) {
-      init.firstLiChildren.forEach((item) => {
-        if (item) {
-          firstChild.appendChild(item.cloneNode(true));
-        }
-      });
-    }
-
-    super(init);
-  }
-
+export class ABCList<T extends ListInit = ListInit> extends Block<T> {
   getCurrentEditable(): HTMLElement {
     // document.getSelection().focusNode
     const range = getDefaultRange();
@@ -147,5 +107,50 @@ export class List extends Block<ListInit> {
       index = index - this.root.childNodes.length - 1;
     }
     return index;
+  }
+
+  serialize(option?: any): BlockSerializedData<T> {
+    const init = {
+      innerHTMLs: Array.from(this.root.querySelectorAll("li")).map(
+        (item) => item.innerHTML
+      ),
+    } as T;
+    return [{ type: this.type, init }];
+  }
+}
+
+export class List extends ABCList {
+  isMultiEditable: boolean = true;
+  constructor(init?: ListInit) {
+    init = init || {};
+    if (!init.el) {
+      init.el = createElement("ul", {
+        attributes: {},
+      });
+    }
+    const { innerHTMLs, children } = init;
+
+    if (children && innerHTMLs) {
+      throw new Error(
+        "innerHTMLs or children should assign only one at the same time."
+      );
+    }
+
+    if (children) {
+      children.forEach((item) => {
+        if (!(item instanceof HTMLLIElement)) {
+          throw new Error(
+            `children must be a  <li></li> element list, 
+            use firstLiChildren to assign children for first <li> element`
+          );
+        }
+        init!.el!.appendChild(item.cloneNode(true));
+      });
+    } else {
+      innerHTMLs!.forEach((item) => {
+        init!.el!.appendChild(createElement("li", { innerHTML: item }));
+      });
+    }
+    super("list", init);
   }
 }

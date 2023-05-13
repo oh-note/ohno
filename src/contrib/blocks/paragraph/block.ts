@@ -1,4 +1,5 @@
 import { createElement } from "@/helper/document";
+import { BlockSerializedData } from "@/system/base";
 import { Block, BlockInit } from "@/system/block";
 
 export interface ParagraphInit extends BlockInit {
@@ -7,7 +8,6 @@ export interface ParagraphInit extends BlockInit {
 }
 
 export class Paragraph extends Block<ParagraphInit> {
-  type: string = "paragraph";
   constructor(init?: ParagraphInit) {
     init = init || {};
     if (!init.el) {
@@ -26,6 +26,10 @@ export class Paragraph extends Block<ParagraphInit> {
       });
     }
 
-    super(init);
+    super("paragraph", init);
+  }
+  serialize(option?: any): BlockSerializedData<ParagraphInit> {
+    const init = { innerHTML: this.inner.innerHTML };
+    return [{ type: this.type, init }];
   }
 }

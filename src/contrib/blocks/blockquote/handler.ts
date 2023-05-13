@@ -1,4 +1,4 @@
-import { getDefaultRange } from "@/helper/document";
+import { getDefaultRange, tryGetDefaultRange } from "@/helper/document";
 import {
   EventContext,
   Handler,
@@ -55,10 +55,11 @@ export class BlockQuoteHandler extends Handler implements FineHandlerMethods {
     e: KeyboardEvent,
     { block, page }: EventContext
   ): boolean | void {
-    const range = getDefaultRange();
+    const range = tryGetDefaultRange();
     if (
-      !range.collapsed ||
-      !block.isLocationInLeft([range.startContainer, range.startOffset])
+      range &&
+      (!range.collapsed ||
+        !block.isLocationInLeft([range.startContainer, range.startOffset]))
     ) {
       return;
     }

@@ -6,6 +6,8 @@ import {
   dispatchKeyEvent,
 } from "@/system/handler";
 import { createRange, setLocation, setRange } from "@/system/range";
+import { Table } from "./block";
+import { TableChange, TableChangePayload } from "./command";
 
 export class TableHandler extends Handler implements FineHandlerMethods {
   handleKeyPress(
@@ -13,14 +15,15 @@ export class TableHandler extends Handler implements FineHandlerMethods {
     context: RangedEventContext
   ): boolean | void {}
 
-  handleMouseUp(e: MouseEvent, { range, block }: EventContext): boolean | void {
+  handleMouseUp(e: MouseEvent, context: EventContext): boolean | void {
+    const { range, block, page } = context;
     if (range) {
       if (
         range?.collapsed &&
         !block.findEditable(range!.commonAncestorContainer)
       ) {
         const container = block.getFirstEditable();
-        setLocation(block.getLocation(0, container)!);
+        page.setLocation(block.getLocation(0, container)!, block);
       }
     }
   }
@@ -33,6 +36,46 @@ export class TableHandler extends Handler implements FineHandlerMethods {
     return dispatchKeyEvent(this, e, context);
   }
 
+  handleArrowKeyDown(
+    e: KeyboardEvent,
+    context: RangedEventContext
+  ): boolean | void {
+    const { page, block, range } = context;
+    const editable = block.findEditable(range.commonAncestorContainer);
+    if (editable && e.shiftKey && e.metaKey) {
+      const [x, y] = (block as Table).getXYOfContainer(editable);
+      let axis, index;
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        axis = "row";
+        index = x;
+      } else {
+        axis = "column";
+        index = y;
+      }
+      if (e.key === "ArrowDown" || e.key === "ArrowRight") {
+        index++;
+      }
+      const command = new TableChange({
+        page,
+        block: block as Table,
+        axis: axis as TableChangePayload["axis"],
+        index,
+      })
+        .onExecute(({ axis, index, block }) => {
+          const editable =
+            axis === "row"
+              ? block.getContainerByXY(index, y)!
+              : block.getContainerByXY(x, index)!;
+          setLocation(block.getLocation(0, editable)!);
+        })
+        .onUndo(({ axis, block }) => {
+          const editable = block.getContainerByXY(x, y)!;
+          setLocation(block.getLocation(0, editable)!);
+        });
+      page.executeCommand(command);
+      return true;
+    }
+  }
   // 在 CompositionStart 时处理选中内容
   handleCompositionStart(
     e: CompositionEvent,
@@ -52,22 +95,20 @@ export class TableHandler extends Handler implements FineHandlerMethods {
     const { block, range } = context;
     const container = block.findEditable(range.commonAncestorContainer);
     if (container) {
-      const container = block.findEditable(range.startContainer);
-      if (container) {
-        const next = e.shiftKey
-          ? block.getPrevEditable(container)
-          : block.getNextEditable(container);
-        if (next) {
-          const start = block.getLocation(0, next)!;
-          const end = block.getLocation(-1, next)!;
-          setRange(createRange(...start, ...end));
-        }
+      const next = e.shiftKey
+        ? block.getPrevEditable(container)
+        : block.getNextEditable(container);
+      if (next) {
+        const start = block.getLocation(0, next)!;
+        const end = block.getLocation(-1, next)!;
+        setRange(createRange(...start, ...end));
       }
     }
 
     return true;
   }
 
+  handleMouseMove(e: MouseEvent, context: EventContext): boolean | void {}
   handleBackspaceDown(
     e: KeyboardEvent,
     context: RangedEventContext

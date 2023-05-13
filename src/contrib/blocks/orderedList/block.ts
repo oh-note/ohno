@@ -15,48 +15,48 @@
  *  - 先降级，再退回 p，可能有分隔 li -> For
  *
  */
-import { createElement, getDefaultRange } from "@/helper/document";
-import { Block, BlockInit } from "@/system/block";
-import { List, ListInit } from "../list";
+import { createElement } from "@/helper/document";
+import { BlockInit } from "@/system/block";
+import { ABCList } from "../list";
 
-export class OrderedList extends List {
-  type: string = "ordered_list";
+export interface OrderedListInit extends BlockInit {
+  innerHTMLs?: string[];
+
+  children?: HTMLLIElement[];
+}
+
+export class OrderedList extends ABCList<OrderedListInit> {
   isMultiEditable: boolean = true;
-  constructor(init?: ListInit) {
+  constructor(init?: OrderedListInit) {
     init = init || {};
     if (!init.el) {
       init.el = createElement("ol", {
         attributes: {},
       });
     }
-    let { children } = init;
-    if (!children) {
-      children = [createElement("li")];
+    const { innerHTMLs, children } = init;
+
+    if (children && innerHTMLs) {
+      throw new Error(
+        "innerHTMLs or children should assign only one at the same time."
+      );
     }
 
-    // Sanity check
-    children.forEach((item) => {
-      if (!(item instanceof HTMLLIElement)) {
-        throw new Error(
-          `children must be a  <li></li> element list, 
-          use firstLiChildren to assign children for first <li> element`
-        );
-      }
-      init!.el!.appendChild(item.cloneNode(true));
-    });
-
-    const firstChild = init.el!.firstElementChild as HTMLElement;
-    if (init.firstLiInnerHTML) {
-      firstChild.innerHTML = init.firstLiInnerHTML;
-    }
-    if (init.firstLiChildren) {
-      init.firstLiChildren.forEach((item) => {
-        if (item) {
-          firstChild.appendChild(item.cloneNode(true));
+    if (children) {
+      children.forEach((item) => {
+        if (!(item instanceof HTMLLIElement)) {
+          throw new Error(
+            `children must be a  <li></li> element list, 
+            use firstLiChildren to assign children for first <li> element`
+          );
         }
+        init!.el!.appendChild(item.cloneNode(true));
+      });
+    } else {
+      innerHTMLs!.forEach((item) => {
+        init!.el!.appendChild(createElement("li", { innerHTML: item }));
       });
     }
-
-    super(init);
+    super("ordered_list", init);
   }
 }

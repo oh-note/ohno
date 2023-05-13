@@ -57,17 +57,38 @@ export class SlashMenu implements IPlugin {
   parent?: IComponent | undefined;
   context?: RangedEventContext;
   filter?: string;
-
+  component: {
+    options: HTMLElement;
+    noresult: HTMLElement;
+  };
   hover: number = -1;
-
+  visibleElements: HTMLElement[];
   constructor() {
     this.root = createElement("div", {
       className: CLASS_PLUGIN,
       textContent: "",
     });
     this.options = [];
-    this.root.addEventListener("mousemove", this.handleMouseMove.bind(this));
-    this.root.addEventListener("click", this.handleClick.bind(this));
+    this.visibleElements = [];
+
+    const options = createElement("div", {
+      style: { display: "none" },
+      className: "options",
+    });
+    const noresult = createElement("div", {
+      style: { display: "none" },
+      className: "noresult",
+      textContent: "noresult",
+    });
+
+    this.component = {
+      options,
+      noresult,
+    };
+    this.root.appendChild(options);
+    this.root.appendChild(noresult);
+    options.addEventListener("mousemove", this.handleMouseMove.bind(this));
+    options.addEventListener("click", this.handleClick.bind(this));
   }
 
   setFilter(filter: string | undefined, context: RangedEventContext) {
@@ -79,6 +100,16 @@ export class SlashMenu implements IPlugin {
     this.context = context;
   }
 
+  toggleComponent(el: HTMLElement) {
+    this.root.childNodes.forEach((item) => {
+      if (item === el) {
+        (item as HTMLElement).style.display = "block";
+      } else {
+        (item as HTMLElement).style.display = "none";
+      }
+    });
+  }
+
   addOption(option: MenuItem) {
     if (!option.dynamic && !option.static) {
       throw new Error("one of dynamic or static should be assigned.");
@@ -88,7 +119,7 @@ export class SlashMenu implements IPlugin {
 
   renderMenu() {
     const { range } = this.context!;
-
+    // debugger;
     computePosition(new RangeElement(range), this.root, {
       placement: "bottom-start",
     }).then(({ x, y }) => {
@@ -98,14 +129,13 @@ export class SlashMenu implements IPlugin {
       });
     });
 
-    let filtered = this.options;
-    console.log(filtered);
     const createContext: SlashMenuCreatedContext = {
       page: this.context!.page,
       plugin: this,
     };
 
-    const elements = filtered
+    const visibleElements: HTMLElement[] = [];
+    const elements = this.options
       .map((item) => {
         const row = createElement("div", { className: CLASS_OPTION });
         const info = item.dynamic ? item.dynamic(createContext) : item.static!;
@@ -137,19 +167,25 @@ export class SlashMenu implements IPlugin {
             row.style.display = "none";
           }
         }
+        if (row.style.display != "none") {
+          visibleElements.push(row);
+        }
+
         return row;
       })
       .map((item, index) => this.makeMenuItem(item, index));
-    this.root.replaceChildren(...elements);
+    this.visibleElements = visibleElements;
+    if (visibleElements.length > 0) {
+      this.component.options.replaceChildren(...elements);
+      this.toggleComponent(this.component.options);
+    } else {
+      this.toggleComponent(this.component.noresult);
+    }
   }
   private makeMenuItem(inner: HTMLElement, index: number) {
     inner.setAttribute("index", index + "");
     return inner;
   }
-
-  // mouseClick(e: MouseEvent) {}
-  // simulateArrowDown() {}
-  // simulateArrowUp() {}
 
   public get isOpen(): boolean {
     return this.root.style.display !== "none";
@@ -159,6 +195,7 @@ export class SlashMenu implements IPlugin {
     this.context = context;
     this.filter = undefined;
     this.root.style.display = "block";
+    this.hover = -1;
     this.renderMenu();
     this.onHover(0);
   }
@@ -182,23 +219,24 @@ export class SlashMenu implements IPlugin {
   }
 
   getOption(index: number): HTMLElement {
-    return this.root.childNodes[index] as HTMLElement;
+    return this.visibleElements[index] as HTMLElement;
   }
 
   simulateArrowDown() {
-    const index = (this.hover + 1) % this.root.childNodes.length;
+    const index = (this.hover + 1) % this.visibleElements.length;
     this.onHover(index);
   }
   simulateArrowUp() {
     let index;
     if (this.hover === 0) {
-      index = this.root.childNodes.length - 1;
+      index = this.visibleElements.length - 1;
     } else {
       index = this.hover - 1;
     }
     this.onHover(index);
   }
   simulateEnter() {
+    // if(this.)
     this.onSelected(this.hover);
   }
 
@@ -211,14 +249,18 @@ export class SlashMenu implements IPlugin {
 
       this.hover = index;
       const option = this.getOption(index);
-      option.classList.add("hover");
-      const onHover = this.options[index].onHover;
-      if (onHover) {
-        onHover(this.context!, {
-          menuitem: option,
-          page: this.context!.page,
-          plugin: this,
-        });
+      if (option) {
+        option.classList.add("hover");
+        const onHover = this.options[index].onHover;
+        if (onHover) {
+          onHover(this.context!, {
+            menuitem: option,
+            page: this.context!.page,
+            plugin: this,
+          });
+        }
+      } else {
+        this.hover = this.visibleElements.length - 1;
       }
     }
   }

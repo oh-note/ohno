@@ -7,6 +7,7 @@ export * from "./block";
 
 export function BlockQuoteBlock(): BlockComponent {
   return {
+    name: "blockquote",
     blockType: Blockquote,
     handlers: {
       blocks: { blockquote: new BlockQuoteHandler() },

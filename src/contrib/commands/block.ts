@@ -34,14 +34,15 @@ export interface BlockReplacePayload {
 
 export class BlockReplace extends Command<BlockReplacePayload> {
   onExecuteFn: CommandCallback<BlockReplacePayload> = ({
+    page,
     newBlock,
     // newOffset,
   }) => {
-    setLocation(newBlock.getLocation(0, 0)!);
+    page.setLocation(newBlock.getLocation(0, 0)!, newBlock);
   };
 
-  onUndoFn: CommandCallback<BlockReplacePayload> = ({ block }) => {
-    setLocation(block.getLocation(0, 0)!);
+  onUndoFn: CommandCallback<BlockReplacePayload> = ({ block, page }) => {
+    page.setLocation(block.getLocation(0, 0)!, block);
   };
 
   execute(): void {
@@ -89,17 +90,20 @@ export class BlocksRemove extends Command<BlocksRemovePayload> {
 
 export class BlockRemove extends Command<BlockRemovePayload> {
   declare buffer: {
+    order: Order;
     nextBlock: AnyBlock | null;
   };
   execute(): void {
     const { page, block } = this.payload;
     this.buffer = {
+      order: block.order,
       nextBlock: page.getNextBlock(block),
     };
     page.removeBlock(block.order);
   }
   undo(): void {
     const { page, block } = this.payload;
+    block.setOrder(this.buffer.order);
     if (this.buffer.nextBlock) {
       page.insertBlockAdjacent(block, "before", this.buffer.nextBlock);
     } else {
@@ -202,12 +206,73 @@ export class BlockMove extends Command<BlockMovePayload> {
   }
 }
 
-export class BlockCreate extends Command<BlockCreatePayload> {
-  onExecuteFn: CommandCallback<BlockCreatePayload> = ({ newBlock }) => {
-    setLocation(newBlock.getLocation(0, 0)!);
+export interface BlocksCreatePayload {
+  page: Page;
+  block: AnyBlock;
+  newBlocks: AnyBlock[];
+  where: "after" | "tail" | "head" | "before";
+
+  // offset?: Offset;
+  // newOffset?: Offset;
+}
+export class BlocksCreate extends Command<BlocksCreatePayload> {
+  onExecuteFn: CommandCallback<BlocksCreatePayload> = ({ page, newBlocks }) => {
+    const newBlock = newBlocks[newBlocks.length - 1];
+    page.setLocation(newBlock.getLocation(0, 0)!, newBlock);
   };
-  onUndoFn: CommandCallback<BlockCreatePayload> = ({ block }) => {
-    setLocation(block.getLocation(0, 0)!);
+  onUndoFn: CommandCallback<BlocksCreatePayload> = ({ page, block }) => {
+    page.setLocation(block.getLocation(0, 0)!, block);
+  };
+  execute(): void {
+    const { where, page, block, newBlocks } = this.payload;
+
+    if (where === "after") {
+      let cur = block;
+      newBlocks.forEach((newBlock) => {
+        page.insertBlockAdjacent(newBlock, "after", cur);
+        cur = newBlock;
+      });
+      // page.insertBlockAfter(block.order, newBlock);
+    } else if (where === "before") {
+      // let cur = block;
+      newBlocks.forEach((newBlock) => {
+        page.insertBlockAdjacent(newBlock, "before", block);
+        // cur = newBlock;
+      });
+      // page.insertBlockBefore(block.order, newBlock);
+    } else if (where === "head") {
+      if (page.chain.first) {
+        // let cur = page.chain.first.value;
+        newBlocks.forEach((newBlock) => {
+          page.insertBlockAdjacent(newBlock, "before", block);
+          // cur = newBlock;
+        });
+        // page.insertBlockBefore(page.blockChain.first.name!, newBlock);
+      } else {
+        newBlocks.forEach((newBlock) => {
+          page.appendBlock(newBlock);
+        });
+      }
+    } else if (where === "tail") {
+      newBlocks.forEach((newBlock) => {
+        page.appendBlock(newBlock);
+      });
+    }
+  }
+  undo(): void {
+    const { page, newBlocks } = this.payload;
+    newBlocks.forEach((item) => {
+      page.removeBlock(item.order);
+    });
+  }
+}
+
+export class BlockCreate extends Command<BlockCreatePayload> {
+  onExecuteFn: CommandCallback<BlockCreatePayload> = ({ page, newBlock }) => {
+    page.setLocation(newBlock.getLocation(0, 0)!, newBlock);
+  };
+  onUndoFn: CommandCallback<BlockCreatePayload> = ({ page, block }) => {
+    page.setLocation(block.getLocation(0, 0)!, block);
   };
   execute(): void {
     const { where, page, block, newBlock } = this.payload;

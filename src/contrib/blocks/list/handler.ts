@@ -100,7 +100,7 @@ export function prepareDeleteCommand({
             // insertOffset: offset,
             innerHTML,
           }).onExecute(({ block, start, index }) => {
-            setLocation(block.getLocation(start, index)!);
+            page.setLocation(block.getLocation(start, index)!, block);
           });
         });
     }
@@ -121,7 +121,7 @@ export function prepareDeleteCommand({
           start,
           index,
         }).onExecute(({ block, start, index }) => {
-          setLocation(block.getLocation(start, index)!);
+          page.setLocation(block.getLocation(start, index)!, block);
         });
       });
   }
@@ -211,7 +211,7 @@ export function removeSelection({ range, page, block }: EventContext) {
         index,
       }).onExecute(({ block }) => {
         const { start, index } = offsets[0];
-        setLocation(block.getLocation(start, index)!);
+        page.setLocation(block.getLocation(start, index)!, block);
       });
     })
     .withLazyCommand(() => {
@@ -260,7 +260,7 @@ export class ListHandler extends Handler implements FineHandlerMethods {
         token_number,
       })
         .onExecute(({ block }) => {
-          setLocation(block.getLocation(start, index)!);
+          page.setLocation(block.getLocation(start, index)!, block);
         })
         .onUndo(({ block }) => {
           setRange(block.getRange({ start, end }, index)!);
@@ -426,7 +426,7 @@ export class ListHandler extends Handler implements FineHandlerMethods {
           );
           return new ContainerRemove({ page, block, indexs }).onUndo(
             ({ indexs }) => {
-              setLocation(block.getLocation(0, indexs[0])!);
+              page.setLocation(block.getLocation(0, indexs[0])!, block);
             }
           );
         })
@@ -547,7 +547,7 @@ export class ListHandler extends Handler implements FineHandlerMethods {
             start,
             token_number: full_token_number - start,
           }).onUndo(({ block, start, index }) => {
-            setLocation(block.getLocation(start, index)!);
+            page.setLocation(block.getLocation(start, index)!, block);
           });
         })
         .withLazyCommand(({ block, page }, { innerHTML }) => {
@@ -567,7 +567,7 @@ export class ListHandler extends Handler implements FineHandlerMethods {
           })
             .onExecute(() => {
               this.updateValue(context);
-              setLocation(block.getLocation(0, index + 1)!);
+              page.setLocation(block.getLocation(0, index + 1)!, block);
             })
             .onUndo(() => {
               this.updateValue(context);
@@ -645,7 +645,7 @@ export class ListHandler extends Handler implements FineHandlerMethods {
           index: endIndex,
           token_number,
         }).onExecute(({ block, start, index }) => {
-          setLocation(block.getLocation(-1, startIndex)!);
+          page.setLocation(block.getLocation(-1, startIndex)!, block);
         });
       })
       .withLazyCommand(() => {
@@ -756,7 +756,29 @@ export class ListHandler extends Handler implements FineHandlerMethods {
         }),
         page,
         format,
-      });
+      })
+        .onExecute(
+          ({ areas }, { areas: _, op }: FormatMultipleText["buffer"]) => {
+            let { block, offset } = areas[0];
+            const startLoc = block.getLocation(offset.start, offset.index)!;
+            block = areas[areas.length - 1].block;
+            offset = areas[areas.length - 1].offset;
+
+            let endLoc = block.getLocation(
+              offset.end + (op === "removeFormat" ? -1 : 0),
+              offset.index
+            )!;
+            if (!endLoc) {
+              endLoc = block.getLocation(-1, offset.index)!;
+            }
+
+            setRange(createRange(...startLoc, ...endLoc));
+          }
+        )
+        .onUndo(() => {
+          const range = block.getRange({ start: globalStart, end: globalEnd })!;
+          setRange(range);
+        });
     } else {
       // 下面这些都是要先把选中内容删干净，即跨 Container 的删除
       const builder = new ListCommandBuilder({ page, block })
@@ -787,16 +809,16 @@ export class ListHandler extends Handler implements FineHandlerMethods {
         })
         .withLazyCommand(() => {
           const editable = block.getEditable(offsets[offsets.length - 1].index);
-          const { index } = offsets[offsets.length - 1];
-
+          const firstEditable = block.getEditable(offsets[0].index);
+          const { index } = offsets[0];
           return new TextInsert({
             page,
             block,
             innerHTML: editable.innerHTML,
-            start: getTokenSize(editable),
+            start: getTokenSize(firstEditable),
             index,
           }).onExecute(({ block, start, index }) => {
-            setLocation(block.getLocation(start, index)!);
+            page.setLocation(block.getLocation(start, index)!, block);
           });
         })
 

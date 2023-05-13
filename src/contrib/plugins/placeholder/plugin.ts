@@ -4,30 +4,17 @@ import { AnyBlock } from "@/system/block";
 import { computePosition } from "@floating-ui/dom";
 import "./style.css";
 
-export class Dragable implements IPlugin {
+export class Placeholder implements IPlugin {
   root: HTMLElement;
-  name: string = "dragable";
+  name: string = "placeholder";
   parent?: IComponent | undefined;
   current?: AnyBlock;
   constructor() {
     this.root = createElement("div", {
-      className: "oh-is-dragable",
+      className: "oh-is-placeholder",
       textContent: "",
       style: { position: "absolute" },
     });
-    this.root.draggable = true;
-    this.root.addEventListener("dragstart", (event) => {
-      console.log(event);
-      event.dataTransfer!.setData("text/plain", "Hello, World!");
-    });
-    this.root.addEventListener("dragend", (e) => {
-      console.log(e);
-      // debugger;
-      e.preventDefault();
-    });
-    // this.root.addEventListener("mouseup", (e) => {
-    //   debugger;
-    // });
   }
   hook(): void {
     throw new Error("Method not implemented.");

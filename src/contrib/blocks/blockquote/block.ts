@@ -1,14 +1,15 @@
 import { createElement } from "@/helper/document";
+import { BlockSerializedData } from "@/system/base";
 import { Block, BlockInit } from "@/system/block";
+import { clipRange } from "@/system/range";
 
 export interface BlockQuoteInit extends BlockInit {
   innerHTML?: string;
   children?: HTMLElement[];
-  level?: number; // 用 level 模拟 blockquote 深度
+  level?: number; // TODO 用 level 模拟 blockquote 深度
 }
 
 export class Blockquote extends Block<BlockQuoteInit> {
-  type: string = "blockquote";
   constructor(init?: BlockQuoteInit) {
     init = init || {};
     if (!init.el) {
@@ -27,6 +28,25 @@ export class Blockquote extends Block<BlockQuoteInit> {
       });
     }
 
-    super(init);
+    super("blockquote", init);
+  }
+
+  serialize(option?: any): BlockSerializedData<BlockQuoteInit> {
+    return [{ type: this.type, init: { innerHTML: this.root.innerHTML } }];
+  }
+
+  public get head(): string {
+    return ">".repeat(this.init.level || 1) + " ";
+  }
+
+  toMarkdown(range?: Range | undefined): string {
+    if (!range || range.collapsed) {
+      return this.head + (this.inner.textContent || "");
+    }
+    const innerRange = clipRange(this.inner, range);
+    if (innerRange) {
+      return this.head + innerRange.cloneContents().textContent;
+    }
+    return "";
   }
 }

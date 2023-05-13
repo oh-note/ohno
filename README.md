@@ -15,7 +15,10 @@
 features：
 
 - 无重复渲染，无事件处理部分的 element 和 preview 完全一致
+- 易扩展
+- 基于 contenteditable
 - Markdown-style hint + Markdown-Format
+- 行为绑定
 
 # 开发文档
 

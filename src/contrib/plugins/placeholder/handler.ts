@@ -6,28 +6,28 @@ import {
   RangedEventContext,
   dispatchKeyEvent,
 } from "@/system/handler";
-import { Dragable } from "./plugin";
+import { Placeholder } from "./plugin";
 import { BlockMove, BlocksMove } from "@/contrib/commands/block";
 import { createRange, setLocation, setRange } from "@/system/range";
 import { BlockActiveEvent, BlockUpdateEvent } from "@/system/pageevent";
 
-export class DragablePluginHandler
-  extends Handler
-  implements FineHandlerMethods
-{
+export class PlaceholaderHandler extends Handler implements FineHandlerMethods {
   handleBlockUpdated(e: BlockUpdateEvent, context: any): boolean | void {
     const { page, block } = e;
-    const plugin = page.getPlugin<Dragable>("dragable");
+    const plugin = page.getPlugin<Placeholder>("dragable");
     if (block === plugin.current) {
       plugin.span(block);
     }
   }
+
   handleBlockActivated(e: BlockActiveEvent, context: any): boolean | void {
     const { page, block } = e;
-    const plugin = page.getPlugin<Dragable>("dragable");
+    const plugin = page.getPlugin<Placeholder>("dragable");
     plugin.span(block, true);
   }
+
   handleKeyPress(e: KeyboardEvent, context: EventContext): boolean | void {}
+
   handleKeyDown(e: KeyboardEvent, context: RangedEventContext): boolean | void {
     return dispatchKeyEvent(this, e, context);
   }
@@ -40,7 +40,7 @@ export class DragablePluginHandler
     console.log(e);
     const { page, block, endBlock } = context;
     if (!endBlock) {
-      const plugin = page.getPlugin<Dragable>("dragable");
+      const plugin = page.getPlugin<Placeholder>("dragable");
       plugin.span(block);
     }
   }
@@ -128,7 +128,7 @@ export class DragablePluginHandler
   ): boolean | void {
     const { page, block, endBlock } = context;
     if (!endBlock) {
-      const plugin = page.getPlugin<Dragable>("dragable");
+      const plugin = page.getPlugin<Placeholder>("dragable");
       plugin.span(block);
     }
   }

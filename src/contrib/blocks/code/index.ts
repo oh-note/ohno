@@ -7,6 +7,7 @@ export * from "./block";
 
 export function CodeBlock(): BlockComponent {
   return {
+    name: "code",
     blockType: Code,
     handlers: {
       blocks: { code: new CodeHandler() },
