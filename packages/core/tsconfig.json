@@ -17,7 +17,18 @@
     "noUnusedParameters": true,
     "noImplicitReturns": true,
     "skipLibCheck": true,
-    
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ],
+      "virtual:reload-on-update-in-background-script": [
+        "./src/global.d.ts"
+      ],
+      "virtual:reload-on-update-in-view": [
+        "./src/global.d.ts"
+      ]
+    }
   },
-  "include": ["packages/**/*"]
+  "include": ["src"]
 }
