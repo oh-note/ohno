@@ -1,5 +1,5 @@
-import { createElement } from "@/helper/document";
-import { IComponent, IContainer, IPlugin } from "@/system/base";
+import { createElement } from "@ohno-editor/core/helper/document";
+import { IComponent, IContainer, IPlugin } from "@ohno-editor/core/system/base";
 
 export class Example implements IPlugin {
   root: HTMLElement;

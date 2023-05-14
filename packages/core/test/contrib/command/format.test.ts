@@ -1,12 +1,22 @@
 import { describe, expect, test } from "vitest";
 
-import { createElement, getDefaultRange } from "@/helper/document";
+import {
+  createElement,
+  getDefaultRange,
+} from "@ohno-editor/core/helper/document";
 
-import { Page } from "@/system/page";
+import { Page } from "@ohno-editor/core/system/page";
 import { FormatText } from "../../../src/contrib/commands/format";
-import { addMarkdownHint, removeMarkdownHint } from "@/helper/markdown";
-import { normalizeRange, setRange } from "@/system/range";
-import { ValidNode, innerHTML, outerHTML } from "@/helper/element";
+import {
+  addMarkdownHint,
+  removeMarkdownHint,
+} from "@ohno-editor/core/helper/markdown";
+import { normalizeRange, setRange } from "@ohno-editor/core/system/range";
+import {
+  ValidNode,
+  innerHTML,
+  outerHTML,
+} from "@ohno-editor/core/helper/element";
 
 function makeFakePage() {
   const page = new Page();

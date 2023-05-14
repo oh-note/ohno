@@ -1,8 +1,9 @@
-import { PluginComponent } from "@/system/page";
+import { PluginComponent } from "@ohno-editor/core/system/page";
 // import {} from "./handler";
 import { Example } from "./plugin";
 import { ExamplePluginHandler } from "./handler";
 
+export { Example, ExamplePluginHandler };
 export function ExamplePlugin(): PluginComponent {
   const manager = new Example();
   return {

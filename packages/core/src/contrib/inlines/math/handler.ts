@@ -7,13 +7,13 @@ import {
   dispatchKeyEvent,
   InlineHandler,
   InlineEventContext,
-} from "@/system/handler";
+} from "@ohno-editor/core/system/handler";
 import { KatexMath } from "./inline";
-import { getPrevLocation } from "@/system/range";
-import { NodeInsert } from "@/contrib/commands/html";
-import { ListCommandBuilder } from "@/contrib/commands/concat";
-import { InlineSupport } from "@/contrib/plugins/inlineSupport/plugin";
-import { TextDelete } from "@/contrib/commands";
+import { getPrevLocation } from "@ohno-editor/core/system/range";
+import { NodeInsert } from "@ohno-editor/core/contrib/commands/html";
+import { ListCommandBuilder } from "@ohno-editor/core/contrib/commands/concat";
+import { InlineSupport } from "@ohno-editor/core/contrib/plugins/inlineSupport/plugin";
+import { TextDelete } from "@ohno-editor/core/contrib/commands";
 
 export class InlineMathHandler implements InlineHandler {
   handleMouseDown(e: MouseEvent, context: InlineEventContext): boolean | void {

@@ -3,9 +3,13 @@ import {
   createTextNode,
   innerHTMLToNodeList,
   makeInlineBlock,
-} from "@/helper/document";
-import { ValidNode, getTagName, outerHTML } from "@/helper/element";
-import { addMarkdownHint } from "@/helper/markdown";
+} from "@ohno-editor/core/helper/document";
+import {
+  ValidNode,
+  getTagName,
+  outerHTML,
+} from "@ohno-editor/core/helper/element";
+import { addMarkdownHint } from "@ohno-editor/core/helper/markdown";
 import {
   intervalToRange,
   getTokenSize,
@@ -15,7 +19,7 @@ import {
   offsetAfter,
   locationToBias,
   biasToLocation,
-} from "@/system/position";
+} from "@ohno-editor/core/system/position";
 import { describe, expect, test } from "vitest";
 import katex from "katex";
 import {
@@ -23,7 +27,7 @@ import {
   getNextLocation,
   getPrevLocation,
   setRange,
-} from "@/system/range";
+} from "@ohno-editor/core/system/range";
 
 function tryThis(p: ValidNode) {
   const size = getTokenSize(p);

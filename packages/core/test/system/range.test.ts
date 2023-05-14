@@ -3,9 +3,9 @@ import {
   createElement,
   getDefaultRange,
   innerHTMLToNodeList,
-} from "@/helper/document";
-import { getTagName, outerHTML } from "@/helper/element";
-import { addMarkdownHint } from "@/helper/markdown";
+} from "@ohno-editor/core/helper/document";
+import { getTagName, outerHTML } from "@ohno-editor/core/helper/element";
+import { addMarkdownHint } from "@ohno-editor/core/helper/markdown";
 import {
   createRange,
   getNextLocation,
@@ -13,8 +13,8 @@ import {
   getPrevLocation,
   setRange,
   tryGetBoundsRichNode,
-} from "@/system/range";
-import { intervalToRange, setOffset } from "@/system/position";
+} from "@ohno-editor/core/system/range";
+import { intervalToRange, setOffset } from "@ohno-editor/core/system/position";
 
 describe("range.ts", () => {
   test("getNextOffset/getPrefOffset", () => {

@@ -1,5 +1,5 @@
 // Instruction system interface + history record
-import { LinkedList } from "@/struct/linkedlist";
+import { LinkedList } from "@ohno-editor/core/struct/linkedlist";
 import { AnyBlock } from "./block";
 import { Page } from "./page";
 

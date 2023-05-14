@@ -1,20 +1,26 @@
-import { getDefaultRange, tryGetDefaultRange } from "@/helper/document";
+import {
+  getDefaultRange,
+  tryGetDefaultRange,
+} from "@ohno-editor/core/helper/document";
 import {
   EventContext,
   Handler,
   FineHandlerMethods,
   RangedEventContext,
   dispatchKeyEvent,
-} from "@/system/handler";
-import { BlockCreate, BlockReplace } from "@/contrib/commands/block";
-import { containHTMLElement } from "@/helper/element";
+} from "@ohno-editor/core/system/handler";
+import {
+  BlockCreate,
+  BlockReplace,
+} from "@ohno-editor/core/contrib/commands/block";
+import { containHTMLElement } from "@ohno-editor/core/helper/element";
 import {
   Paragraph,
   prepareDeleteCommand,
   prepareEnterCommand,
 } from "../paragraph";
 import { Blockquote } from "./block";
-
+import "./style.css";
 export class BlockQuoteHandler extends Handler implements FineHandlerMethods {
   handleKeyPress(e: KeyboardEvent, context: EventContext): boolean | void {}
   handleKeyDown(e: KeyboardEvent, context: RangedEventContext): boolean | void {

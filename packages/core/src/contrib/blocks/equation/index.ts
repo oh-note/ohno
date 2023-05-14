@@ -1,10 +1,8 @@
-import { BlockComponent, HandlerEntry } from "@/system/page";
+import { BlockComponent, HandlerEntry } from "@ohno-editor/core/system/page";
 import { Equation } from "./block";
 import { EquationHandler } from "./handler";
 
-export * from "./handler";
-export * from "./block";
-
+export { Equation, EquationHandler };
 export function EquationBlock(): BlockComponent {
   return {
     name: "equation",

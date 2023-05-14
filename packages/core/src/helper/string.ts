@@ -17,7 +17,7 @@ export function findCharAfterPosition(
 }
 
 export function createOrderString(prev: string = "", next: string = "") {
-  var p = 0,
+  let p = 0,
     n = 0,
     pos,
     str;

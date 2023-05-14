@@ -1,9 +1,10 @@
 {
-  "name": "@ohno/core",
+  "name": "@ohno-editor/core",
   "author": {
     "name": "haozhe",
     "email": "sailist@outlook.com"
   },
+  "main": "src/index.ts",
   "private": true,
   "version": "0.0.0",
   "type": "module",

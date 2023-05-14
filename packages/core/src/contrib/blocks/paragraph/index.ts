@@ -1,12 +1,10 @@
-import { BlockComponent, HandlerEntry } from "@/system/page";
+import { BlockComponent, HandlerEntry } from "@ohno-editor/core/system/page";
 import { ParagraphHandler } from "./handler";
 import { Paragraph } from "./block";
-import { SlashMenu } from "@/contrib/plugins/slashmenu/plugin";
-import { BlockCreate } from "@/contrib/commands/block";
-
-export * from "./handler";
-export * from "./block";
-
+import { SlashMenu } from "@ohno-editor/core/contrib/plugins/slashmenu/plugin";
+import { BlockCreate } from "@ohno-editor/core/contrib/commands/block";
+export { prepareDeleteCommand, prepareEnterCommand } from "./handler";
+export { Paragraph, ParagraphHandler };
 export function ParagraphBlock(): BlockComponent {
   return {
     name: "paragraph",

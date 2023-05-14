@@ -1,26 +1,36 @@
-import { HTMLElementTagName } from "@/helper/document";
-import { createElement } from "@/helper/document";
-import { ValidNode, getTagName, outerHTML } from "@/helper/element";
-import { parentElementWithTag, validChildNodes } from "@/helper/element";
-import { addMarkdownHint } from "@/helper/markdown";
-import { elementOffset, intervalToRange } from "@/system/position";
-import { AnyBlock } from "@/system/block";
-import { Command } from "@/system/history";
-import { Page } from "@/system/page";
+import { HTMLElementTagName } from "@ohno-editor/core/helper/document";
+import { createElement } from "@ohno-editor/core/helper/document";
+import {
+  ValidNode,
+  getTagName,
+  outerHTML,
+} from "@ohno-editor/core/helper/element";
+import {
+  parentElementWithTag,
+  validChildNodes,
+} from "@ohno-editor/core/helper/element";
+import { addMarkdownHint } from "@ohno-editor/core/helper/markdown";
+import {
+  elementOffset,
+  intervalToRange,
+} from "@ohno-editor/core/system/position";
+import { AnyBlock } from "@ohno-editor/core/system/block";
+import { Command } from "@ohno-editor/core/system/history";
+import { Page } from "@ohno-editor/core/system/page";
 import {
   createRange,
   getValidAdjacent,
   nodesOfRange,
   normalizeRange,
   setRange,
-} from "@/system/range";
+} from "@ohno-editor/core/system/range";
 import {
   addFormat,
   FormatOp,
   getFormatStatus,
   removeFormat,
-} from "@/system/format";
-import { EditableInterval, Interval } from "@/system/base";
+} from "@ohno-editor/core/system/format";
+import { EditableInterval, Interval } from "@ohno-editor/core/system/base";
 
 export interface FormatPayload {
   page: Page;

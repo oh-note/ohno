@@ -5,7 +5,10 @@
  * 3. 只处理 range 和 offset 之间的转换，不改变任何元素
  */
 
-import { createTextNode, getDefaultRange } from "@/helper/document";
+import {
+  createTextNode,
+  getDefaultRange,
+} from "@ohno-editor/core/helper/document";
 import {
   ElementFilter,
   ValidNode,
@@ -21,7 +24,7 @@ import {
   nextValidSibling,
   outerHTML,
   prevValidSibling,
-} from "@/helper/element";
+} from "@ohno-editor/core/helper/element";
 import { getValidAdjacent, setRange, validateLocation } from "./range";
 import { Interval } from "./base";
 

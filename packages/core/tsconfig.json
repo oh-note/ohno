@@ -4,10 +4,7 @@
     "target": "ESNext",
     "useDefineForClassFields": true,
     "module": "ESNext",
-    "lib": [
-      "ESNext",
-      "DOM"
-    ],
+    "lib": ["ESNext", "DOM"],
     "moduleResolution": "Node",
     "strict": true,
     "resolveJsonModule": true,
@@ -19,15 +16,10 @@
     "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "./src/*"
-      ],
-      "virtual:reload-on-update-in-background-script": [
-        "./src/global.d.ts"
-      ],
-      "virtual:reload-on-update-in-view": [
-        "./src/global.d.ts"
-      ]
+      "@ohno-editor/core/*": ["./src/*"],
+      "@ohno-editor/core/*": ["./src/*"],
+      "virtual:reload-on-update-in-background-script": ["./src/global.d.ts"],
+      "virtual:reload-on-update-in-view": ["./src/global.d.ts"]
     }
   },
   "include": ["src"]

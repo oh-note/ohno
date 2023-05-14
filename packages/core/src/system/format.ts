@@ -3,7 +3,7 @@ import {
   ElementTagName,
   HTMLElementTagName,
   createElement,
-} from "@/helper/document";
+} from "@ohno-editor/core/helper/document";
 import { elementOffset, intervalToRange } from "./position";
 import {
   ValidNode,
@@ -11,9 +11,9 @@ import {
   outerHTML,
   parentElementWithTag,
   validChildNodes,
-} from "@/helper/element";
+} from "@ohno-editor/core/helper/element";
 import { nodesOfRange, normalizeRange } from "./range";
-import { addMarkdownHint } from "@/helper/markdown";
+import { addMarkdownHint } from "@ohno-editor/core/helper/markdown";
 import { Interval } from "./base";
 
 export const formatTags: { [key in InputType]?: HTMLElementTagName } = {

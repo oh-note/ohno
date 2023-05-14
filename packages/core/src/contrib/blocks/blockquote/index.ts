@@ -1,9 +1,8 @@
-import { BlockComponent } from "@/system/page";
+import { BlockComponent } from "@ohno-editor/core/system/page";
 import { BlockQuoteHandler } from "./handler";
 import { Blockquote } from "./block";
 
-export * from "./handler";
-export * from "./block";
+export { BlockQuoteHandler, Blockquote };
 
 export function BlockQuoteBlock(): BlockComponent {
   return {

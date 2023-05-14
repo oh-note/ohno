@@ -1,21 +1,27 @@
-import { getDefaultRange } from "@/helper/document";
+import { getDefaultRange } from "@ohno-editor/core/helper/document";
 import {
   EventContext,
   Handler,
   FineHandlerMethods,
   RangedEventContext,
   dispatchKeyEvent,
-} from "@/system/handler";
-import { FIRST_POSITION, intervalToRange } from "@/system/position";
-import { BlockCreate, BlockReplace } from "@/contrib/commands/block";
-import { containHTMLElement } from "@/helper/element";
+} from "@ohno-editor/core/system/handler";
+import {
+  FIRST_POSITION,
+  intervalToRange,
+} from "@ohno-editor/core/system/position";
+import {
+  BlockCreate,
+  BlockReplace,
+} from "@ohno-editor/core/contrib/commands/block";
+import { containHTMLElement } from "@ohno-editor/core/helper/element";
 import {
   Paragraph,
   prepareDeleteCommand,
   prepareEnterCommand,
 } from "../paragraph";
 import { Headings } from "./block";
-import { createRange } from "@/system/range";
+import { createRange } from "@ohno-editor/core/system/range";
 
 export class HeadingsHandler extends Handler implements FineHandlerMethods {
   name: string = "headings";

@@ -3,11 +3,15 @@ import {
   elementOffset,
   intervalToRange,
   setOffset,
-} from "@/system/position";
-import { AnyBlock } from "@/system/block";
-import { Command, CommandBuffer, CommandCallback } from "@/system/history";
-import { Page } from "@/system/page";
-import { createRange, setRange } from "@/system/range";
+} from "@ohno-editor/core/system/position";
+import { AnyBlock } from "@ohno-editor/core/system/block";
+import {
+  Command,
+  CommandBuffer,
+  CommandCallback,
+} from "@ohno-editor/core/system/history";
+import { Page } from "@ohno-editor/core/system/page";
+import { createRange, setRange } from "@ohno-editor/core/system/range";
 
 export interface IBlockRemovePayload {
   page: Page;

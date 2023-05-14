@@ -1,7 +1,10 @@
 // 分为格式按钮（B，I，Code）和功能按钮（插入 Block）
-import { createElement, createTextNode } from "@/helper/document";
-import { IComponent, IContainer, IPlugin } from "@/system/base";
-import { AnyBlock } from "@/system/block";
+import {
+  createElement,
+  createTextNode,
+} from "@ohno-editor/core/helper/document";
+import { IComponent, IContainer, IPlugin } from "@ohno-editor/core/system/base";
+import { AnyBlock } from "@ohno-editor/core/system/block";
 import { computePosition } from "@floating-ui/dom";
 
 export interface Option {

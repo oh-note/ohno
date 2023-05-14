@@ -4,12 +4,12 @@ import {
   InlineHandler,
   InlineEventContext,
   EventContext,
-} from "@/system/handler";
+} from "@ohno-editor/core/system/handler";
 import { BackLink } from "./inline";
-import { NodeInsert } from "@/contrib/commands/html";
-import { ListCommandBuilder } from "@/contrib/commands/concat";
-import { InlineSupport } from "@/contrib/plugins/inlineSupport/plugin";
-import { TextDelete } from "@/contrib/commands";
+import { NodeInsert } from "@ohno-editor/core/contrib/commands/html";
+import { ListCommandBuilder } from "@ohno-editor/core/contrib/commands/concat";
+import { InlineSupport } from "@ohno-editor/core/contrib/plugins/inlineSupport/plugin";
+import { TextDelete } from "@ohno-editor/core/contrib/commands";
 import {
   getNextLocation,
   getPrevLocation,
@@ -17,10 +17,13 @@ import {
   normalizeRange,
   setLocation,
   setRange,
-} from "@/system/range";
-import { biasToLocation } from "@/system/position";
-import { defaultHandleBeforeInput } from "@/core/default/beforeInput";
-import { isHintLeft, parentElementWithTag } from "@/helper/element";
+} from "@ohno-editor/core/system/range";
+import { biasToLocation } from "@ohno-editor/core/system/position";
+import { defaultHandleBeforeInput } from "@ohno-editor/core/core/default/beforeInput";
+import {
+  isHintLeft,
+  parentElementWithTag,
+} from "@ohno-editor/core/helper/element";
 
 export class BackLinkHandler implements InlineHandler {
   handleMouseUp(e: MouseEvent, context: InlineEventContext): boolean | void {

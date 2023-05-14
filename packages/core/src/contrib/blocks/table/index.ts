@@ -1,9 +1,9 @@
-import { BlockComponent, HandlerEntry } from "@/system/page";
+import { BlockComponent, HandlerEntry } from "@ohno-editor/core/system/page";
 import { Table } from "./block";
 import { TableHandler } from "./handler";
 
-export * from "./handler";
-export * from "./block";
+export { TableChange } from "./command";
+export { Table, TableHandler };
 
 export function TableBlock(): BlockComponent {
   return {

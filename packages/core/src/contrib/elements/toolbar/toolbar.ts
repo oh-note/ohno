@@ -1,4 +1,4 @@
-import { createElement } from "@/helper/document";
+import { createElement } from "@ohno-editor/core/helper/document";
 
 export interface DropdownButton {
   tips: string;

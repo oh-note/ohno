@@ -4,8 +4,12 @@ import {
   FineHandlerMethods,
   RangedEventContext,
   dispatchKeyEvent,
-} from "@/system/handler";
-import { createRange, setLocation, setRange } from "@/system/range";
+} from "@ohno-editor/core/system/handler";
+import {
+  createRange,
+  setLocation,
+  setRange,
+} from "@ohno-editor/core/system/range";
 import { Table } from "./block";
 import { TableChange, TableChangePayload } from "./command";
 

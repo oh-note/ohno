@@ -1,17 +1,13 @@
 import {
   EventContext,
   Handler,
-  HandlerMethods,
   FineHandlerMethods,
-  MultiBlockEventContext,
   RangedEventContext,
   dispatchKeyEvent,
-} from "@/system/handler";
+} from "@ohno-editor/core/system/handler";
 import { InlineSupport } from "./plugin";
-import { BlockCreate, BlockMove, BlocksMove } from "@/contrib/commands/block";
-import { createRange, setLocation, setRange } from "@/system/range";
-import { InlineRangedEventContext } from "@/system/handler";
-import { getTagName } from "@/helper/element";
+import { InlineRangedEventContext } from "@ohno-editor/core/system/handler";
+import { getTagName } from "@ohno-editor/core/helper/element";
 
 export class InlineSupportPluginHandler
   extends Handler

@@ -1,9 +1,12 @@
-import { createElement, createTextNode } from "@/helper/document";
-import { outerHTML } from "@/helper/element";
-import { BlockSerializedData } from "@/system/base";
-import { Block, BlockInit } from "@/system/block";
-import { Offset } from "@/system/position";
-import { clipRange } from "@/system/range";
+import {
+  createElement,
+  createTextNode,
+} from "@ohno-editor/core/helper/document";
+import { outerHTML } from "@ohno-editor/core/helper/element";
+import { BlockSerializedData } from "@ohno-editor/core/system/base";
+import { Block, BlockInit } from "@ohno-editor/core/system/block";
+import { Offset } from "@ohno-editor/core/system/position";
+import { clipRange } from "@ohno-editor/core/system/range";
 import hljs from "highlight.js";
 import "highlight.js/styles/github.css";
 import "./style.css";

@@ -1,13 +1,19 @@
 import { describe, expect, test } from "vitest";
 
-import { createElement, getDefaultRange } from "@/helper/document";
+import {
+  createElement,
+  getDefaultRange,
+} from "@ohno-editor/core/helper/document";
 
-import { TextDeleteSelection } from "@/contrib/commands/text";
-import { Page } from "@/system/page";
-import { addMarkdownHint } from "@/helper/markdown";
-import { intervalToRange, rangeToInterval } from "@/system/position";
-import { setRange } from "@/system/range";
-import { TextInsert } from "@/contrib/commands";
+import { TextDeleteSelection } from "@ohno-editor/core/contrib/commands/text";
+import { Page } from "@ohno-editor/core/system/page";
+import { addMarkdownHint } from "@ohno-editor/core/helper/markdown";
+import {
+  intervalToRange,
+  rangeToInterval,
+} from "@ohno-editor/core/system/position";
+import { setRange } from "@ohno-editor/core/system/range";
+import { TextInsert } from "@ohno-editor/core/contrib/commands";
 
 function makeFakePage() {
   const page = new Page();

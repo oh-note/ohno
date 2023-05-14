@@ -1,12 +1,10 @@
-import { BlockComponent } from "@/system/page";
+import { BlockComponent } from "@ohno-editor/core/system/page";
 import { HeadingLevel, Headings } from "./block";
 import { HeadingsHandler } from "./handler";
-import { SlashMenu } from "@/contrib/plugins/slashmenu/plugin";
-import { BlockCreate } from "@/contrib/commands/block";
+import { SlashMenu } from "@ohno-editor/core/contrib/plugins/slashmenu/plugin";
+import { BlockCreate } from "@ohno-editor/core/contrib/commands/block";
 
-export * from "./handler";
-export * from "./block";
-
+export { Headings, HeadingsHandler };
 export function HeadingsBlock(): BlockComponent {
   return {
     name: "headings",

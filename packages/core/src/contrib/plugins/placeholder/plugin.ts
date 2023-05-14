@@ -1,6 +1,6 @@
-import { createElement } from "@/helper/document";
-import { IComponent, IContainer, IPlugin } from "@/system/base";
-import { AnyBlock } from "@/system/block";
+import { createElement } from "@ohno-editor/core/helper/document";
+import { IComponent, IContainer, IPlugin } from "@ohno-editor/core/system/base";
+import { AnyBlock } from "@ohno-editor/core/system/block";
 import { computePosition } from "@floating-ui/dom";
 import "./style.css";
 

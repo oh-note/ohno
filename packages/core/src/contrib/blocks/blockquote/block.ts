@@ -1,7 +1,7 @@
-import { createElement } from "@/helper/document";
-import { BlockSerializedData } from "@/system/base";
-import { Block, BlockInit } from "@/system/block";
-import { clipRange } from "@/system/range";
+import { createElement } from "@ohno-editor/core/helper/document";
+import { BlockSerializedData } from "@ohno-editor/core/system/base";
+import { Block, BlockInit } from "@ohno-editor/core/system/block";
+import { clipRange } from "@ohno-editor/core/system/range";
 
 export interface BlockQuoteInit extends BlockInit {
   innerHTML?: string;

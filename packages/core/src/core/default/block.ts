@@ -8,7 +8,7 @@ import {
   FineHandlerMethods,
   RangedEventContext,
   dispatchKeyEvent,
-} from "@/system/handler";
+} from "@ohno-editor/core/system/handler";
 import { defaultHandleArrowDown } from "./arrowDown";
 import {
   getSoftLineHead,
@@ -17,14 +17,20 @@ import {
   setLocation,
   getValidAdjacent,
   clipRange,
-} from "@/system/range";
+} from "@ohno-editor/core/system/range";
 import { defaultHandleBeforeInput } from "./beforeInput";
-import { getTokenSize } from "@/system/position";
-import { isParent, parentElementWithTag } from "@/helper/element";
-import { Paragraph } from "@/contrib/blocks";
-import { BlockCreate, BlocksCreate } from "@/contrib/commands/block";
-import { OhNoClipboardData } from "@/system/base";
-import { ListCommandBuilder } from "@/contrib/commands/concat";
+import { getTokenSize } from "@ohno-editor/core/system/position";
+import {
+  isParent,
+  parentElementWithTag,
+} from "@ohno-editor/core/helper/element";
+import { Paragraph } from "@ohno-editor/core/contrib/blocks";
+import {
+  BlockCreate,
+  BlocksCreate,
+} from "@ohno-editor/core/contrib/commands/block";
+import { OhNoClipboardData } from "@ohno-editor/core/system/base";
+import { ListCommandBuilder } from "@ohno-editor/core/contrib/commands/concat";
 import { defaultHandlePaste } from "./paste";
 
 export class DefaultBlockHandler extends Handler implements FineHandlerMethods {

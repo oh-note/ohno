@@ -1,22 +1,23 @@
-import { Command, CommandBuffer, CommandCallback } from "@/system/history";
-import { Page } from "@/system/page";
-import { setLocation } from "@/system/range";
-import { AnyBlock } from "@/system/block";
-import { Order } from "@/system/base";
+import {
+  Command,
+  CommandBuffer,
+  CommandCallback,
+} from "@ohno-editor/core/system/history";
+import { Page } from "@ohno-editor/core/system/page";
+import { setLocation } from "@ohno-editor/core/system/range";
+import { AnyBlock } from "@ohno-editor/core/system/block";
+import { BlockQuery, Order } from "@ohno-editor/core/system/base";
 
 export interface BlockCreatePayload {
   page: Page;
   block: AnyBlock;
   newBlock: AnyBlock;
   where: "after" | "tail" | "head" | "before";
-
-  // offset?: Offset;
-  // newOffset?: Offset;
 }
 
 export interface BlockRemovePayload {
   page: Page;
-  block: AnyBlock;
+  block: BlockQuery;
 }
 export interface BlocksRemovePayload {
   page: Page;
@@ -91,18 +92,23 @@ export class BlocksRemove extends Command<BlocksRemovePayload> {
 export class BlockRemove extends Command<BlockRemovePayload> {
   declare buffer: {
     order: Order;
+    block: AnyBlock;
     nextBlock: AnyBlock | null;
   };
   execute(): void {
-    const { page, block } = this.payload;
+    const { page, block: query } = this.payload;
+    const block = page.query(query)!;
     this.buffer = {
+      block,
       order: block.order,
       nextBlock: page.getNextBlock(block),
     };
     page.removeBlock(block.order);
   }
   undo(): void {
-    const { page, block } = this.payload;
+    const { page } = this.payload;
+    const { block } = this.buffer;
+
     block.setOrder(this.buffer.order);
     if (this.buffer.nextBlock) {
       page.insertBlockAdjacent(block, "before", this.buffer.nextBlock);
