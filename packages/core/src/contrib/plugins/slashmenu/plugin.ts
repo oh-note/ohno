@@ -1,15 +1,18 @@
-import { TextDelete } from "@/contrib/commands";
-import { ListCommandBuilder } from "@/contrib/commands/concat";
-import { createElement } from "@/helper/document";
-import { parentElementWithFilter } from "@/helper/element";
-import { IComponent, IContainer, IPlugin } from "@/system/base";
-import { AnyBlock } from "@/system/block";
-import { EventContext, RangedEventContext } from "@/system/handler";
-import { Command } from "@/system/history";
-import { Page } from "@/system/page";
+import { TextDelete } from "@ohno-editor/core/contrib/commands";
+import { ListCommandBuilder } from "@ohno-editor/core/contrib/commands/concat";
+import { createElement } from "@ohno-editor/core/helper/document";
+import { parentElementWithFilter } from "@ohno-editor/core/helper/element";
+import { IComponent, IContainer, IPlugin } from "@ohno-editor/core/system/base";
+import { AnyBlock } from "@ohno-editor/core/system/block";
+import {
+  EventContext,
+  RangedEventContext,
+} from "@ohno-editor/core/system/handler";
+import { Command } from "@ohno-editor/core/system/history";
+import { Page } from "@ohno-editor/core/system/page";
 import { computePosition } from "@floating-ui/dom";
 import "./style.css";
-import { RangeElement } from "@/system/inline";
+import { RangeElement } from "@ohno-editor/core/system/inline";
 
 const CLASS_OPTION = "oh-is-option";
 const CLASS_PLUGIN = "oh-is-slashmenu";

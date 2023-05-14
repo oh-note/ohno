@@ -1,5 +1,5 @@
 // 实现 block 的基本接口和默认行为
-import { addMarkdownHint } from "@/helper/markdown";
+import { addMarkdownHint } from "@ohno-editor/core/helper/markdown";
 import {
   biasToLocation,
   locationToBias,
@@ -27,7 +27,7 @@ import {
   ValidNode,
   isParent,
   outerHTML,
-} from "@/helper/element";
+} from "@ohno-editor/core/helper/element";
 import { getNextLocation } from "./range";
 import { getPrevWordLocation } from "./range";
 import {

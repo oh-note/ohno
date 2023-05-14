@@ -1,22 +1,29 @@
-import { RichTextDelete, TextInsert } from "@/contrib/commands/text";
+import {
+  RichTextDelete,
+  TextInsert,
+} from "@ohno-editor/core/contrib/commands/text";
 import {
   UNIQUE_SPACE,
   createFlagNode,
   splitUniqueSpace,
-} from "@/helper/document";
+} from "@ohno-editor/core/helper/document";
 import {
   isHintHTMLElement,
   isHintLeft,
   parentElementWithTag,
-} from "@/helper/element";
-import { EventContext, Handler, RangedEventContext } from "@/system/handler";
-import { tokenBetweenRange } from "@/system/position";
+} from "@ohno-editor/core/helper/element";
+import {
+  EventContext,
+  Handler,
+  RangedEventContext,
+} from "@ohno-editor/core/system/handler";
+import { tokenBetweenRange } from "@ohno-editor/core/system/position";
 import {
   createRange,
   setLocation,
   setRange,
   validateRange,
-} from "@/system/range";
+} from "@ohno-editor/core/system/range";
 
 export class CompositionHandler extends Handler {
   handleKeyDown(e: KeyboardEvent, context: EventContext): boolean | void {

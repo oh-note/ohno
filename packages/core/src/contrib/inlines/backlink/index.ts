@@ -1,8 +1,9 @@
-import { InlineComponent } from "@/system/page";
+import { InlineComponent } from "@ohno-editor/core/system/page";
 import { BackLinkHandler } from "./handler";
 import { BackLink, BackLinkInit, BackLinkOption } from "./inline";
-import { InlineSupport } from "@/contrib/plugins/inlineSupport/plugin";
+import { InlineSupport } from "@ohno-editor/core/contrib/plugins/inlineSupport/plugin";
 
+export { BackLink, BackLinkHandler };
 export function BackLinkInline(init: BackLinkInit): InlineComponent {
   const instance = new BackLink(init);
   const handler = new BackLinkHandler();

@@ -5,7 +5,7 @@ import {
   FineHandlerMethods,
   RangedEventContext,
   dispatchKeyEvent,
-} from "@/system/handler";
+} from "@ohno-editor/core/system/handler";
 
 export class ExamplePluginHandler
   extends Handler

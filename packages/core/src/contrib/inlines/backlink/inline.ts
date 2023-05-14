@@ -1,18 +1,24 @@
-import { createElement } from "@/helper/document";
-import { EventContext } from "@/system/handler";
-import { InlineBase } from "@/system/inline";
-import { biasToLocation } from "@/system/position";
+import { createElement } from "@ohno-editor/core/helper/document";
+import { EventContext } from "@ohno-editor/core/system/handler";
+import { InlineBase } from "@ohno-editor/core/system/inline";
+import { biasToLocation } from "@ohno-editor/core/system/position";
 import {
   createRange,
   getValidAdjacent,
   setLocation,
   setRange,
-} from "@/system/range";
+} from "@ohno-editor/core/system/range";
 import { computePosition } from "@floating-ui/dom";
-import { InlineSubmit } from "@/contrib/commands/inlineblock";
-import { addMarkdownHint, removeMarkdownHint } from "@/helper/markdown";
+import { InlineSubmit } from "@ohno-editor/core/contrib/commands/inlineblock";
+import {
+  addMarkdownHint,
+  removeMarkdownHint,
+} from "@ohno-editor/core/helper/markdown";
 import "./style.css";
-import { getTagName, parentElementWithFilter } from "@/helper/element";
+import {
+  getTagName,
+  parentElementWithFilter,
+} from "@ohno-editor/core/helper/element";
 
 export interface BackLinkOption {
   cite: string;

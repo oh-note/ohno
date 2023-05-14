@@ -1,6 +1,9 @@
-import { createElement } from "@/helper/document";
-import { isParent, parentElementWithTag } from "@/helper/element";
-import { EventContext, Handler } from "@/system/handler";
+import { createElement } from "@ohno-editor/core/helper/document";
+import {
+  isParent,
+  parentElementWithTag,
+} from "@ohno-editor/core/helper/element";
+import { EventContext, Handler } from "@ohno-editor/core/system/handler";
 
 export class InlineTest extends Handler {
   el: HTMLElement;

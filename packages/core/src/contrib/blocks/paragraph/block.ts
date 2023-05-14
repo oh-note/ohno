@@ -1,6 +1,6 @@
-import { createElement } from "@/helper/document";
-import { BlockSerializedData } from "@/system/base";
-import { Block, BlockInit } from "@/system/block";
+import { createElement } from "@ohno-editor/core/helper/document";
+import { BlockSerializedData } from "@ohno-editor/core/system/base";
+import { Block, BlockInit } from "@ohno-editor/core/system/block";
 
 export interface ParagraphInit extends BlockInit {
   innerHTML?: string;

@@ -4,7 +4,7 @@ import {
   FineHandlerMethods,
   RangedEventContext,
   dispatchKeyEvent,
-} from "@/system/handler";
+} from "@ohno-editor/core/system/handler";
 import { Toolbar } from "./plugin";
 
 export class ToolbarPluginHandler

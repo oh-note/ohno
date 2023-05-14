@@ -2,9 +2,12 @@ import {
   createElement,
   getDefaultRange,
   makeInlineBlock,
-} from "@/helper/document";
-import { indexOfNode, parentElementWithTag } from "@/helper/element";
-import { Block, BlockInit } from "@/system/block";
+} from "@ohno-editor/core/helper/document";
+import {
+  indexOfNode,
+  parentElementWithTag,
+} from "@ohno-editor/core/helper/element";
+import { Block, BlockInit } from "@ohno-editor/core/system/block";
 
 export interface FigureInit extends BlockInit {
   src: string;

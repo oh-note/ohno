@@ -6,11 +6,14 @@ import {
   MultiBlockEventContext,
   RangedEventContext,
 } from "./handler";
-import { createOrderString } from "@/helper/string";
-import { DictNode, LinkedDict } from "@/struct/linkeddict";
+import { createOrderString } from "@ohno-editor/core/helper/string";
+import { DictNode, LinkedDict } from "@ohno-editor/core/struct/linkeddict";
 import { AnyBlock, BlockInit } from "./block";
 import { ROOT_CLASS } from "./config";
-import { createElement, getDefaultRange } from "@/helper/document";
+import {
+  createElement,
+  getDefaultRange,
+} from "@ohno-editor/core/helper/document";
 import {
   BlockQuery,
   IComponent,
@@ -21,7 +24,7 @@ import {
   InlineSerializer,
 } from "./base";
 import { History, Command } from "./history";
-import { Paragraph } from "@/contrib/blocks";
+import { Paragraph } from "@ohno-editor/core/contrib/blocks";
 import {
   BlockActiveEvent,
   BlockDeActiveEvent,
@@ -29,7 +32,7 @@ import {
   PageEvent,
 } from "./pageevent";
 import { RefLocation, setLocation } from "./range";
-import { throttle } from "@/helper/lodash";
+import { throttle } from "@ohno-editor/core/helper/lodash";
 
 export class PageHandler {
   pluginHandlers: Handler[] = [];

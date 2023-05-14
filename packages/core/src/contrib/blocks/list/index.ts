@@ -1,9 +1,8 @@
-import { BlockComponent, HandlerEntry } from "@/system/page";
-import { List } from "./block";
+import { BlockComponent, HandlerEntry } from "@ohno-editor/core/system/page";
+import { List, ABCList } from "./block";
 import { ListHandler } from "./handler";
 
-export * from "./handler";
-export * from "./block";
+export { List, ListHandler, ABCList };
 
 export function ListBlock(): BlockComponent {
   return {

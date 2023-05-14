@@ -4,19 +4,23 @@ import {
   elementOffset,
   getTokenSize,
   intervalToRange,
-} from "@/system/position";
-import { AnyBlock } from "@/system/block";
-import { Command, CommandBuffer, Payload } from "@/system/history";
-import { Page } from "@/system/page";
-import { nodesOfRange, setRange } from "@/system/range";
-import { addMarkdownHint } from "@/helper/markdown";
-import { ValidNode, calcDepths } from "@/helper/element";
+} from "@ohno-editor/core/system/position";
+import { AnyBlock } from "@ohno-editor/core/system/block";
+import {
+  Command,
+  CommandBuffer,
+  Payload,
+} from "@ohno-editor/core/system/history";
+import { Page } from "@ohno-editor/core/system/page";
+import { nodesOfRange, setRange } from "@ohno-editor/core/system/range";
+import { addMarkdownHint } from "@ohno-editor/core/helper/markdown";
+import { ValidNode, calcDepths } from "@ohno-editor/core/helper/element";
 import {
   createElement,
   createFlagNode,
   createTextNode,
   innerHTMLToNodeList,
-} from "@/helper/document";
+} from "@ohno-editor/core/helper/document";
 
 export interface ContainerInsertPayload {
   page: Page;

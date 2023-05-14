@@ -4,27 +4,32 @@ import {
   HandlerMethod,
   HandlerMethods,
   RangedEventContext,
-} from "@/system/handler";
+} from "@ohno-editor/core/system/handler";
 
-import { FormatText } from "@/contrib/commands/format";
-import { HTMLElementTagName } from "@/helper/document";
+import { FormatText } from "@ohno-editor/core/contrib/commands/format";
+import { HTMLElementTagName } from "@ohno-editor/core/helper/document";
 import {
   createRange,
   setLocation,
   setRange,
   tryGetBoundsRichNode,
   validateRange,
-} from "@/system/range";
-import { ElementFilter, getTagName } from "@/helper/element";
-import { IBlockRemove } from "@/contrib/commands/inlineblock";
+} from "@ohno-editor/core/system/range";
+import { ElementFilter, getTagName } from "@ohno-editor/core/helper/element";
+import { IBlockRemove } from "@ohno-editor/core/contrib/commands/inlineblock";
 
-import { elementOffset, tokenBetweenRange } from "@/system/position";
-import { ListCommandBuilder } from "@/contrib/commands/concat";
+import {
+  elementOffset,
+  tokenBetweenRange,
+} from "@ohno-editor/core/system/position";
+import { ListCommandBuilder } from "@ohno-editor/core/contrib/commands/concat";
 import {
   RichTextDelete,
   TextDelete,
   TextInsert,
-} from "@/contrib/commands/text";
+} from "@ohno-editor/core/contrib/commands/text";
+import { OhNoClipboardData } from "@ohno-editor/core/system";
+import { BlockRemove, BlocksCreate } from "@ohno-editor/core/contrib";
 
 export function insertPlainText(context: RangedEventContext, text: string) {
   const { page, block, range } = context;
@@ -53,7 +58,7 @@ export function defaultHandleBeforeInputOfPlainText(
   const { page, block, range } = context;
   // multiblock 的情况不会到这里
   validateRange(range);
-
+  
   let command;
   const editable = block.findEditable(range.startContainer)!;
   const index = block.getEditableIndex(editable);
@@ -67,6 +72,44 @@ export function defaultHandleBeforeInputOfPlainText(
         insertPlainText(context, content);
       } else if ((content = e.dataTransfer.getData("text/plain"))) {
         insertPlainText(context, content);
+      } else {
+        // eslint-disable-next-line no-debugger
+        debugger;
+        return true;
+      }
+    }
+  } else if (e.inputType === "insertFromDrop") {
+    if (e.dataTransfer) {
+      let content: string;
+      if ((content = e.dataTransfer.getData("text/ohno"))) {
+        const { data, head, tail, inline, context } = JSON.parse(
+          content
+        ) as OhNoClipboardData;
+
+        const newBlocks = data.map((item) => {
+          return page.createBlock(item.type as string, item.init);
+        });
+
+        command = new BlocksCreate({
+          page,
+          block,
+          newBlocks,
+          where: "after",
+        });
+
+        if (context && context.dragFrom) {
+          command = new ListCommandBuilder({
+            page,
+            block,
+            newBlocks,
+            drag: context.dragFrom,
+          })
+            .withCommand(command)
+            .withLazyCommand(({ drag, page, block }) => {
+              return new BlockRemove({ page, block: drag });
+            })
+            .build();
+        }
       } else {
         // eslint-disable-next-line no-debugger
         debugger;
@@ -225,8 +268,43 @@ export function defaultHandleBeforeInput(
   } else if (e.inputType === "insertCompositionText") {
     return false;
   } else if (e.inputType === "insertFromDrop") {
-    // 在这里处理 Drop 是因为 drop 事件没有 range
-    // debugger;
+    if (e.dataTransfer) {
+      let content: string;
+      if ((content = e.dataTransfer.getData("text/ohno"))) {
+        const { data, head, tail, inline, context } = JSON.parse(
+          content
+        ) as OhNoClipboardData;
+
+        const newBlocks = data.map((item) => {
+          return page.createBlock(item.type as string, item.init);
+        });
+
+        command = new BlocksCreate({
+          page,
+          block,
+          newBlocks,
+          where: "after",
+        });
+
+        if (context && context.dragFrom) {
+          command = new ListCommandBuilder({
+            page,
+            block,
+            newBlocks,
+            drag: context.dragFrom,
+          })
+            .withCommand(command)
+            .withLazyCommand(({ drag, page, block }) => {
+              return new BlockRemove({ page, block: drag });
+            })
+            .build();
+        }
+      } else {
+        // eslint-disable-next-line no-debugger
+        debugger;
+        return true;
+      }
+    }
   } else if (e.inputType === "insertFromPaste") {
     // 由 handlePaste 处理
     return false;

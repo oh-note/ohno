@@ -5,11 +5,21 @@ import {
   MultiBlockEventContext,
   RangedEventContext,
   dispatchKeyEvent,
-} from "@/system/handler";
+} from "@ohno-editor/core/system/handler";
 import { Placeholder } from "./plugin";
-import { BlockMove, BlocksMove } from "@/contrib/commands/block";
-import { createRange, setLocation, setRange } from "@/system/range";
-import { BlockActiveEvent, BlockUpdateEvent } from "@/system/pageevent";
+import {
+  BlockMove,
+  BlocksMove,
+} from "@ohno-editor/core/contrib/commands/block";
+import {
+  createRange,
+  setLocation,
+  setRange,
+} from "@ohno-editor/core/system/range";
+import {
+  BlockActiveEvent,
+  BlockUpdateEvent,
+} from "@ohno-editor/core/system/pageevent";
 
 export class PlaceholaderHandler extends Handler implements FineHandlerMethods {
   handleBlockUpdated(e: BlockUpdateEvent, context: any): boolean | void {

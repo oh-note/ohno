@@ -1,10 +1,10 @@
-import { Handler, RangedEventContext } from "@/system/handler";
+import { Handler, RangedEventContext } from "@ohno-editor/core/system/handler";
 import {
   RefLocation,
   createRange,
   getValidAdjacent,
   setRange,
-} from "@/system/range";
+} from "@ohno-editor/core/system/range";
 
 export function defaultHandleArrowDown(
   handler: Handler,

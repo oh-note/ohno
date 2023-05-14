@@ -3,19 +3,22 @@
  * 包括 Page/Card -> Block -> Editable 三层逻辑
  *
  */
-import { LinkedDict } from "@/struct/linkeddict";
+import { LinkedDict } from "@ohno-editor/core/struct/linkeddict";
 import { Command, History } from "./history";
 import { RefLocation } from "./range";
 import { EventContext } from "./handler";
 import { BlockInit } from "./block";
 import { InnerHTMLInit } from "./inline";
-import { ValidNode, getTagName } from "@/helper/element";
-import { addMarkdownHint, removeMarkdownHint } from "@/helper/markdown";
+import { ValidNode, getTagName } from "@ohno-editor/core/helper/element";
+import {
+  addMarkdownHint,
+  removeMarkdownHint,
+} from "@ohno-editor/core/helper/markdown";
 import {
   HTMLElementTagName,
   createElement,
   createTextNode,
-} from "@/helper/document";
+} from "@ohno-editor/core/helper/document";
 
 export interface IComponent {
   parent?: IComponent;
@@ -287,6 +290,9 @@ export interface OhNoClipboardData {
   inline: boolean;
   tail?: { merge: boolean };
   data: SerializedData<any>;
+  context?: {
+    dragFrom: Order;
+  };
 }
 
 export class InlineSerializer {
@@ -339,7 +345,7 @@ export class InlineSerializer {
       }
       return this.deserializeNode(item.init) as ValidNode;
     });
-    addMarkdownHint(...nodes)
+    addMarkdownHint(...nodes);
     return nodes;
   }
 }

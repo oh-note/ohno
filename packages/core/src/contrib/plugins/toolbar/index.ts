@@ -1,9 +1,10 @@
-import { PluginComponent } from "@/system/page";
+import { PluginComponent } from "@ohno-editor/core/system/page";
 // import {} from "./handler";
 import { Toolbar } from "./plugin";
 import { ToolbarPluginHandler } from "./handler";
 import { computePosition } from "@floating-ui/dom";
 
+export { Toolbar, ToolbarPluginHandler };
 export function ToolbarPlugin(): PluginComponent {
   const manager = new Toolbar({
     buttonGroup: [

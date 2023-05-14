@@ -1,10 +1,8 @@
-import { BlockComponent, HandlerEntry } from "@/system/page";
+import { BlockComponent, HandlerEntry } from "@ohno-editor/core/system/page";
 import { Code } from "./block";
 import { CodeHandler } from "./handler";
 
-export * from "./handler";
-export * from "./block";
-
+export { Code, CodeHandler };
 export function CodeBlock(): BlockComponent {
   return {
     name: "code",

@@ -1,5 +1,5 @@
-import { Command } from "@/system/history";
-import { Page } from "@/system/page";
+import { Command } from "@ohno-editor/core/system/history";
+import { Page } from "@ohno-editor/core/system/page";
 
 export type LazyCommand<T> = (
   payload: T,

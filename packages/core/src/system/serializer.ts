@@ -2,8 +2,12 @@ import {
   HTMLElementTagName,
   createElement,
   createTextNode,
-} from "@/helper/document";
-import { getTagName, isHTMLElement, isTextNode } from "@/helper/element";
+} from "@ohno-editor/core/helper/document";
+import {
+  getTagName,
+  isHTMLElement,
+  isTextNode,
+} from "@ohno-editor/core/helper/element";
 
 export interface Segment {
   value: string;

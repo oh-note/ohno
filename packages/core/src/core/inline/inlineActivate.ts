@@ -5,17 +5,17 @@ import {
   FineHandlerMethods,
   RangedEventContext,
   dispatchKeyEvent,
-} from "@/system/handler";
-import { getPrevLocation } from "@/system/range";
-import { NodeInsert } from "@/contrib/commands/html";
-import { ListCommandBuilder } from "@/contrib/commands/concat";
+} from "@ohno-editor/core/system/handler";
+import { getPrevLocation } from "@ohno-editor/core/system/range";
+import { NodeInsert } from "@ohno-editor/core/contrib/commands/html";
+import { ListCommandBuilder } from "@ohno-editor/core/contrib/commands/concat";
 
 import {
   parentElementWithFilter,
   parentElementWithTag,
-} from "@/helper/element";
-import { TextDelete } from "@/contrib/commands";
-// import { InlineHandler } from "@/system/inline";
+} from "@ohno-editor/core/helper/element";
+import { TextDelete } from "@ohno-editor/core/contrib/commands";
+// import { InlineHandler } from "@ohno-editor/core/system/inline";
 
 export type beforeInputHandler = (
   handler: InlineActivateHandler,

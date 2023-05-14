@@ -4,26 +4,33 @@ import {
   FineHandlerMethods,
   RangedEventContext,
   dispatchKeyEvent,
-} from "@/system/handler";
-import { getTokenSize, tokenBetweenRange } from "@/system/position";
+} from "@ohno-editor/core/system/handler";
+import {
+  getTokenSize,
+  tokenBetweenRange,
+} from "@ohno-editor/core/system/position";
 import {
   BlockCreate,
   BlockRemove,
   BlockReplace,
   BlocksRemove,
-} from "@/contrib/commands/block";
-import { outerHTML } from "@/helper/element";
-import { ListCommandBuilder } from "@/contrib/commands/concat";
+} from "@ohno-editor/core/contrib/commands/block";
+import { outerHTML } from "@ohno-editor/core/helper/element";
+import { ListCommandBuilder } from "@ohno-editor/core/contrib/commands/concat";
 import { Headings } from "../headings";
 import { Paragraph } from "./block";
-import { AnyBlock } from "@/system/block";
+import { AnyBlock } from "@ohno-editor/core/system/block";
 import { Blockquote } from "../blockquote";
 import { List } from "../list";
-import { RichTextDelete, TextInsert } from "@/contrib/commands";
-import { Empty, SetLocation } from "@/contrib/commands/select";
-import { ContainerRemove } from "@/contrib/commands/container";
+import { RichTextDelete, TextInsert } from "@ohno-editor/core/contrib/commands";
+import { Empty, SetLocation } from "@ohno-editor/core/contrib/commands/select";
+import { ContainerRemove } from "@ohno-editor/core/contrib/commands/container";
 import { OrderedList } from "../orderedList";
-import { createRange, setLocation, setRange } from "@/system/range";
+import {
+  createRange,
+  setLocation,
+  setRange,
+} from "@ohno-editor/core/system/range";
 
 export interface DeleteContext extends EventContext {
   nextBlock: AnyBlock;
@@ -226,7 +233,7 @@ export class ParagraphHandler extends Handler implements FineHandlerMethods {
         return new BlockRemove({
           page,
           block,
-        }).onUndo(({ block }) => {
+        }).onUndo((_, { block }) => {
           page.setLocation(block.getLocation(0, 0)!, block);
         });
       })
@@ -332,7 +339,7 @@ export class ParagraphHandler extends Handler implements FineHandlerMethods {
       });
     } else if (prefix.match(/^ *- *$/)) {
       const newBlock = new List({
-        innerHTMLs: block.root.innerHTML.replace(/^ *- */, ""),
+        innerHTMLs: [block.root.innerHTML.replace(/^ *- */, "")],
       });
       command = new BlockReplace({
         page,
@@ -341,7 +348,7 @@ export class ParagraphHandler extends Handler implements FineHandlerMethods {
       });
     } else if (prefix.match(/^ *([0-9]+\.) *$/)) {
       const newBlock = new OrderedList({
-        innerHTMLs: block.root.innerHTML.replace(/^ *([0-9]+\.) */, ""),
+        innerHTMLs: [block.root.innerHTML.replace(/^ *([0-9]+\.) */, "")],
       });
       command = new BlockReplace({
         page,

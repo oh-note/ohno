@@ -1,10 +1,16 @@
-import { BlockRemove, BlocksRemove } from "@/contrib/commands/block";
-import { ListCommandBuilder } from "@/contrib/commands/concat";
-import { ContainerRemove } from "@/contrib/commands/container";
-import { FormatMultipleText } from "@/contrib/commands/format";
-import { Empty, SetBlockRange } from "@/contrib/commands/select";
-import { ValidNode } from "@/helper/element";
-import { formatTags } from "@/system/format";
+import {
+  BlockRemove,
+  BlocksRemove,
+} from "@ohno-editor/core/contrib/commands/block";
+import { ListCommandBuilder } from "@ohno-editor/core/contrib/commands/concat";
+import { ContainerRemove } from "@ohno-editor/core/contrib/commands/container";
+import { FormatMultipleText } from "@ohno-editor/core/contrib/commands/format";
+import {
+  Empty,
+  SetBlockRange,
+} from "@ohno-editor/core/contrib/commands/select";
+import { ValidNode } from "@ohno-editor/core/helper/element";
+import { formatTags } from "@ohno-editor/core/system/format";
 import {
   MultiBlockEventContext,
   Handler,
@@ -12,14 +18,14 @@ import {
   FineHandlerMethods,
   EventContext,
   RangedEventContext,
-} from "@/system/handler";
+} from "@ohno-editor/core/system/handler";
 import {
   Offset,
   getTokenSize,
   locationToBias,
   rangeToInterval,
   setOffset,
-} from "@/system/position";
+} from "@ohno-editor/core/system/position";
 import { defaultHandleArrowDown } from "../default/arrowDown";
 import {
   createRange,
@@ -27,9 +33,12 @@ import {
   normalizeRange,
   setLocation,
   setRange,
-} from "@/system/range";
-import { RichTextDelete, TextInsert } from "@/contrib/commands/text";
-import { OhNoClipboardData } from "@/system/base";
+} from "@ohno-editor/core/system/range";
+import {
+  RichTextDelete,
+  TextInsert,
+} from "@ohno-editor/core/contrib/commands/text";
+import { OhNoClipboardData } from "@ohno-editor/core/system/base";
 import { defaultHandlePaste } from "../default/paste";
 
 function handleBeforeInputFormat(

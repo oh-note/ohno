@@ -4,15 +4,15 @@ import {
   FineHandlerMethods,
   RangedEventContext,
   dispatchKeyEvent,
-} from "@/system/handler";
+} from "@ohno-editor/core/system/handler";
 
 import { Code } from "./block";
-import { AnyBlock } from "@/system/block";
+import { AnyBlock } from "@ohno-editor/core/system/block";
 import {
   defaultHandleBeforeInputOfPlainText,
   insertPlainText,
-} from "@/core/default/beforeInput";
-import { BlockUpdateEvent } from "@/system/pageevent";
+} from "@ohno-editor/core/core/default/beforeInput";
+import { BlockUpdateEvent } from "@ohno-editor/core/system/pageevent";
 
 export interface DeleteContext extends EventContext {
   nextBlock: AnyBlock;
@@ -71,6 +71,7 @@ export class CodeHandler extends Handler implements FineHandlerMethods {
     if (
       e.inputType === "insertText" ||
       e.inputType === "insertFromPaste" ||
+      e.inputType === "insertFromDrop" ||
       e.inputType === "deleteContentBackward" ||
       e.inputType === "deleteWordBackward" ||
       e.inputType === "deleteContentForward" ||

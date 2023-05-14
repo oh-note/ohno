@@ -15,8 +15,8 @@
  *  - 先降级，再退回 p，可能有分隔 li -> For
  *
  */
-import { createElement } from "@/helper/document";
-import { BlockInit } from "@/system/block";
+import { createElement } from "@ohno-editor/core/helper/document";
+import { BlockInit } from "@ohno-editor/core/system/block";
 import { ABCList } from "../list";
 
 export interface OrderedListInit extends BlockInit {

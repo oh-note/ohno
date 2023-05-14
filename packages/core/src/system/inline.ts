@@ -1,4 +1,7 @@
-import { ElementTagName, createElement } from "@/helper/document";
+import {
+  ElementTagName,
+  createElement,
+} from "@ohno-editor/core/helper/document";
 import { EventContext } from "./handler";
 import { ClientRectObject, VirtualElement } from "@floating-ui/dom";
 import {
@@ -8,8 +11,8 @@ import {
   IInline,
   InlineSerializedData,
 } from "./base";
-import { removeMarkdownHint } from "@/helper/markdown";
-import { getTagName } from "@/helper/element";
+import { removeMarkdownHint } from "@ohno-editor/core/helper/markdown";
+import { getTagName } from "@ohno-editor/core/helper/element";
 
 export interface InlineInit {
   [key: string]: any;

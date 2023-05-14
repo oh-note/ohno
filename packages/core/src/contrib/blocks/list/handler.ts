@@ -1,42 +1,50 @@
-import { createElement } from "@/helper/document";
+import { createElement } from "@ohno-editor/core/helper/document";
 import {
   EventContext,
   Handler,
   FineHandlerMethods,
   RangedEventContext,
   dispatchKeyEvent,
-} from "@/system/handler";
+} from "@ohno-editor/core/system/handler";
 import {
   LAST_POSITION,
   getTokenSize,
   locationToBias,
   tokenBetweenRange,
-} from "@/system/position";
+} from "@ohno-editor/core/system/position";
 import {
   BlockCreate,
   BlockRemove,
   BlockReplace,
-} from "@/contrib/commands/block";
-import { ValidNode, outerHTML, parentElementWithTag } from "@/helper/element";
-import { ListCommandBuilder } from "@/contrib/commands/concat";
-// import { TextDeleteSelection } from "@/contrib/commands/text";
+} from "@ohno-editor/core/contrib/commands/block";
+import {
+  ValidNode,
+  outerHTML,
+  parentElementWithTag,
+} from "@ohno-editor/core/helper/element";
+import { ListCommandBuilder } from "@ohno-editor/core/contrib/commands/concat";
+// import { TextDeleteSelection } from "@ohno-editor/core/contrib/commands/text";
 
 import { List } from "./block";
-import { AnyBlock } from "@/system/block";
+import { AnyBlock } from "@ohno-editor/core/system/block";
 import {
   ContainerInsert,
   ContainerRemove,
   SetContainerAttribute,
   UpdateContainerStyle,
-} from "@/contrib/commands/container";
-import { addMarkdownHint } from "@/helper/markdown";
+} from "@ohno-editor/core/contrib/commands/container";
+import { addMarkdownHint } from "@ohno-editor/core/helper/markdown";
 import { Paragraph } from "../paragraph";
-import { FormatMultipleText } from "@/contrib/commands/format";
-import { formatTags } from "@/system/format";
-import { RichTextDelete, TextInsert } from "@/contrib/commands";
+import { FormatMultipleText } from "@ohno-editor/core/contrib/commands/format";
+import { formatTags } from "@ohno-editor/core/system/format";
+import { RichTextDelete, TextInsert } from "@ohno-editor/core/contrib/commands";
 import { ListInit } from "./block";
-import { createRange, setLocation, setRange } from "@/system/range";
-import { EditableInterval } from "@/system/base";
+import {
+  createRange,
+  setLocation,
+  setRange,
+} from "@ohno-editor/core/system/range";
+import { EditableInterval } from "@ohno-editor/core/system/base";
 
 export interface DeleteContext extends RangedEventContext {
   nextBlock: AnyBlock;

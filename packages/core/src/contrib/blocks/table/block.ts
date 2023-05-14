@@ -1,7 +1,16 @@
-import { createElement, getDefaultRange } from "@/helper/document";
-import { indexOfNode, parentElementWithTag } from "@/helper/element";
-import { BlockSerializedData, EditableFlag } from "@/system/base";
-import { Block, BlockInit } from "@/system/block";
+import {
+  createElement,
+  getDefaultRange,
+} from "@ohno-editor/core/helper/document";
+import {
+  indexOfNode,
+  parentElementWithTag,
+} from "@ohno-editor/core/helper/element";
+import {
+  BlockSerializedData,
+  EditableFlag,
+} from "@ohno-editor/core/system/base";
+import { Block, BlockInit } from "@ohno-editor/core/system/block";
 import "./style.css";
 export interface TableInit extends BlockInit {
   shape?: {
