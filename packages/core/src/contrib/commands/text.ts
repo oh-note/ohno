@@ -351,4 +351,24 @@ export class TextInsert extends Command<TextInsertPayload> {
       new BlockUpdateEvent({ page, block, undo: true, from: "TextInsert" })
     );
   }
+
+  tryMerge(command: Command<any>): boolean {
+    if (!(command instanceof TextInsert)) {
+      return false;
+    }
+    if (
+      command.payload.block != this.payload.block ||
+      command.payload.index != this.payload.index ||
+      command.payload.plain != this.payload.plain ||
+      this.payload.innerHTML.indexOf(" ") > 0 ||
+      this.payload.innerHTML.length > 10 ||
+      this.buffer.bias + this.buffer.token_number != command.buffer.bias
+    ) {
+      return false;
+    }
+    this.buffer.token_number += command.buffer.token_number;
+    this.payload.innerHTML += command.payload.innerHTML;
+
+    return true;
+  }
 }
