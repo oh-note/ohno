@@ -145,7 +145,9 @@ export class KatexMath extends InlineBase {
         });
       }
     );
-    this.input.focus();
+    this.input.focus({
+      preventScroll: true,
+    });
   }
 
   submit() {
@@ -177,7 +179,9 @@ export class KatexMath extends InlineBase {
         once: true,
       }
     );
-    context.page.blockRoot.focus();
+    context.page.blockRoot.focus({
+      preventScroll: true,
+    });
   }
 
   exit(): void {
