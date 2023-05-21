@@ -1,8 +1,8 @@
 import {
-  EventContext,
+  BlockEventContext,
   Handler,
   FineHandlerMethods,
-  RangedEventContext,
+  RangedBlockEventContext,
   dispatchKeyEvent,
 } from "@ohno-editor/core/system/handler";
 
@@ -11,10 +11,10 @@ import { AnyBlock } from "@ohno-editor/core/system/block";
 import {
   defaultHandleBeforeInputOfPlainText,
   insertPlainText,
-} from "@ohno-editor/core/core/default/beforeInput";
+} from "@ohno-editor/core/core/default/functions/beforeInput";
 import { BlockUpdateEvent } from "@ohno-editor/core/system/pageevent";
 
-export interface DeleteContext extends EventContext {
+export interface DeleteContext extends BlockEventContext {
   nextBlock: AnyBlock;
 }
 
@@ -24,31 +24,40 @@ export class CodeHandler extends Handler implements FineHandlerMethods {
     (e.block as Code).updateRender();
   }
 
-  handleKeyPress(e: KeyboardEvent, context: EventContext): boolean | void {}
-  handleKeyDown(e: KeyboardEvent, context: RangedEventContext): boolean | void {
+  handleKeyPress(
+    e: KeyboardEvent,
+    context: BlockEventContext
+  ): boolean | void {}
+
+  handleKeyDown(
+    e: KeyboardEvent,
+    context: RangedBlockEventContext
+  ): boolean | void {
     return dispatchKeyEvent(this, e, context);
   }
 
-  handleMouseDown(e: MouseEvent, context: EventContext): boolean | void {}
+  handleMouseDown(e: MouseEvent, context: BlockEventContext): boolean | void {}
 
-  handleDeleteDown(e: KeyboardEvent, context: EventContext): boolean | void {}
+  handleDeleteDown(
+    e: KeyboardEvent,
+    context: BlockEventContext
+  ): boolean | void {}
 
   handleBackspaceDown(
     e: KeyboardEvent,
-    context: RangedEventContext
+    context: RangedBlockEventContext
+  ): boolean | void {}
+
+  handleTabDown(
+    e: KeyboardEvent,
+    context: RangedBlockEventContext
   ): boolean | void {
-    // const { block, range } = context;
-    // if (block.isLocationInLeft([range.startContainer, range.startOffset])) {
-    //   return true;
-    // }
-  }
-  handleTabDown(e: KeyboardEvent, context: RangedEventContext): boolean | void {
     return insertPlainText(context, "\t");
   }
 
   handleEnterDown(
     e: KeyboardEvent,
-    context: RangedEventContext
+    context: RangedBlockEventContext
   ): boolean | void {
     const { block, range } = context;
     return insertPlainText(
@@ -61,25 +70,35 @@ export class CodeHandler extends Handler implements FineHandlerMethods {
 
   handleSpaceDown(
     e: KeyboardEvent,
-    context: RangedEventContext
+    context: RangedBlockEventContext
   ): boolean | void {}
 
-  handleBeforeInput(
-    e: TypedInputEvent,
-    context: RangedEventContext
+  handlePaste(
+    e: ClipboardEvent,
+    context: RangedBlockEventContext
   ): boolean | void {
-    if (
-      e.inputType === "insertText" ||
-      e.inputType === "insertFromPaste" ||
-      e.inputType === "insertFromDrop" ||
-      e.inputType === "deleteContentBackward" ||
-      e.inputType === "deleteWordBackward" ||
-      e.inputType === "deleteContentForward" ||
-      e.inputType === "deleteWordForward"
-    ) {
-      defaultHandleBeforeInputOfPlainText(this, e, context);
-      return true;
+    const content = e.clipboardData?.getData("text/plain");
+    if (content) {
+      insertPlainText(context, content);
     }
-    return true;
   }
+
+  // handleBeforeInput(
+  //   e: TypedInputEvent,
+  //   context: RangedEventContext
+  // ): boolean | void {
+  //   if (
+  //     e.inputType === "insertText" ||
+  //     // e.inputType === "insertFromPaste" ||
+  //     e.inputType === "insertFromDrop" ||
+  //     e.inputType === "deleteContentBackward" ||
+  //     e.inputType === "deleteWordBackward" ||
+  //     e.inputType === "deleteContentForward" ||
+  //     e.inputType === "deleteWordForward"
+  //   ) {
+  //     defaultHandleBeforeInputOfPlainText(this, e, context);
+  //     return true;
+  //   }
+  //   return true;
+  // }
 }

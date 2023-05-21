@@ -3,7 +3,7 @@ import { InlineMathHandler } from "./handler";
 import { KatexMath, Option } from "./inline";
 import { InlineSupport } from "@ohno-editor/core/contrib/plugins/inlineSupport/plugin";
 
-export { KatexMath, InlineSupport };
+export { KatexMath };
 export function KatexMathInline(): InlineComponent {
   const instance = new KatexMath();
   const handler = new InlineMathHandler();

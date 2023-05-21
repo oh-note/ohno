@@ -1,9 +1,9 @@
 import {
-  EventContext,
+  BlockEventContext,
   Handler,
   FineHandlerMethods,
   MultiBlockEventContext,
-  RangedEventContext,
+  RangedBlockEventContext,
   dispatchKeyEvent,
 } from "@ohno-editor/core/system/handler";
 import { Placeholder } from "./plugin";
@@ -36,17 +36,26 @@ export class PlaceholaderHandler extends Handler implements FineHandlerMethods {
     plugin.span(block, true);
   }
 
-  handleKeyPress(e: KeyboardEvent, context: EventContext): boolean | void {}
+  handleKeyPress(
+    e: KeyboardEvent,
+    context: BlockEventContext
+  ): boolean | void {}
 
-  handleKeyDown(e: KeyboardEvent, context: RangedEventContext): boolean | void {
+  handleKeyDown(
+    e: KeyboardEvent,
+    context: RangedBlockEventContext
+  ): boolean | void {
     return dispatchKeyEvent(this, e, context);
   }
 
-  handleKeyUp(e: KeyboardEvent, context: RangedEventContext): boolean | void {
+  handleKeyUp(
+    e: KeyboardEvent,
+    context: RangedBlockEventContext
+  ): boolean | void {
     return dispatchKeyEvent(this, e, context);
   }
 
-  handleMouseDown(e: MouseEvent, context: EventContext): boolean | void {
+  handleMouseDown(e: MouseEvent, context: BlockEventContext): boolean | void {
     console.log(e);
     const { page, block, endBlock } = context;
     if (!endBlock) {
@@ -57,7 +66,7 @@ export class PlaceholaderHandler extends Handler implements FineHandlerMethods {
 
   handleArrowKeyDown(
     e: KeyboardEvent,
-    context: RangedEventContext | MultiBlockEventContext
+    context: RangedBlockEventContext | MultiBlockEventContext
   ): boolean | void {
     const { page, block, range, isMultiBlock, endBlock } = context;
 
@@ -134,7 +143,7 @@ export class PlaceholaderHandler extends Handler implements FineHandlerMethods {
 
   handleArrowKeyUp(
     e: KeyboardEvent,
-    context: RangedEventContext
+    context: RangedBlockEventContext
   ): boolean | void {
     const { page, block, endBlock } = context;
     if (!endBlock) {
@@ -142,15 +151,21 @@ export class PlaceholaderHandler extends Handler implements FineHandlerMethods {
       plugin.span(block);
     }
   }
-  handleDeleteDown(e: KeyboardEvent, context: EventContext): boolean | void {}
+  handleDeleteDown(
+    e: KeyboardEvent,
+    context: BlockEventContext
+  ): boolean | void {}
   handleBackspaceDown(
     e: KeyboardEvent,
-    context: EventContext
+    context: BlockEventContext
   ): boolean | void {}
 
-  handleEnterDown(e: KeyboardEvent, context: EventContext): boolean | void {}
+  handleEnterDown(
+    e: KeyboardEvent,
+    context: BlockEventContext
+  ): boolean | void {}
   handleSpaceDown(
     e: KeyboardEvent,
-    context: RangedEventContext
+    context: RangedBlockEventContext
   ): boolean | void {}
 }

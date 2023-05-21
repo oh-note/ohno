@@ -1,15 +1,18 @@
 import { PluginComponent } from "@ohno-editor/core/system/page";
 // import {} from "./handler";
-import { InlineSupport } from "./plugin";
-import { InlineSupportPluginHandler } from "./handler";
+import { Highlight } from "./plugin";
+import { HighlightPluginHandler } from "./handler";
 
-export { InlineSupport, InlineSupportPluginHandler };
+export {
+  Highlight as InlineSupport,
+  HighlightPluginHandler as InlineSupportPluginHandler,
+};
 export function InlineSupportPlugin(): PluginComponent {
-  const manager = new InlineSupport();
+  const manager = new Highlight();
   return {
     manager: manager,
     handlers: {
-      plugins: new InlineSupportPluginHandler({}),
+      plugins: new HighlightPluginHandler({}),
     },
   };
 }

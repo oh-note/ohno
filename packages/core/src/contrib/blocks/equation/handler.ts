@@ -1,14 +1,14 @@
-import { defaultHandleBeforeInputOfPlainText } from "@ohno-editor/core/core/default/beforeInput";
+import { defaultHandleBeforeInputOfPlainText } from "@ohno-editor/core/core/default/functions/beforeInput";
 import {
   isParent,
   parentElementWithFilter,
   parentElementWithTag,
 } from "@ohno-editor/core/helper/element";
 import {
-  EventContext,
+  BlockEventContext,
   Handler,
   FineHandlerMethods,
-  RangedEventContext,
+  RangedBlockEventContext,
   dispatchKeyEvent,
 } from "@ohno-editor/core/system/handler";
 import {
@@ -34,29 +34,35 @@ export class EquationHandler extends Handler implements FineHandlerMethods {
   }
   handleKeyPress(
     e: KeyboardEvent,
-    context: RangedEventContext
+    context: RangedBlockEventContext
   ): boolean | void {}
 
-  handleKeyDown(e: KeyboardEvent, context: RangedEventContext): boolean | void {
+  handleKeyDown(
+    e: KeyboardEvent,
+    context: RangedBlockEventContext
+  ): boolean | void {
     return dispatchKeyEvent(this, e, context);
   }
   // 在 CompositionStart 时处理选中内容
   handleCompositionStart(
     e: CompositionEvent,
-    context: RangedEventContext
+    context: RangedBlockEventContext
   ): boolean | void {
     return true;
   }
-  handleDeleteDown(e: KeyboardEvent, context: EventContext): boolean | void {
+  handleDeleteDown(
+    e: KeyboardEvent,
+    context: BlockEventContext
+  ): boolean | void {
     return true;
   }
 
-  handleTabDown(e: KeyboardEvent, context: EventContext): boolean | void {
+  handleTabDown(e: KeyboardEvent, context: BlockEventContext): boolean | void {
     return true;
   }
 
-  handleMouseDown(e: MouseEvent, context: EventContext): boolean | void {}
-  handleMouseUp(e: MouseEvent, context: EventContext): boolean | void {
+  handleMouseDown(e: MouseEvent, context: BlockEventContext): boolean | void {}
+  handleMouseUp(e: MouseEvent, context: BlockEventContext): boolean | void {
     const { range, block, page } = context;
     const node = range
       ? range.startContainer
@@ -73,10 +79,13 @@ export class EquationHandler extends Handler implements FineHandlerMethods {
 
   handleBackspaceDown(
     e: KeyboardEvent,
-    context: EventContext
+    context: BlockEventContext
   ): boolean | void {}
 
-  handleEnterDown(e: KeyboardEvent, context: EventContext): boolean | void {
+  handleEnterDown(
+    e: KeyboardEvent,
+    context: BlockEventContext
+  ): boolean | void {
     const { page, block } = context;
     const next = page.getNextBlock(block);
     if (next) {
@@ -85,12 +94,13 @@ export class EquationHandler extends Handler implements FineHandlerMethods {
     return true;
   }
 
-  handleBeforeInput(
-    e: TypedInputEvent,
-    context: RangedEventContext
-  ): boolean | void {
-    return defaultHandleBeforeInputOfPlainText(this, e, context);
-    // const { block, page, range } = context;
-    // return true;
-  }
+  // handleBeforeInput(
+  //   e: TypedInputEvent,
+  //   context: RangedEventContext
+  // ): boolean | void {
+
+  //   return defaultHandleBeforeInputOfPlainText(this, e, context);
+  //   // const { block, page, range } = context;
+  //   // return true;
+  // }
 }

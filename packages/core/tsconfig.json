@@ -17,7 +17,6 @@
     "baseUrl": ".",
     "paths": {
       "@ohno-editor/core/*": ["./src/*"],
-      "@ohno-editor/core/*": ["./src/*"],
       "virtual:reload-on-update-in-background-script": ["./src/global.d.ts"],
       "virtual:reload-on-update-in-view": ["./src/global.d.ts"]
     }

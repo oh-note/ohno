@@ -15,10 +15,10 @@ import {
 } from "@ohno-editor/core/system/base";
 import "./style.css";
 import { computePosition } from "@floating-ui/dom";
+import { markPlain } from "@ohno-editor/core/helper";
 export interface EquationInit extends BlockInit {
   src: string;
 }
-
 export class Equation extends Block<EquationInit> {
   isMultiEditable: boolean = true;
   mergeable: boolean = false;
@@ -35,12 +35,11 @@ export class Equation extends Block<EquationInit> {
     }
 
     const math = createElement("math" as keyof HTMLElementTagNameMap, {
-      style: {
-        // position: "absolute",
-      },
+      style: {},
     });
     math.contentEditable = "false";
     const input = createElement("p");
+    markPlain(input);
     init.el.appendChild(input);
     init.el.appendChild(math);
     super("equation", init);

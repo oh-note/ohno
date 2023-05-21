@@ -6,7 +6,7 @@
 import { LinkedDict } from "@ohno-editor/core/struct/linkeddict";
 import { Command, History } from "./history";
 import { RefLocation } from "./range";
-import { EventContext } from "./handler";
+import { BlockEventContext } from "./handler";
 import { BlockInit } from "./block";
 import { InnerHTMLInit } from "./inline";
 import { ValidNode, getTagName } from "@ohno-editor/core/helper/element";
@@ -19,6 +19,7 @@ import {
   createElement,
   createTextNode,
 } from "@ohno-editor/core/helper/document";
+import { Page } from ".";
 
 export interface IComponent {
   parent?: IComponent;
@@ -37,7 +38,7 @@ export interface IComponentManager {
   name: string;
   parent?: IComponent;
   root: HTMLElement;
-  setParent(parent?: IContainer): void;
+  // setParent(parent?: IContainer): void;
 }
 
 export type Editable = HTMLElement;
@@ -184,15 +185,27 @@ export interface ISelectionManager {
   setDirection(dir?: "prev" | "next"): void;
 }
 
+export interface InlineMutexResult {
+  set?: HTMLLabelElement;
+  unset?: HTMLLabelElement;
+}
+
 export interface IInlineManager {
   activeInline?: HTMLElement;
-  setActiveInline(inline?: HTMLElement): boolean;
+  mouseHoveredInline?: HTMLElement;
+  cursorHoveredInline?: HTMLElement;
+  hoveredCount: number;
+  /** 第一个值不为空表示取消激活的，第二个值不为空表示激活了的 */
+  setActiveInline(inline?: HTMLElement): InlineMutexResult;
+  setHoveredInline(
+    from: "mouse" | "cursor",
+    inline?: HTMLElement
+  ): InlineMutexResult;
 }
 
 export interface IBlockContainer
   extends IBlockManager,
     IContainer,
-    IInlineManager,
     ISelectionManager,
     IHistoryManager {}
 
@@ -212,24 +225,27 @@ export interface IPage extends IBlockContainer {
   attach(ref: HTMLElement): void;
 }
 
-// Card 可以作为浮动
-export interface ICard extends IBlockContainer {
-  hide(): void;
-  open(): void;
-  float(ref: HTMLElement, option?: any): void;
-}
+// // Card 可以作为浮动
+// export interface ICard extends IBlockContainer {
+//   hide(): void;
+//   open(): void;
+//   float(ref: HTMLElement, option?: any): void;
+// }
 
 export interface IPlugin extends IComponentManager {
+  parent?: Page;
   destory(): void;
+  setParent(parent?: Page): void;
 }
 
 export interface IInline extends IComponentManager {
+  plugin: IInlineManager;
+  setInlineManager(plugin: IInlineManager): void;
   destory(): void;
   create(payload: any): HTMLLabelElement;
-  hover(label: HTMLLabelElement, context: EventContext): void;
-  edit(label: HTMLLabelElement, context: EventContext): void;
-  exit(): void;
-
+  hover(label: HTMLLabelElement, context: BlockEventContext): void;
+  activate(label: HTMLLabelElement, context: BlockEventContext): void;
+  exit(onExit?: () => void): void;
   serialize(label: HTMLLabelElement): InlineSerializedData;
 }
 

@@ -1,5 +1,6 @@
 import {
   createElement,
+  createInline,
   getDefaultRange,
   innerHTMLToNodeList,
   makeInlineBlock,
@@ -9,7 +10,7 @@ import {
   parentElementWithFilter,
   parentElementWithTag,
 } from "@ohno-editor/core/helper/element";
-import { EventContext } from "@ohno-editor/core/system/handler";
+import { BlockEventContext } from "@ohno-editor/core/system/handler";
 import { TextInsert } from "@ohno-editor/core/contrib/commands";
 import katex from "katex";
 import { InlineBase, RangeElement } from "@ohno-editor/core/system/inline";
@@ -17,6 +18,7 @@ import { setOffset } from "@ohno-editor/core/system/position";
 import {
   createRange,
   getValidAdjacent,
+  setLocation,
   setRange,
 } from "@ohno-editor/core/system/range";
 import { computePosition } from "@floating-ui/dom";
@@ -28,9 +30,11 @@ export interface Option {
   type: "element" | "dynamic" | "plain";
   plain?: string;
   filter: string | ((text: string) => boolean);
-  onHover?: (context: EventContext) => void;
-  onSelect?: (context: EventContext) => void;
+  onHover?: (context: BlockEventContext) => void;
+  onSelect?: (context: BlockEventContext) => void;
 }
+
+const VALUE_KEY = "math";
 
 export class KatexMath extends InlineBase {
   options: Option[];
@@ -78,7 +82,7 @@ export class KatexMath extends InlineBase {
     this.root.appendChild(this.components.cancel);
     this.options = [];
     this.filtered = [];
-    this.hide();
+    this.hide(this.root);
   }
 
   public get input(): HTMLInputElement {
@@ -91,9 +95,6 @@ export class KatexMath extends InlineBase {
   }
 
   create(math: string): HTMLLabelElement {
-    const root = createElement("label", {
-      attributes: { name: "math", value: math },
-    });
     let renderedFormula;
     try {
       // 尝试使用 katex.renderToString 渲染表达式
@@ -104,7 +105,8 @@ export class KatexMath extends InlineBase {
         (error as any).message
       }</span>`;
     }
-    root.innerHTML = renderedFormula;
+
+    const root = createInline(this.name, [renderedFormula], { math });
     return root;
   }
 
@@ -120,23 +122,20 @@ export class KatexMath extends InlineBase {
       }</span>`;
     }
     this.current!.innerHTML = ` ${renderedFormula} `;
-    this.current!.setAttribute("value", math);
+    this.current!.dataset[VALUE_KEY] = math;
+    this.latest = false;
   }
 
-  show() {
-    this.root.style.display = "block";
+  hover_subclass(label: HTMLLabelElement, context: BlockEventContext): void {
+    this.hide(this.root);
+    const { page } = context;
+    page.focusEditable();
+    page.setLocation([label, 0]);
   }
 
-  hide() {
-    this.root.style.display = "none";
-  }
-
-  edit(label: HTMLLabelElement, context: EventContext): void {
-    this.show();
-    this.context = context;
-    this.snap = label.cloneNode(true) as HTMLLabelElement;
-    this.current = label;
-    this.input.value = label.getAttribute("value")!;
+  activate_subclass(label: HTMLLabelElement, context: BlockEventContext): void {
+    this.show(this.root);
+    this.input.value = label.dataset[VALUE_KEY]!;
     computePosition(label, this.root, { placement: "top-start" }).then(
       ({ x, y }) => {
         Object.assign(this.root.style, {
@@ -150,46 +149,11 @@ export class KatexMath extends InlineBase {
     });
   }
 
-  submit() {
-    if (this.current!.innerHTML !== this.snap!.innerHTML) {
-      const { page, block } = this.context!;
-      const command = new InlineSubmit({
-        page,
-        label: this.current!,
-        old: this.snap!,
-        block,
-      });
-      page.executeCommand(command);
-    }
-  }
-
-  cancel() {
-    this.current?.setAttribute("value", this.snap!.getAttribute("value")!);
-    this.current!.innerHTML = this.snap!.innerHTML;
-  }
-
-  hover(label: HTMLLabelElement, context: EventContext): void {
-    this.hide();
-    context.page.blockRoot.addEventListener(
-      "focus",
-      () => {
-        setRange(createRange(label, 0));
-      },
-      {
-        once: true,
-      }
-    );
-    context.page.blockRoot.focus({
-      preventScroll: true,
+  exit_subclass(label: HTMLLabelElement, context: BlockEventContext): void {
+    this.hide(this.root);
+    const { page } = context;
+    page.focusEditable(() => {
+      page.setLocation(getValidAdjacent(label, "afterend"));
     });
   }
-
-  exit(): void {
-    this.hide();
-    this.context?.page.setActiveInline();
-    this.context = undefined;
-    this.snap = undefined;
-  }
 }
-
-export const globalDropdown = new KatexMath();

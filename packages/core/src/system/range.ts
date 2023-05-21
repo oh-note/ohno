@@ -6,6 +6,7 @@ import {
   isEntityNode,
   isHTMLElement,
   isHintHTMLElement,
+  isHintRight,
   isParent,
   isTextNode,
   isTokenHTMLElement,
@@ -89,35 +90,6 @@ export function createRange(
   return range;
 }
 
-export function isLeft(root: HTMLElement, range: Range): boolean {
-  if (getPrevRange(range, root)) {
-    return true;
-  }
-  return false;
-}
-
-export function isRight(root: HTMLElement, range: Range): boolean {
-  if (getNextRange(range, root)) {
-    return false;
-  }
-  return true;
-}
-
-export function isFirstLine(root: HTMLElement, range: Range) {
-  if (root.childNodes.length === 0) {
-    return true;
-  }
-  range = range.cloneRange();
-  const test = createElement("span", {
-    textContent: "|",
-  });
-  root.insertBefore(test, root.firstChild);
-  const first = test.getClientRects();
-  const [second, _] = getRects(range);
-  test.remove();
-  return first[0].y === second[0].y;
-}
-
 export function locationInLeft(
   root: HTMLElement,
   container: Node,
@@ -134,7 +106,7 @@ export function locationInLeft(
   const first = test.getClientRects();
   const [second, _] = getRects(range);
   test.remove();
-  return first[0].y === second[0].y;
+  return inSameLine(first[0], second[0]);
 }
 
 export function locationInFirstLine(
@@ -153,7 +125,7 @@ export function locationInFirstLine(
   const first = test.getClientRects();
   const [second, _] = getRects(range);
   test.remove();
-  return first[0].y === second[0].y;
+  return inSameLine(first[0], second[0]);
 }
 
 export function locationInLastLine(
@@ -864,13 +836,14 @@ export function validateLocation(container: Node, offset: number): RefLocation {
     return [text, 0];
   }
 
-  if (container.childNodes[offset] instanceof HTMLElement) {
+  if (container.childNodes[offset] instanceof Text) {
+    return [container.childNodes[offset] as Text, 0];
+  }
+
+  if (container.childNodes[offset] instanceof Element) {
     const text = createTextNode("");
     container.insertBefore(text, container.childNodes[offset]);
     return [text, 0];
-  }
-  if (container.childNodes[offset] instanceof Text) {
-    return [container.childNodes[offset] as Text, 0];
   }
 
   throw new Error("situation not handled");
@@ -1128,4 +1101,30 @@ export function clipRange(node: ValidNode, range: Range): Range | null {
   }
   // 互相独立无重叠
   return null;
+}
+
+export function makeRangeInNode(node: ValidNode, range?: Range): Range {
+  if (!range) {
+    range = createRange();
+  }
+
+  if (!isParent(range.commonAncestorContainer, node)) {
+    range.setStart(...getValidAdjacent(node, "afterbegin"));
+    range.setEnd(...getValidAdjacent(node, "afterbegin"));
+  }
+
+  const span = parentElementWithFilter(
+    range.commonAncestorContainer,
+    node,
+    (el) => {
+      return isHintHTMLElement(el);
+    }
+  );
+  if (span) {
+    const where = isHintRight(span) ? "beforeend" : "afterbegin";
+    range.setStart(...getValidAdjacent(node, where));
+    range.setEnd(...getValidAdjacent(node, where));
+  }
+
+  return range;
 }

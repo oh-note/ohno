@@ -1,9 +1,9 @@
 import {
-  EventContext,
+  BlockEventContext,
   Handler,
   HandlerMethod,
   HandlerMethods,
-  RangedEventContext,
+  RangedBlockEventContext,
 } from "@ohno-editor/core/system/handler";
 
 import { FormatText } from "@ohno-editor/core/contrib/commands/format";
@@ -31,7 +31,10 @@ import {
 import { OhNoClipboardData } from "@ohno-editor/core/system";
 import { BlockRemove, BlocksCreate } from "@ohno-editor/core/contrib";
 
-export function insertPlainText(context: RangedEventContext, text: string) {
+export function insertPlainText(
+  context: RangedBlockEventContext,
+  text: string
+) {
   const { page, block, range } = context;
   const command = new TextInsert({
     page,
@@ -50,15 +53,16 @@ export function insertPlainText(context: RangedEventContext, text: string) {
   page.executeCommand(command);
   return true;
 }
+
 export function defaultHandleBeforeInputOfPlainText(
   handler: HandlerMethods,
   e: TypedInputEvent,
-  context: RangedEventContext
+  context: RangedBlockEventContext
 ): boolean | void {
   const { page, block, range } = context;
   // multiblock 的情况不会到这里
   validateRange(range);
-  
+
   let command;
   const editable = block.findEditable(range.startContainer)!;
   const index = block.getEditableIndex(editable);
@@ -211,7 +215,7 @@ export function defaultHandleBeforeInputOfPlainText(
 export function defaultHandleBeforeInput(
   handler: HandlerMethods,
   e: TypedInputEvent,
-  context: RangedEventContext,
+  context: RangedBlockEventContext,
   token_filter?: ElementFilter
 ): boolean | void {
   const { page, block, range } = context;

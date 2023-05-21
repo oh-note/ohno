@@ -5,6 +5,6 @@ export * from "./composition";
 
 export function CompositionHandlerEntry(): HandlerEntry {
   return {
-    global: new CompositionHandler(),
+    beforeBlock: new CompositionHandler(),
   };
 }

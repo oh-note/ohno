@@ -1,4 +1,5 @@
 import { OH_INLINEBLOCK } from "./consts";
+import { removeMarkdownHint } from "./markdown";
 
 export type HTMLElementTagName = keyof HTMLElementTagNameMap;
 export type ElementTagName = keyof HTMLElementTagNameMap | "#text";
@@ -6,6 +7,8 @@ export type HTMLElementType = HTMLElementTagNameMap[HTMLElementTagName];
 export type EventAttribute = {
   [key in keyof HTMLElementEventMap]?: (e: HTMLElementEventMap[key]) => void;
 };
+
+export type ChildrenPayload = string | Node | (string | Node)[];
 
 export function createTextNode(text?: string): Text {
   text = text || "";
@@ -22,6 +25,7 @@ export function splitUniqueSpace() {
 export function createFlagNode(): HTMLElement {
   return createElement("span");
 }
+
 export interface InlineBlock {
   serailizer: string;
   el: Node[];
@@ -45,29 +49,45 @@ export function innerHTMLToNodeList(
   plain?: boolean
 ): Node[] {
   const wrap = createElement("span");
+  wrap.innerHTML = innerHTML;
+  // removeMarkdownHint(wrap);
   if (plain) {
-    wrap.textContent = innerHTML;
-  } else {
-    wrap.innerHTML = innerHTML;
+    wrap.textContent = wrap.textContent || "";
   }
   return Array.from(wrap.childNodes);
 }
 
-export function createInlineBlock(
-  el?: HTMLElement,
-  innerHTML?: string,
-  value?: string
-): HTMLElement {
-  const res = createElement("label", {
-    children: el ? [el] : undefined,
-    className: OH_INLINEBLOCK,
-    attributes: { value: value },
-    style: { display: "inline-block" },
-  });
-  if (innerHTML) {
-    res.innerHTML = innerHTML;
+export function createInline(
+  name: string,
+  children?: (Node | string)[],
+  dataset?: {
+    [key: string]: any;
+    name?: never;
   }
+): HTMLLabelElement {
+  if (dataset && dataset["name"]) {
+    throw new Error("dataset can not assign value of key `name` ");
+  }
+  const res = createElement("label", {
+    children,
+    className: `${OH_INLINEBLOCK} ${name}`,
+    style: { display: "inline-block" },
+    dataset: { name },
+  });
+  dataset = dataset || {};
+  for (const key in dataset) {
+    res.dataset[key] = dataset[key];
+  }
+
   return res;
+}
+
+export function dechildren(children: ChildrenPayload): (Node | string)[] {
+  if (Array.isArray(children)) {
+    return children;
+  } else {
+    return [children];
+  }
 }
 
 export function createElement<K extends HTMLElementTagName>(
@@ -77,9 +97,10 @@ export function createElement<K extends HTMLElementTagName>(
     className?: string;
     textContent?: string;
     innerHTML?: string;
-    attributes?: { [key: string]: any };
+    attributes?: { [key: string]: string };
+    dataset?: { [key: string]: any };
     eventHandler?: EventAttribute;
-    children?: Node[];
+    children?: ChildrenPayload;
     style?: Style;
   }
 ): HTMLElementTagNameMap[K] {
@@ -92,6 +113,7 @@ export function createElement<K extends HTMLElementTagName>(
     children,
     style,
     innerHTML,
+    dataset,
   } = props || {};
 
   const el = document.createElement(tagName);
@@ -108,7 +130,7 @@ export function createElement<K extends HTMLElementTagName>(
     el.innerHTML = innerHTML;
   }
   if (attributes) {
-    for (let key in attributes) {
+    for (const key in attributes) {
       const value = attributes[key];
       if (value !== undefined) {
         el.setAttribute(key, value);
@@ -116,15 +138,24 @@ export function createElement<K extends HTMLElementTagName>(
     }
   }
 
+  if (dataset) {
+    for (const key in dataset) {
+      el.dataset[key] = dataset[key];
+    }
+  }
   if (eventHandler) {
-    for (let key in eventHandler) {
+    for (const key in eventHandler) {
       const value = eventHandler[key as keyof HTMLElementEventMap];
       el.addEventListener(key, value as EventListenerOrEventListenerObject);
     }
   }
   if (children) {
-    children.forEach((child) => {
-      el.appendChild(child);
+    dechildren(children).forEach((child) => {
+      if (child instanceof Node) {
+        el.appendChild(child);
+      } else {
+        el.append(...innerHTMLToNodeList(child));
+      }
     });
   }
   if (style) {
@@ -133,6 +164,10 @@ export function createElement<K extends HTMLElementTagName>(
 
   return el;
 }
+
+// export function createComponents<K extends HTMLElementTagName>(
+//   payload: ComponentPayload<K>
+// ) {}
 
 export function getDefaultRange(): Range {
   const sel = document.getSelection();
@@ -151,4 +186,3 @@ export function tryGetDefaultRange(): Range | null {
 
   return null;
 }
-

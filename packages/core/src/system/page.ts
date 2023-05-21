@@ -1,10 +1,10 @@
 import {
-  EventContext,
+  BlockEventContext,
   Handler,
   HandlerMethod,
   HandlerMethods,
   MultiBlockEventContext,
-  RangedEventContext,
+  RangedBlockEventContext,
 } from "./handler";
 import { createOrderString } from "@ohno-editor/core/helper/string";
 import { DictNode, LinkedDict } from "@ohno-editor/core/struct/linkeddict";
@@ -13,6 +13,7 @@ import { ROOT_CLASS } from "./config";
 import {
   createElement,
   getDefaultRange,
+  tryGetDefaultRange,
 } from "@ohno-editor/core/helper/document";
 import {
   BlockQuery,
@@ -31,12 +32,26 @@ import {
   BlockUpdateEvent,
   PageEvent,
 } from "./pageevent";
-import { RefLocation, setLocation } from "./range";
+import {
+  RefLocation,
+  getValidAdjacent,
+  setLocation,
+  validateRange,
+} from "./range";
 import { throttle } from "@ohno-editor/core/helper/lodash";
+import { indexOfNode, isParent } from "../helper";
+import { IShortcut, ShortCutManager } from "./shortcut";
+import {
+  isActivate,
+  markActivate,
+  removeActivate,
+  removeSelect,
+} from "../helper/status";
 
 export class PageHandler {
   pluginHandlers: Handler[] = [];
   multiBlockHandlers: Handler[] = [];
+  beforeBlockHandlers: Handler[] = [];
   blockHandlers: { [key: string]: Handler[] } = {};
   globalHandlers: Handler[] = [];
   inlineHandler: { [key: string]: Handler[] } = {};
@@ -64,6 +79,7 @@ export class PageHandler {
     plugins,
     multiblock,
     inlines,
+    beforeBlock,
     global,
     blocks,
   }: HandlerEntry) {
@@ -85,9 +101,10 @@ export class PageHandler {
         });
       }
     }
-    if (global) {
-      this.deflag(global).forEach((item) => {
-        this.globalHandlers.push(item);
+
+    if (beforeBlock) {
+      this.deflag(beforeBlock).forEach((item) => {
+        this.beforeBlockHandlers.push(item);
       });
     }
     if (blocks) {
@@ -97,6 +114,12 @@ export class PageHandler {
           this.blockHandlers[key].push(item);
         });
       }
+    }
+
+    if (global) {
+      this.deflag(global).forEach((item) => {
+        this.globalHandlers.push(item);
+      });
     }
   }
 
@@ -176,8 +199,48 @@ export class PageHandler {
     return el;
   }
 
-  getContextFromRange(range: Range): EventContext | MultiBlockEventContext {
+  _checkRangeInsideBlock(range: Range) {
+    this.page.findBlock(range.startContainer);
+
+    const neraestBlock = (
+      container: Node,
+      offset: number,
+      end?: boolean
+    ): AnyBlock => {
+      if (
+        container !== this.page.blockRoot &&
+        !this.page.findBlock(container)
+      ) {
+        throw new Error("Not implemented.");
+      }
+
+      if (container.childNodes[offset]) {
+        if (end) {
+          return this.page.findBlock(container.childNodes[offset - 1])!;
+        }
+        return this.page.findBlock(container.childNodes[offset])!;
+      } else {
+        return this.page.getLastBlock();
+      }
+    };
+    let block = this.page.findBlock(range.startContainer);
+    if (!block) {
+      const startBlock = neraestBlock(range.startContainer, range.startOffset);
+      range.setStart(...getValidAdjacent(startBlock.root, "afterbegin"));
+    }
+
+    block = this.page.findBlock(range.endContainer);
+    if (!block) {
+      const endBlock = neraestBlock(range.endContainer, range.endOffset);
+      range.setEnd(...getValidAdjacent(endBlock.root, "beforeend"));
+    }
+  }
+  getContextFromRange(
+    range: Range
+  ): BlockEventContext | MultiBlockEventContext {
+    this._checkRangeInsideBlock(range);
     let blockContext = this.getContext(range.startContainer);
+
     if (!blockContext) {
       if (range.startContainer === this.page.blockRoot) {
         const blockEl = range.startContainer.childNodes[range.startOffset];
@@ -217,16 +280,9 @@ export class PageHandler {
 
   getContext(
     target: EventTarget | Node | null | undefined
-  ): EventContext | null {
-    if (!target) {
-      return null;
-    }
-    let el = target as Element;
-    while (el && (el.nodeType != 1 || !el.classList.contains("oh-is-block"))) {
-      el = el.parentElement!;
-    }
-    if (el) {
-      const block = this.page.chain.find(el.getAttribute("order")!)![0];
+  ): BlockEventContext | null {
+    const block = this.page.findBlock(target);
+    if (block) {
       return { block, page: this.page };
     }
     return null;
@@ -238,7 +294,10 @@ export class PageHandler {
 
   _dispatchEvent<K extends Event | PageEvent>(
     handlers: Handler[],
-    context: EventContext | RangedEventContext | MultiBlockEventContext,
+    context:
+      | BlockEventContext
+      | RangedBlockEventContext
+      | MultiBlockEventContext,
     e: K,
     eventName: keyof HandlerMethods
   ) {
@@ -260,7 +319,7 @@ export class PageHandler {
   }
 
   dispatchEvent<K extends Event | PageEvent>(
-    context: EventContext,
+    context: BlockEventContext,
     e: K,
     eventName: keyof HandlerMethods
   ) {
@@ -277,6 +336,12 @@ export class PageHandler {
       return;
     }
 
+    // Composition Enter down 的事件需要由 global Composition 阻塞
+    if (this._dispatchEvent(this.beforeBlockHandlers, context, e, eventName)) {
+      return;
+    }
+
+    // Table 需要更早一步的接受 Arrow 事件
     if (block) {
       const blockHandlers = this.blockHandlers[block.type] || [];
       if (this._dispatchEvent(blockHandlers, context, e, eventName)) {
@@ -284,6 +349,7 @@ export class PageHandler {
       }
     }
 
+    // Composition Enter down 的事件需要由 global Composition 阻塞
     if (this._dispatchEvent(this.globalHandlers, context, e, eventName)) {
       return;
     }
@@ -315,13 +381,18 @@ export class PageHandler {
   }
 
   handleFocus(e: FocusEvent): void | boolean {
+    // TODO focus 从一个Page 移动到另一个 Page 时，selection 还是原来 Page 的，可能会出错
+    // Focus 事件中应该去掉和 range、block 相关的信息，只保留 page
     const sel = document.getSelection();
-    if (sel && sel.rangeCount > 0) {
-      const context = this.getContext(sel.getRangeAt(0).startContainer);
-      if (!context) {
-        return;
+    if (sel && sel.rangeCount > 0 && sel.anchorNode) {
+      if (isParent(sel.anchorNode, this.page.blockRoot)) {
+        const context = this.getContext(sel.getRangeAt(0).startContainer);
+
+        if (!context) {
+          return;
+        }
+        this.dispatchEvent<FocusEvent>(context, e, "handleFocus");
       }
-      this.dispatchEvent<FocusEvent>(context, e, "handleFocus");
     }
   }
 
@@ -418,10 +489,11 @@ export class PageHandler {
     this.dispatchEvent<MouseEvent>(context, e, "handleMouseUp");
   }
   handleClick(e: MouseEvent): void | boolean {
-    const range = getDefaultRange();
-    const context = this.findBlock(range.startContainer)
-      ? this.getContextFromRange(range)
-      : this.getContext(document.elementFromPoint(e.clientX, e.clientY));
+    const range = tryGetDefaultRange();
+    const context =
+      range && this.findBlock(range.startContainer)
+        ? this.getContextFromRange(range)
+        : this.getContext(document.elementFromPoint(e.clientX, e.clientY));
 
     if (!context) {
       return;
@@ -534,6 +606,7 @@ export interface HandlerEntry {
   plugins?: HandlerFlag;
   multiblock?: HandlerFlag;
   // 只需要 global / blocks 两种，在前面都没有通过的情况下，下面两种情况二选一 consume
+  beforeBlock?: HandlerFlag;
   global?: HandlerFlag;
   blocks?: { [key: string]: HandlerFlag };
   inlines?: { [key: string]: HandlerFlag };
@@ -578,7 +651,7 @@ export class Page implements IPage {
   chain: LinkedDict<string, AnyBlock> = new LinkedDict();
   selected: Set<string>;
   active?: AnyBlock;
-  activeInline?: HTMLLabelElement;
+  // activeInline?: HTMLLabelElement;
   hover?: AnyBlock | undefined;
   outer: HTMLElement;
   inner: HTMLElement;
@@ -590,6 +663,7 @@ export class Page implements IPage {
   pageHandler: PageHandler;
   history: History;
 
+  shortcut: IShortcut;
   inlineSerializer: InlineSerializer;
 
   constructor(init?: PageInit) {
@@ -638,7 +712,7 @@ export class Page implements IPage {
         });
       }
     }
-
+    this.shortcut = new ShortCutManager();
     if (blocks) {
       blocks.forEach((item) => {
         this.appendBlock(item);
@@ -662,6 +736,17 @@ export class Page implements IPage {
     return this.inner;
   }
 
+  toggleSelectionMode(selectionMode: Page["selectionMode"]) {
+    this.selectionMode = selectionMode;
+    if (selectionMode === "block") {
+      if (this.active) {
+        this.toggleSelect(this.active);
+      }
+    } else {
+      this.clearSelect();
+    }
+  }
+
   dispatchPageEvent(pageEvent: PageEvent) {
     this.pageHandler.dispatchPageEvent(pageEvent);
   }
@@ -682,6 +767,9 @@ export class Page implements IPage {
     root.innerHTML = "";
     root.appendChild(this.root);
   }
+  reverseRender(callback: (root: HTMLElement) => void): void {
+    callback(this.root);
+  }
 
   setHover(block?: AnyBlock | undefined): void {
     if (this.hover === block) {
@@ -696,34 +784,16 @@ export class Page implements IPage {
     }
   }
 
-  setActiveInline(inline?: HTMLLabelElement | undefined): boolean {
-    if (this.activeInline === inline) {
-      // 已在激活状态的不做处理
-      return false;
-    }
-    if (this.activeInline) {
-      this.activeInline.classList.remove("active");
-    }
-    if (inline) {
-      inline.classList.add("active");
-    }
-    this.activeInline = inline;
-    return true;
-  }
-
   /** activated 意味着光标（range）已经在对应的 HTMLElement 内了 */
   setActivate(block?: AnyBlock | undefined): void {
     // debugger;
     if (this.active !== undefined) {
-      if (
-        this.active === block &&
-        this.active.root.classList.contains("active")
-      ) {
+      if (this.active === block && isActivate(this.active.root)) {
         return;
       }
     }
     if (this.active) {
-      this.active.root.classList.remove("active");
+      removeActivate(this.active.root);
       this.dispatchPageEvent(
         new BlockDeActiveEvent({
           block: this.active,
@@ -734,7 +804,7 @@ export class Page implements IPage {
       );
     }
     if (block) {
-      block.root.classList.add("active");
+      markActivate(block.root);
       this.pageHandler.dispatchPageEvent(
         new BlockActiveEvent({ block, page: this, from: "Page" })
       );
@@ -746,10 +816,10 @@ export class Page implements IPage {
     let target;
     if ((target = this.query(flag))) {
       if (this.selected.has(target.order)) {
-        target.root.classList.remove("active");
+        removeActivate(target.root);
         this.selected.delete(target.order);
       } else {
-        target.root.classList.add("active");
+        markActivate(target.root);
         this.selected.add(target.order);
       }
     }
@@ -822,8 +892,8 @@ export class Page implements IPage {
     return this.chain.getLast()[0];
   }
   private removeBlockStatus(block: AnyBlock) {
-    block.root.classList.remove("active");
-    block.root.classList.remove("select");
+    removeActivate(block.root);
+    removeSelect(block.root);
   }
   appendBlock(newBlock: AnyBlock): string {
     this.removeBlockStatus(newBlock);
@@ -938,7 +1008,7 @@ export class Page implements IPage {
         { once: true }
       );
     }
-    this.blockRoot.focus();
+    this.blockRoot.focus({ preventScroll: true });
   }
 
   deserialize(): IComponent {
@@ -981,12 +1051,12 @@ export class Page implements IPage {
     if (!target) {
       return null;
     }
-    let el = target as Element;
+    let el = target as HTMLElement;
     while (el && (el.nodeType != 1 || !el.classList.contains("oh-is-block"))) {
       el = el.parentElement!;
     }
     if (el) {
-      const block = this.chain.find(el.getAttribute("order")!)![0];
+      const block = this.chain.find(el.dataset["order"]!)![0];
       return block;
     }
     return null;

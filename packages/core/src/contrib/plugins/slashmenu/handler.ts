@@ -1,24 +1,32 @@
 import {
-  EventContext,
+  BlockEventContext,
   Handler,
   FineHandlerMethods,
-  RangedEventContext,
+  RangedBlockEventContext,
   dispatchKeyEvent,
 } from "@ohno-editor/core/system/handler";
 import { SlashMenu } from "./plugin";
 
 export class SlashMenuHandler extends Handler implements FineHandlerMethods {
-  handleKeyPress(e: KeyboardEvent, context: EventContext): boolean | void {}
-  handleKeyDown(e: KeyboardEvent, context: RangedEventContext): boolean | void {
+  handleKeyPress(
+    e: KeyboardEvent,
+    context: BlockEventContext
+  ): boolean | void {}
+  handleKeyDown(
+    e: KeyboardEvent,
+    context: RangedBlockEventContext
+  ): boolean | void {
     return dispatchKeyEvent(this, e, context);
   }
 
-  handleKeyUp(e: KeyboardEvent, context: RangedEventContext): boolean | void {
+  handleKeyUp(
+    e: KeyboardEvent,
+    context: RangedBlockEventContext
+  ): boolean | void {
     return dispatchKeyEvent(this, e, context);
   }
 
-  handleMouseDown(e: MouseEvent, context: EventContext): boolean | void {
-    console.log(e);
+  handleMouseDown(e: MouseEvent, context: BlockEventContext): boolean | void {
     const { page, block, endBlock } = context;
     if (!endBlock) {
       const plugin = page.getPlugin<SlashMenu>("slashmenu");
@@ -28,7 +36,7 @@ export class SlashMenuHandler extends Handler implements FineHandlerMethods {
 
   handleArrowKeyDown(
     e: KeyboardEvent,
-    context: RangedEventContext
+    context: RangedBlockEventContext
   ): boolean | void {
     const { page, block, isMultiBlock } = context;
     if (isMultiBlock) {
@@ -54,7 +62,7 @@ export class SlashMenuHandler extends Handler implements FineHandlerMethods {
   }
   handleEscapeDown(
     e: KeyboardEvent,
-    context: RangedEventContext
+    context: RangedBlockEventContext
   ): boolean | void {
     const plugin = context.page.getPlugin<SlashMenu>("slashmenu");
     if (plugin.isOpen) {
@@ -64,7 +72,7 @@ export class SlashMenuHandler extends Handler implements FineHandlerMethods {
 
   handleArrowKeyUp(
     e: KeyboardEvent,
-    context: RangedEventContext
+    context: RangedBlockEventContext
   ): boolean | void {
     // const { page, block, isMultiBlock } = context;
     // if (isMultiBlock) {
@@ -77,13 +85,19 @@ export class SlashMenuHandler extends Handler implements FineHandlerMethods {
     //   }
     // }
   }
-  handleDeleteDown(e: KeyboardEvent, context: EventContext): boolean | void {}
+  handleDeleteDown(
+    e: KeyboardEvent,
+    context: BlockEventContext
+  ): boolean | void {}
   handleBackspaceDown(
     e: KeyboardEvent,
-    context: EventContext
+    context: BlockEventContext
   ): boolean | void {}
 
-  handleEnterDown(e: KeyboardEvent, context: EventContext): boolean | void {
+  handleEnterDown(
+    e: KeyboardEvent,
+    context: BlockEventContext
+  ): boolean | void {
     const { page, block, isMultiBlock } = context;
     if (isMultiBlock) {
       return;
@@ -100,14 +114,14 @@ export class SlashMenuHandler extends Handler implements FineHandlerMethods {
   }
   handleSpaceDown(
     e: KeyboardEvent,
-    context: RangedEventContext
+    context: RangedBlockEventContext
   ): boolean | void {
     return this.handleEnterDown(e, context);
   }
 
   handleBeforeInput(
     e: TypedInputEvent,
-    context: RangedEventContext
+    context: RangedBlockEventContext
   ): boolean | void {
     const { page, range, block } = context;
     // 弹出条件：首次输入 /

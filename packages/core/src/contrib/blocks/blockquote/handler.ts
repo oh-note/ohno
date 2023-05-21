@@ -3,10 +3,10 @@ import {
   tryGetDefaultRange,
 } from "@ohno-editor/core/helper/document";
 import {
-  EventContext,
+  BlockEventContext,
   Handler,
   FineHandlerMethods,
-  RangedEventContext,
+  RangedBlockEventContext,
   dispatchKeyEvent,
 } from "@ohno-editor/core/system/handler";
 import {
@@ -22,13 +22,19 @@ import {
 import { Blockquote } from "./block";
 import "./style.css";
 export class BlockQuoteHandler extends Handler implements FineHandlerMethods {
-  handleKeyPress(e: KeyboardEvent, context: EventContext): boolean | void {}
-  handleKeyDown(e: KeyboardEvent, context: RangedEventContext): boolean | void {
+  handleKeyPress(
+    e: KeyboardEvent,
+    context: BlockEventContext
+  ): boolean | void {}
+  handleKeyDown(
+    e: KeyboardEvent,
+    context: RangedBlockEventContext
+  ): boolean | void {
     return dispatchKeyEvent(this, e, context);
   }
   handleDeleteDown(
     e: KeyboardEvent,
-    { page, block, range }: EventContext
+    { page, block, range }: BlockEventContext
   ): boolean | void {
     if (!range) {
       throw new NoRangeError();
@@ -59,7 +65,7 @@ export class BlockQuoteHandler extends Handler implements FineHandlerMethods {
 
   handleBackspaceDown(
     e: KeyboardEvent,
-    { block, page }: EventContext
+    { block, page }: BlockEventContext
   ): boolean | void {
     const range = tryGetDefaultRange();
     if (
@@ -73,7 +79,7 @@ export class BlockQuoteHandler extends Handler implements FineHandlerMethods {
     const command = new BlockReplace({
       block,
       page,
-      newBlock: new Paragraph({ innerHTML: block.root.innerHTML }),
+      newBlock: new Paragraph({ children: [block.root.innerHTML] }),
     });
     page.executeCommand(command);
     // 向前合并
@@ -82,7 +88,7 @@ export class BlockQuoteHandler extends Handler implements FineHandlerMethods {
 
   handleEnterDown(
     e: KeyboardEvent,
-    { page, block, range }: EventContext
+    { page, block, range }: BlockEventContext
   ): boolean | void {
     e.stopPropagation();
     e.preventDefault();
@@ -108,7 +114,7 @@ export class BlockQuoteHandler extends Handler implements FineHandlerMethods {
   }
   handleSpaceDown(
     e: KeyboardEvent,
-    context: RangedEventContext
+    context: RangedBlockEventContext
   ): boolean | void {
     const { block, range } = context;
 

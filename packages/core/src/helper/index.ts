@@ -6,3 +6,4 @@ export * from "./markdown";
 export * from "./register";
 export * from "./string";
 export * from "./time";
+export * from "./status";

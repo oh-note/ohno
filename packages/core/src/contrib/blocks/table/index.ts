@@ -1,6 +1,7 @@
 import { BlockComponent, HandlerEntry } from "@ohno-editor/core/system/page";
 import { Table } from "./block";
 import { TableHandler } from "./handler";
+import { SHORCUTS } from "./consts";
 
 export { TableChange } from "./command";
 export { Table, TableHandler };
@@ -11,6 +12,11 @@ export function TableBlock(): BlockComponent {
     blockType: Table,
     handlers: {
       blocks: { table: new TableHandler() },
+    },
+    onPageCreated: (page) => {
+      SHORCUTS.forEach(([entry, st]) => {
+        page.shortcut.registKey(entry, st);
+      });
     },
   };
 }

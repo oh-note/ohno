@@ -1,27 +1,16 @@
-import { createElement } from "@ohno-editor/core/helper/document";
-import { EventContext } from "@ohno-editor/core/system/handler";
+import { createElement, createInline } from "@ohno-editor/core/helper/document";
+import {
+  BlockEventContext,
+  FineHandlerMethods,
+} from "@ohno-editor/core/system/handler";
 import { InlineBase } from "@ohno-editor/core/system/inline";
-import { biasToLocation } from "@ohno-editor/core/system/position";
-import {
-  createRange,
-  getValidAdjacent,
-  setLocation,
-  setRange,
-} from "@ohno-editor/core/system/range";
-import { computePosition } from "@floating-ui/dom";
-import { InlineSubmit } from "@ohno-editor/core/contrib/commands/inlineblock";
-import {
-  addMarkdownHint,
-  removeMarkdownHint,
-} from "@ohno-editor/core/helper/markdown";
+import { makeRangeInNode, setRange } from "@ohno-editor/core/system/range";
+import { addMarkdownHint } from "@ohno-editor/core/helper/markdown";
 import "./style.css";
-import {
-  getTagName,
-  parentElementWithFilter,
-} from "@ohno-editor/core/helper/element";
+import { markPlain } from "@ohno-editor/core/helper";
 
 export interface BackLinkOption {
-  cite: string;
+  cite?: string;
   type: "block" | "page" | "link" | "plain";
   content: string;
 }
@@ -30,7 +19,7 @@ export interface BackLinkInit {
   onLoad: (content: string) => Promise<BackLinkOption[]>;
 }
 
-export class BackLink extends InlineBase {
+export class BackLink extends InlineBase implements FineHandlerMethods {
   // options: BackLinkOption[];
   hoveredItem: number = -1;
   component: {
@@ -97,24 +86,16 @@ export class BackLink extends InlineBase {
       type: "",
       content: "",
     };
-    const root = createElement("label", {
-      attributes: { name: "backlink", type },
-    });
     const q = createElement("q", {
       textContent: content,
-      attributes: { cite },
+      attributes: { cite: cite || "" },
     });
-    root.appendChild(q);
+    markPlain(q);
+
+    const root = createInline(this.name, [q], { type });
     addMarkdownHint(root);
+
     return root;
-  }
-
-  show(component: HTMLElement) {
-    component.style.display = "block";
-  }
-
-  hide(component: HTMLElement) {
-    component.style.display = "none";
   }
 
   toggleComponent(el: HTMLElement) {
@@ -127,225 +108,113 @@ export class BackLink extends InlineBase {
     });
   }
 
-  update() {
-    const slot = this.current!.querySelector("q")!.cloneNode(
-      true
-    ) as HTMLElement;
-    removeMarkdownHint(slot);
-    this.status = "onload";
-    this.toggleComponent(this.component.onload);
-    this.hoveredItem = -1;
-    this.onLoad(slot.textContent?.trim() || "")
-      .then((results) => {
-        this.options = results;
-        if (results.length === 0) {
-          this.toggleComponent(this.component.noresult);
-          this.hoveredItem = -1;
-        } else {
-          const els = results.map((item, index) => {
-            const el = createElement("option", {
-              textContent: item.content,
-              attributes: { cite: item.cite, type: item.type, index },
-            });
+  // update() {
+  //   const slot = this.current!.querySelector("q")!.cloneNode(
+  //     true
+  //   ) as HTMLElement;
+  //   removeMarkdownHint(slot);
+  //   this.status = "onload";
+  //   this.toggleComponent(this.component.onload);
+  //   this.hoveredItem = -1;
+  //   this.onLoad(slot.textContent?.trim() || "")
+  //     .then((results) => {
+  //       this.options = results;
+  //       if (results.length === 0) {
+  //         this.toggleComponent(this.component.noresult);
+  //         this.hoveredItem = -1;
+  //       } else {
+  //         const els = results.map((item, index) => {
+  //           const el = createElement("option", {
+  //             textContent: item.content,
+  //             dataset: { cite: item.cite, type: item.type, index },
+  //           });
 
-            return el;
-          });
-          this.component.results.replaceChildren(...els);
-          this.toggleComponent(this.component.results);
-          this.onHover(0);
-        }
-      })
-      .catch(() => {
-        this.toggleComponent(this.component.failed);
-      })
-      .finally(() => {
-        this.status = "loaded";
-      });
-  }
+  //           return el;
+  //         });
+  //         this.component.results.replaceChildren(...els);
+  //         this.toggleComponent(this.component.results);
+  //         this.onHover(0);
+  //       }
+  //     })
+  //     .catch(() => {
+  //       this.toggleComponent(this.component.failed);
+  //     })
+  //     .finally(() => {
+  //       this.status = "loaded";
+  //     });
+  // }
 
-  edit(label: HTMLLabelElement, context: EventContext): void {
-    this.show(this.component.dropdown);
-    this.context = context;
-    this.snap = label.cloneNode(true) as HTMLLabelElement;
-    this.current = label;
-    this.hoverLabel(label);
-    computePosition(label, this.component.dropdown, {
-      placement: "bottom-start",
-    }).then(({ x, y }) => {
-      Object.assign(this.component.dropdown.style, {
-        left: `${x}px`,
-        top: `${y}px`,
-      });
-    });
-    this.update();
-  }
-
-  rangeToLeft() {
-    const slot = this.current!.querySelector("q")!;
-    const loc = biasToLocation(slot, 0)!;
-    setLocation(loc);
-  }
-  rangeToRight() {
-    const slot = this.current!.querySelector("q")!;
-    const loc = biasToLocation(slot, -1)!;
-    setLocation(loc);
-  }
-  rangeToAll() {
-    const slot = this.current!.querySelector("q")!;
-    const startLoc = biasToLocation(slot, 0)!;
-    const endLoc = biasToLocation(slot, -1)!;
-    setRange(createRange(...startLoc, ...endLoc));
-  }
-
-  findOption(node: Node): HTMLElement | null {
-    const option = parentElementWithFilter(
-      node,
-      this.component.results,
-      (el: Node) => {
-        return el instanceof HTMLElement && getTagName(el) === "option";
-      }
-    );
-    return option;
-  }
-  handleMouseMove(e: MouseEvent) {
-    console.log(e);
-    const option = this.findOption(e.target as Node);
-    if (option) {
-      const index = parseInt(option.getAttribute("index")!);
-      this.onHover(index);
+  query() {
+    if (!this.current) {
+      throw new Error("Sanity check");
     }
+    let q = this.current.querySelector("q");
+    if (q) {
+      // onload
+      // query and update content
+      //  .then(){}
+    }
+  }
+  hover_subclass(label: HTMLLabelElement, context: BlockEventContext): void {
+    const q = label.querySelector("q")!;
+    if (q.dataset["type"] === "link") {
+      this.component.tips.textContent = q.dataset["cite"] || "";
+      this.float(label, this.component.tips, { placement: "top-start" });
+    }
+  }
+  activate_subclass(label: HTMLLabelElement, context: BlockEventContext): void {
+    this.component.dropdown.textContent = "waiting for menu";
+    this.float(label, this.component.dropdown, { placement: "bottom-start" });
+    this.hover_subclass(label, context);
+    const q = label.querySelector("q")!;
+    const { range } = context;
+    setRange(makeRangeInNode(q, range));
+  }
+  exit_subclass(label: HTMLLabelElement, context: BlockEventContext): void {
+    this.hide(this.component.dropdown);
+    this.hide(this.component.tips);
+  }
+  // rangeToLeft() {
+  //   const slot = this.current!.querySelector("q")!;
+  //   const loc = biasToLocation(slot, 0)!;
+  //   setLocation(loc);
+  // }
+  // rangeToRight() {
+  //   const slot = this.current!.querySelector("q")!;
+  //   const loc = biasToLocation(slot, -1)!;
+  //   setLocation(loc);
+  // }
+  // rangeToAll() {
+  //   const slot = this.current!.querySelector("q")!;
+  //   const startLoc = biasToLocation(slot, 0)!;
+  //   const endLoc = biasToLocation(slot, -1)!;
+  //   setRange(createRange(...startLoc, ...endLoc));
+  // }
+
+  // findOption(node: Node): HTMLElement | null {
+  //   const option = parentElementWithFilter(
+  //     node,
+  //     this.component.results,
+  //     (el: Node) => {
+  //       return el instanceof HTMLElement && getTagName(el) === "option";
+  //     }
+  //   );
+  //   return option;
+  // }
+
+  handleMouseMove(e: MouseEvent) {
+    // console.log(e);
+    // const option = this.findOption(e.target as Node);
+    // if (option) {
+    //   const index = parseInt(option.dataset["index"]!);
+    //   this.onHover(index);
+    // }
   }
   handleClick(e: MouseEvent) {
-    const option = this.findOption(e.target as Node);
-    if (option) {
-      const index = parseInt(option.getAttribute("index")!);
-      this.onSelected(index);
-    }
-  }
-
-  submit() {
-    const { page, block } = this.context!;
-    const command = new InlineSubmit({
-      page,
-      label: this.current!,
-      old: this.snap!,
-      block,
-    });
-    page.executeCommand(command);
-  }
-
-  cancel() {
-    this.current?.setAttribute("value", this.snap!.getAttribute("value")!);
-    this.current!.innerHTML = this.snap!.innerHTML;
-  }
-
-  hover(label: HTMLLabelElement, context: EventContext): void {
-    this.hide(this.component.dropdown);
-    context.page.blockRoot.addEventListener(
-      "focus",
-      () => {
-        setRange(createRange(label, 0));
-      },
-      {
-        once: true,
-      }
-    );
-    context.page.blockRoot.focus();
-  }
-
-  exit(): void {
-    this.hide(this.component.dropdown);
-    this.hide(this.component.tips);
-    this.context?.page.setActiveInline();
-    this.context = undefined;
-    this.snap = undefined;
-  }
-
-  getOption(index: number): HTMLElement {
-    return this.component.results.childNodes[index] as HTMLElement;
-  }
-
-  onHover(index: number) {
-    if (index !== this.hoveredItem) {
-      if (this.hoveredItem >= 0) {
-        const oldoption = this.getOption(this.hoveredItem);
-        oldoption.classList.remove("hover");
-      }
-
-      this.hoveredItem = index;
-      const option = this.getOption(index);
-      if (option) {
-        option.classList.add("hover");
-      } else {
-        throw new Error("Sanity check.");
-      }
-    }
-  }
-  onSelected(index: number) {
-    const option = this.getOption(index);
-    const { cite, type, content } = this.options[index];
-    this.current!.setAttribute("type", type);
-    const q = this.current!.querySelector("q")!;
-    q.setAttribute("cite", cite);
-    q.textContent = content;
-    addMarkdownHint(this.current!);
-    this.submit();
-    this.exit();
-  }
-  public get resultSize(): number {
-    return this.component.results.style.display === "block"
-      ? this.component.results.childNodes.length
-      : 0;
-  }
-
-  simulateArrowDown() {
-    const index = (this.hoveredItem + 1) % this.resultSize;
-    this.onHover(index);
-  }
-  simulateArrowUp() {
-    let index;
-    if (this.hoveredItem === 0) {
-      index = this.resultSize - 1;
-    } else {
-      index = this.hoveredItem - 1;
-    }
-    this.onHover(index);
-  }
-  simulateEnter() {
-    // if(this.)
-    this.onSelected(this.hoveredItem);
-  }
-  parseOption(label: HTMLLabelElement): BackLinkOption {
-    const type = (label.getAttribute("type") ||
-      "plain") as BackLinkOption["type"];
-    const q = label.querySelector("q")!.cloneNode(true) as HTMLElement;
-    removeMarkdownHint(q);
-    const cite = q.getAttribute("cite") || "";
-    const content = q.textContent || "";
-
-    return { type, cite, content };
-  }
-
-  hoverLabel(label: HTMLLabelElement) {
-    const { cite, type, content } = this.parseOption(label);
-    if (content.trim().length > 0) {
-      this.show(this.component.tips);
-      if (type === "link") {
-        this.component.tips.textContent = cite;
-      } else {
-        this.component.tips.textContent = type;
-      }
-      computePosition(label, this.component.tips, {
-        placement: "top-start",
-      }).then(({ x, y }) => {
-        Object.assign(this.component.tips.style, {
-          left: `${x}px`,
-          top: `${y}px`,
-        });
-      });
-    }
-  }
-  unHoverLabel(label: HTMLLabelElement) {
-    this.hide(this.component.tips);
+    // const option = this.findOption(e.target as Node);
+    // if (option) {
+    //   const index = parseInt(option.dataset["index"]!);
+    //   this.onSelected(index);
+    // }
   }
 }

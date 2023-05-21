@@ -11,6 +11,7 @@ import {
   mergeAroundRight,
 } from "@ohno-editor/core/helper/element";
 import { addMarkdownHint } from "@ohno-editor/core/helper/markdown";
+import { isPlain } from "@ohno-editor/core/helper/status";
 import { AnyBlock } from "@ohno-editor/core/system/block";
 import {
   Command,
@@ -284,10 +285,12 @@ export class TextInsert extends Command<TextInsertPayload> {
     } = this.payload;
     const loc = block.getLocation(bias, query, token_filter)!;
     const posBias = bias < 0 ? block.getBias(loc, token_filter) : bias;
+    const editable = block.getEditable(query);
     const nodes = innerHTMLToNodeList(
       this.payload.innerHTML,
-      plain
+      plain || isPlain(editable)
     ) as ValidNode[];
+
     addMarkdownHint(...nodes);
     const token_number = getTokenSize(nodes, undefined, token_filter);
     this.buffer = {
@@ -305,12 +308,14 @@ export class TextInsert extends Command<TextInsertPayload> {
       token_filter,
     } = this.payload;
 
+    const editable = block.getEditable(query);
     const loc = block.getLocation(bias, query, token_filter)!;
     const range = createRange(...loc);
     const nodes = innerHTMLToNodeList(
       this.payload.innerHTML,
-      plain
+      plain || isPlain(editable)
     ) as ValidNode[];
+
     addMarkdownHint(...nodes);
 
     const node = createFlagNode();

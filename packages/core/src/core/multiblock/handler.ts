@@ -5,10 +5,7 @@ import {
 import { ListCommandBuilder } from "@ohno-editor/core/contrib/commands/concat";
 import { ContainerRemove } from "@ohno-editor/core/contrib/commands/container";
 import { FormatMultipleText } from "@ohno-editor/core/contrib/commands/format";
-import {
-  Empty,
-  SetBlockRange,
-} from "@ohno-editor/core/contrib/commands/select";
+import { Empty } from "@ohno-editor/core/contrib/commands/select";
 import { ValidNode } from "@ohno-editor/core/helper/element";
 import { formatTags } from "@ohno-editor/core/system/format";
 import {
@@ -16,8 +13,8 @@ import {
   Handler,
   dispatchKeyEvent,
   FineHandlerMethods,
-  EventContext,
-  RangedEventContext,
+  BlockEventContext,
+  RangedBlockEventContext,
 } from "@ohno-editor/core/system/handler";
 import {
   Offset,
@@ -26,9 +23,10 @@ import {
   rangeToInterval,
   setOffset,
 } from "@ohno-editor/core/system/position";
-import { defaultHandleArrowDown } from "../default/arrowDown";
+import { defaultHandleArrowDown } from "../default/functions/arrowDown";
 import {
   createRange,
+  locationInLeft,
   normalizeContainer,
   normalizeRange,
   setLocation,
@@ -39,7 +37,7 @@ import {
   TextInsert,
 } from "@ohno-editor/core/contrib/commands/text";
 import { OhNoClipboardData } from "@ohno-editor/core/system/base";
-import { defaultHandlePaste } from "../default/paste";
+import { defaultHandlePaste } from "../default/functions/paste";
 
 function handleBeforeInputFormat(
   handler: Handler,
@@ -133,9 +131,10 @@ function prepareDeleteMultiArea(
   handler: Handler,
   context: MultiBlockEventContext
 ) {
-  const { page, range } = context;
+  const { page, range, block, endBlock, blocks } = context;
   page.getNextBlock;
   const pageOffset = rangeToInterval(page.blockRoot!, range);
+
   // 最两边的 Container 删除文字 -> TextDelete
   // 第一个和最后一个 block 去除范围内 container -> ContainerRemove
   // 中间的 block 删除 -> BlockRemove
@@ -143,6 +142,11 @@ function prepareDeleteMultiArea(
   // 最后一个命令不指定位置，默认还在初始位置，除了 Enter 定位到最后一个 Container 的初始位置
   const builder = new ListCommandBuilder<MultiBlockEventContext>(context)
     .withLazyCommand(({ block, page, range }, extra) => {
+      if (
+        block.getGlobalBias([range.startContainer, range.startOffset]) === 0
+      ) {
+        return new BlockRemove({ page, block });
+      }
       const container = block.findEditable(range.startContainer)!;
       const startIndex = block.getEditableIndex(container);
       extra["startContainer"] = container;
@@ -343,7 +347,7 @@ export class MultiBlockHandler extends Handler implements FineHandlerMethods {
   }
   handleArrowKeyDown(
     e: KeyboardEvent,
-    context: RangedEventContext
+    context: RangedBlockEventContext
   ): boolean | void {
     return defaultHandleArrowDown(this, e, context);
   }

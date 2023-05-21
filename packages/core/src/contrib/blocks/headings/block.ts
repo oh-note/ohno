@@ -1,4 +1,7 @@
-import { createElement } from "@ohno-editor/core/helper/document";
+import {
+  ChildrenPayload,
+  createElement,
+} from "@ohno-editor/core/helper/document";
 import { BlockSerializedData } from "@ohno-editor/core/system/base";
 import { Block, BlockInit } from "@ohno-editor/core/system/block";
 import { clipRange } from "@ohno-editor/core/system/range";
@@ -8,26 +11,19 @@ export type HeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;
 export interface HeadingsInit extends BlockInit {
   innerHTML?: string;
   level: HeadingLevel;
-  children?: HTMLElement[];
+  children?: ChildrenPayload;
 }
 
 export class Headings extends Block<HeadingsInit> {
   constructor(init?: HeadingsInit) {
     init = init || { level: 2 };
-    if (!init.el) {
-      init.el = createElement(`h${init.level}`, {
-        attributes: {},
-      });
-    }
+    init.el = createElement(`h${init.level}`, {
+      attributes: {},
+      children: init.children,
+    });
+
     if (init.innerHTML) {
       init.el.innerHTML = init.innerHTML;
-    }
-    if (init.children) {
-      init.children.forEach((item) => {
-        if (item) {
-          init!.el?.appendChild(item.cloneNode(true));
-        }
-      });
     }
 
     super("headings", init);

@@ -5,8 +5,8 @@ import { parentElementWithFilter } from "@ohno-editor/core/helper/element";
 import { IComponent, IContainer, IPlugin } from "@ohno-editor/core/system/base";
 import { AnyBlock } from "@ohno-editor/core/system/block";
 import {
-  EventContext,
-  RangedEventContext,
+  BlockEventContext,
+  RangedBlockEventContext,
 } from "@ohno-editor/core/system/handler";
 import { Command } from "@ohno-editor/core/system/history";
 import { Page } from "@ohno-editor/core/system/page";
@@ -44,11 +44,11 @@ export interface MenuItem {
     | ((text: string, context: SlashMenuCreatedContext) => boolean);
 
   onHover?: (
-    context: RangedEventContext,
+    context: RangedBlockEventContext,
     pcontext: SlashMenuPluginContext
   ) => void;
   onSelect?: (
-    context: RangedEventContext,
+    context: RangedBlockEventContext,
     pcontext: SlashMenuPluginContext
   ) => Command<any>;
 }
@@ -58,7 +58,7 @@ export class SlashMenu implements IPlugin {
   name: string = "slashmenu";
   options: MenuItem[];
   parent?: IComponent | undefined;
-  context?: RangedEventContext;
+  context?: RangedBlockEventContext;
   filter?: string;
   component: {
     options: HTMLElement;
@@ -94,7 +94,7 @@ export class SlashMenu implements IPlugin {
     options.addEventListener("click", this.handleClick.bind(this));
   }
 
-  setFilter(filter: string | undefined, context: RangedEventContext) {
+  setFilter(filter: string | undefined, context: RangedBlockEventContext) {
     this.filter = filter;
     const index = this.hover;
     this.hover = -1;
@@ -194,7 +194,7 @@ export class SlashMenu implements IPlugin {
     return this.root.style.display !== "none";
   }
 
-  open(context: RangedEventContext) {
+  open(context: RangedBlockEventContext) {
     this.context = context;
     this.filter = undefined;
     this.root.style.display = "block";

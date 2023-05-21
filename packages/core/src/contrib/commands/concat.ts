@@ -46,7 +46,13 @@ class ListCommand<T> extends Command<T> {
         continue;
       }
       command.history = this.history;
-      command.execute();
+      // eslint-disable-next-line no-useless-catch
+      try {
+        command.execute();
+      } catch (error) {
+        console.error(`Error when execute ${command}`);
+        throw error;
+      }
       if (command.onExecuteFn) {
         command.onExecuteFn(command.payload, command.buffer);
       }

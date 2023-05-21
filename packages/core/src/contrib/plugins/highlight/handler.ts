@@ -1,13 +1,13 @@
 import {
-  EventContext,
+  BlockEventContext,
   Handler,
   HandlerMethods,
   FineHandlerMethods,
   MultiBlockEventContext,
-  RangedEventContext,
+  RangedBlockEventContext,
   dispatchKeyEvent,
 } from "@ohno-editor/core/system/handler";
-import { InlineSupport } from "./plugin";
+import { Highlight } from "./plugin";
 import {
   BlockCreate,
   BlockMove,
@@ -21,16 +21,19 @@ import {
 import { InlineRangedEventContext } from "@ohno-editor/core/system/handler";
 import { getTagName } from "@ohno-editor/core/helper/element";
 
-export class InlineSupportPluginHandler
+export class HighlightPluginHandler
   extends Handler
   implements FineHandlerMethods
 {
   currentInline?: HTMLLabelElement;
 
-  handleKeyDown(e: KeyboardEvent, context: RangedEventContext): boolean | void {
+  handleKeyDown(
+    e: KeyboardEvent,
+    context: RangedBlockEventContext
+  ): boolean | void {
     const { page, range, isMultiBlock } = context;
     if (!isMultiBlock) {
-      const plugin = page.getPlugin<InlineSupport>("inlinesupport");
+      const plugin = page.getPlugin<Highlight>("inlinesupport");
       let label;
       if ((label = plugin.findInline(range.commonAncestorContainer, context))) {
         const handler = plugin.getInlineHandler(label);
@@ -52,7 +55,7 @@ export class InlineSupportPluginHandler
 
   handleArrowKeyDown(
     e: KeyboardEvent,
-    context: RangedEventContext
+    context: RangedBlockEventContext
   ): boolean | void {
     const { block, range, page } = context;
     if (range.collapsed) {
@@ -71,7 +74,7 @@ export class InlineSupportPluginHandler
       ) {
         if (neighbor && getTagName(neighbor[0]) === "label") {
           const label = neighbor[0] as HTMLLabelElement;
-          const plugin = page.getPlugin<InlineSupport>("inlinesupport");
+          const plugin = page.getPlugin<Highlight>("inlinesupport");
           const handler = plugin.getInlineHandler(label);
           const first = page.activeInline !== label;
           page.setActiveInline(label);
@@ -87,10 +90,13 @@ export class InlineSupportPluginHandler
     }
   }
 
-  handleKeyUp(e: KeyboardEvent, context: RangedEventContext): boolean | void {
+  handleKeyUp(
+    e: KeyboardEvent,
+    context: RangedBlockEventContext
+  ): boolean | void {
     const { page, range, isMultiBlock } = context;
     if (!isMultiBlock) {
-      const plugin = page.getPlugin<InlineSupport>("inlinesupport");
+      const plugin = page.getPlugin<Highlight>("inlinesupport");
       let label;
       if ((label = plugin.findInline(range.commonAncestorContainer, context))) {
         const handler = plugin.getInlineHandler(label);
@@ -108,21 +114,21 @@ export class InlineSupportPluginHandler
     }
   }
 
-  deactivateInline(context: EventContext) {
+  deactivateInline(context: BlockEventContext) {
     const { page } = context;
     if (page.activeInline) {
       page.activeInline;
-      const plugin = page.getPlugin<InlineSupport>("inlinesupport");
+      const plugin = page.getPlugin<Highlight>("inlinesupport");
       const manager = plugin.getInlineManager(page.activeInline);
       manager.exit();
       page.setActiveInline();
     }
   }
 
-  handleClick(e: MouseEvent, context: EventContext): boolean | void {
+  handleClick(e: MouseEvent, context: BlockEventContext): boolean | void {
     const { page, isMultiBlock } = context;
     if (!isMultiBlock) {
-      const plugin = page.getPlugin<InlineSupport>("inlinesupport");
+      const plugin = page.getPlugin<Highlight>("inlinesupport");
       const node = document.elementFromPoint(e.clientX, e.clientY);
       let label;
       if (node && (label = plugin.findInline(node, context))) {
@@ -141,10 +147,10 @@ export class InlineSupportPluginHandler
     }
   }
 
-  handleMouseDown(e: MouseEvent, context: EventContext): boolean | void {
+  handleMouseDown(e: MouseEvent, context: BlockEventContext): boolean | void {
     const { page, isMultiBlock } = context;
     if (!isMultiBlock) {
-      const plugin = page.getPlugin<InlineSupport>("inlinesupport");
+      const plugin = page.getPlugin<Highlight>("inlinesupport");
       const node = document.elementFromPoint(e.clientX, e.clientY);
       let label;
       if (node && (label = plugin.findInline(node, context))) {
@@ -163,10 +169,10 @@ export class InlineSupportPluginHandler
     }
   }
 
-  handleMouseUp(e: MouseEvent, context: EventContext): boolean | void {
+  handleMouseUp(e: MouseEvent, context: BlockEventContext): boolean | void {
     const { page, block, isMultiBlock } = context;
     if (!isMultiBlock) {
-      const plugin = page.getPlugin<InlineSupport>("inlinesupport");
+      const plugin = page.getPlugin<Highlight>("inlinesupport");
       // 鼠标没发现，此时如果默认的 mouseevent 定位在 label 里，说明可能遇到了inline 在尾部的行为，交由默认行为将光标移出去
       const node = document.elementFromPoint(e.clientX, e.clientY);
       let label;
@@ -186,10 +192,10 @@ export class InlineSupportPluginHandler
     }
   }
 
-  handleMouseMove(e: MouseEvent, context: EventContext): boolean | void {
+  handleMouseMove(e: MouseEvent, context: BlockEventContext): boolean | void {
     const { page, isMultiBlock } = context;
     if (e.button !== 1 && !isMultiBlock) {
-      const plugin = page.getPlugin<InlineSupport>("inlinesupport");
+      const plugin = page.getPlugin<Highlight>("inlinesupport");
       const node = document.elementFromPoint(e.clientX, e.clientY);
       let label;
       if (node && (label = plugin.findInline(node, context))) {
@@ -226,19 +232,19 @@ export class InlineSupportPluginHandler
       }
     }
   }
-  handleMouseEnter(e: MouseEvent, context: EventContext): boolean | void {
+  handleMouseEnter(e: MouseEvent, context: BlockEventContext): boolean | void {
     console.log(["Enter", context.block.type]);
   }
-  handleMouseLeave(e: MouseEvent, context: EventContext): boolean | void {
+  handleMouseLeave(e: MouseEvent, context: BlockEventContext): boolean | void {
     console.log(["Leave", context.block.type]);
   }
 
   handleBeforeInput(
     e: InputEvent,
-    context: RangedEventContext
+    context: RangedBlockEventContext
   ): boolean | void {
     const { page } = context;
-    const inline = page.getPlugin<InlineSupport>("inlinesupport");
+    const inline = page.getPlugin<Highlight>("inlinesupport");
     const keys = Object.keys(inline.inlineHandler);
 
     if (page.activeInline) {

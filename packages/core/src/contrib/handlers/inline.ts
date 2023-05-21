@@ -3,7 +3,7 @@ import {
   isParent,
   parentElementWithTag,
 } from "@ohno-editor/core/helper/element";
-import { EventContext, Handler } from "@ohno-editor/core/system/handler";
+import { BlockEventContext, Handler } from "@ohno-editor/core/system/handler";
 
 export class InlineTest extends Handler {
   el: HTMLElement;
@@ -13,7 +13,7 @@ export class InlineTest extends Handler {
     this.el.appendChild(createElement("input"));
   }
 
-  handleMouseUp(e: MouseEvent, context: EventContext): boolean | void {
+  handleMouseUp(e: MouseEvent, context: BlockEventContext): boolean | void {
     const { block, range } = context;
     if (
       range &&
@@ -23,7 +23,7 @@ export class InlineTest extends Handler {
       return true;
     }
   }
-  handleClick(e: MouseEvent, context: EventContext): boolean | void {
+  handleClick(e: MouseEvent, context: BlockEventContext): boolean | void {
     const { block, range } = context;
     if (
       range &&

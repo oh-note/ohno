@@ -13,9 +13,9 @@ import {
   parentElementWithTag,
 } from "@ohno-editor/core/helper/element";
 import {
-  EventContext,
+  BlockEventContext,
   Handler,
-  RangedEventContext,
+  RangedBlockEventContext,
 } from "@ohno-editor/core/system/handler";
 import { tokenBetweenRange } from "@ohno-editor/core/system/position";
 import {
@@ -26,7 +26,7 @@ import {
 } from "@ohno-editor/core/system/range";
 
 export class CompositionHandler extends Handler {
-  handleKeyDown(e: KeyboardEvent, context: EventContext): boolean | void {
+  handleKeyDown(e: KeyboardEvent, context: BlockEventContext): boolean | void {
     if (e.isComposing) {
       return true;
     }
@@ -36,7 +36,7 @@ export class CompositionHandler extends Handler {
   // Composition Start 用于解决输入时存在选中内容的情况
   handleCompositionStart(
     e: CompositionEvent,
-    { block, range, page }: RangedEventContext
+    { block, range, page }: RangedBlockEventContext
   ): boolean | void {
     validateRange(range);
     // CompositionHandler 先与 Block Container
@@ -93,7 +93,6 @@ export class CompositionHandler extends Handler {
       next.setStart(text, 1);
       next.setEnd(text, 1);
       setRange(next);
-      page.setActiveInline(cur);
     } else {
       // console.log("3");
       // const text = createTextNode(" ");
@@ -114,7 +113,7 @@ export class CompositionHandler extends Handler {
    */
   handleCompositionEnd(
     e: CompositionEvent,
-    { page, block, range }: RangedEventContext
+    { page, block, range }: RangedBlockEventContext
   ): boolean | void {
     console.log(range.startContainer);
     splitUniqueSpace();

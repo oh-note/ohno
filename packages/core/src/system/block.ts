@@ -69,7 +69,7 @@ export class Block<T extends BlockInit> implements IBlock {
     this.root = el;
     el.classList.add(BLOCK_CLASS);
     el.classList.add(this.type);
-    el.setAttribute("type", this.type);
+    el.dataset["type"] = this.type;
 
     if (order) {
       this.order = order;
@@ -131,7 +131,7 @@ export class Block<T extends BlockInit> implements IBlock {
       return;
     }
     this.order = order;
-    this.root.setAttribute("order", order);
+    this.root.dataset["order"] = order;
   }
 
   getCurrentEditable(): HTMLElement {
@@ -251,7 +251,7 @@ export class Block<T extends BlockInit> implements IBlock {
   }
 
   getGlobalBias(loc: RefLocation): number {
-    return locationToBias(this.inner, ...loc);
+    return locationToBias(this.root, ...loc);
   }
   getSoftLineBias(loc: RefLocation): number {
     const editable = this.findEditable(loc[0])!;

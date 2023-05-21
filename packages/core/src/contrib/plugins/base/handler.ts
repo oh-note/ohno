@@ -1,9 +1,9 @@
 import {
-  EventContext,
+  BlockEventContext,
   Handler,
   HandlerMethods,
   FineHandlerMethods,
-  RangedEventContext,
+  RangedBlockEventContext,
   dispatchKeyEvent,
 } from "@ohno-editor/core/system/handler";
 
@@ -11,33 +11,44 @@ export class ExamplePluginHandler
   extends Handler
   implements FineHandlerMethods, HandlerMethods
 {
-  handleKeyPress(e: KeyboardEvent, context: EventContext): boolean | void {}
-  handleKeyDown(e: KeyboardEvent, context: RangedEventContext): boolean | void {
+  handleKeyPress(
+    e: KeyboardEvent,
+    context: BlockEventContext
+  ): boolean | void {}
+  handleKeyDown(
+    e: KeyboardEvent,
+    context: RangedBlockEventContext
+  ): boolean | void {
     return dispatchKeyEvent(this, e, context);
   }
 
-  handleKeyUp(e: KeyboardEvent, context: RangedEventContext): boolean | void {
+  handleKeyUp(
+    e: KeyboardEvent,
+    context: RangedBlockEventContext
+  ): boolean | void {
     return dispatchKeyEvent(this, e, context);
   }
 
-  handleMouseDown(e: MouseEvent, context: EventContext): boolean | void {
-    return true;
-  }
-
-  handleDeleteDown(e: KeyboardEvent, context: EventContext): boolean | void {}
+  handleDeleteDown(
+    e: KeyboardEvent,
+    context: BlockEventContext
+  ): boolean | void {}
   handleBackspaceDown(
     e: KeyboardEvent,
-    context: EventContext
+    context: BlockEventContext
   ): boolean | void {}
 
-  handleEnterDown(e: KeyboardEvent, context: EventContext): boolean | void {}
+  handleEnterDown(
+    e: KeyboardEvent,
+    context: BlockEventContext
+  ): boolean | void {}
   handleSpaceDown(
     e: KeyboardEvent,
-    context: RangedEventContext
+    context: RangedBlockEventContext
   ): boolean | void {}
 
   handleBeforeInput(
     e: InputEvent,
-    context: RangedEventContext
+    context: RangedBlockEventContext
   ): boolean | void {}
 }

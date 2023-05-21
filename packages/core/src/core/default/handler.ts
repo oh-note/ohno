@@ -3,49 +3,53 @@
  * 用于模拟 input 和 textarea 的 placeholder 和其他效果的更新
  */
 import {
-  EventContext,
+  BlockEventContext,
   Handler,
   FineHandlerMethods,
-  RangedEventContext,
+  RangedBlockEventContext,
   dispatchKeyEvent,
 } from "@ohno-editor/core/system/handler";
-import { defaultHandleArrowDown } from "./arrowDown";
+import { isPlain } from "@ohno-editor/core/helper";
+import { defaultHandleArrowDown } from "./functions/arrowDown";
 import {
   getSoftLineHead,
   getSoftLineTail,
   normalizeRange,
   setLocation,
   getValidAdjacent,
-  clipRange,
 } from "@ohno-editor/core/system/range";
-import { defaultHandleBeforeInput } from "./beforeInput";
+import {
+  defaultHandleBeforeInput,
+  defaultHandleBeforeInputOfPlainText,
+} from "./functions/beforeInput";
 import { getTokenSize } from "@ohno-editor/core/system/position";
 import {
-  isParent,
+  parentElementWithFilter,
   parentElementWithTag,
 } from "@ohno-editor/core/helper/element";
-import { Paragraph } from "@ohno-editor/core/contrib/blocks";
-import {
-  BlockCreate,
-  BlocksCreate,
-} from "@ohno-editor/core/contrib/commands/block";
+
 import { OhNoClipboardData } from "@ohno-editor/core/system/base";
-import { ListCommandBuilder } from "@ohno-editor/core/contrib/commands/concat";
-import { defaultHandlePaste } from "./paste";
+import { defaultHandlePaste } from "./functions/paste";
+import {
+  ST_MOVE_SOFT_END,
+  ST_MOVE_SOFT_HEAD,
+  ST_REDO,
+  ST_UNDO,
+} from "./consts";
 
 export class DefaultBlockHandler extends Handler implements FineHandlerMethods {
-  handleClick(e: MouseEvent, context: EventContext): boolean | void {}
+  handleClick(e: MouseEvent, context: BlockEventContext): boolean | void {}
 
-  handleMouseEnter(e: MouseEvent, context: EventContext): boolean | void {}
+  handleMouseEnter(e: MouseEvent, context: BlockEventContext): boolean | void {}
 
   handleMouseDown(
     e: MouseEvent,
-    { block, page }: EventContext
+    { block, page }: BlockEventContext
   ): boolean | void {
     page.setActivate(block);
   }
 
-  handleMouseUp(e: MouseEvent, context: EventContext): boolean | void {
+  handleMouseUp(e: MouseEvent, context: BlockEventContext): boolean | void {
     const { page, range, block } = context;
     if (range) {
       const collapsed = range.collapsed;
@@ -80,18 +84,18 @@ export class DefaultBlockHandler extends Handler implements FineHandlerMethods {
     }
   }
 
-  handleHomeDown(e: KeyboardEvent, context: EventContext): boolean | void {
+  handleHomeDown(e: KeyboardEvent, context: BlockEventContext): boolean | void {
     this.moveToSoftlineBound(context, "left");
     return true;
   }
 
-  handleEndDown(e: KeyboardEvent, context: EventContext): boolean | void {
+  handleEndDown(e: KeyboardEvent, context: BlockEventContext): boolean | void {
     this.moveToSoftlineBound(context, "right");
     return true;
   }
 
   moveToSoftlineBound(
-    { page, block, range }: EventContext,
+    { page, block, range }: BlockEventContext,
     direction: "left" | "right"
   ) {
     if (!range) {
@@ -119,56 +123,102 @@ export class DefaultBlockHandler extends Handler implements FineHandlerMethods {
     }
   }
 
-  handleContextMenu(e: MouseEvent, context: EventContext): boolean | void {}
-  handleMouseLeave(e: MouseEvent, context: EventContext): boolean | void {}
-  handleMouseMove(e: MouseEvent, context: EventContext): boolean | void {}
+  handleContextMenu(
+    e: MouseEvent,
+    context: BlockEventContext
+  ): boolean | void {}
+  handleMouseLeave(e: MouseEvent, context: BlockEventContext): boolean | void {}
+  handleMouseMove(e: MouseEvent, context: BlockEventContext): boolean | void {}
 
-  handleKeyDown(e: KeyboardEvent, context: RangedEventContext): boolean | void {
+  handleKeyDown(
+    e: KeyboardEvent,
+    context: RangedBlockEventContext
+  ): boolean | void {
     // const { range, block } = context;
-
+    const { page } = context;
+    page.shortcut.match;
     if (dispatchKeyEvent(this, e, context)) {
       return true;
-    } else if (e.metaKey) {
-      if (e.key === "z") {
-        if (e.shiftKey) {
-          context.page.history.redo();
-        } else {
-          context.page.history.undo();
-        }
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    } else if (e.ctrlKey) {
-      if (e.key === "a" || e.key === "e") {
-        this.moveToSoftlineBound(context, e.key === "a" ? "left" : "right");
-        return true;
-      }
     }
+    const st = page.shortcut;
+    // debugger;
+    const res = st.find(e);
+    let hit;
+    if ((hit = res.has(ST_UNDO))) {
+      page.history.undo();
+    } else if ((hit = res.has(ST_REDO))) {
+      page.history.redo();
+    } else if ((hit = res.has(ST_MOVE_SOFT_HEAD))) {
+      this.moveToSoftlineBound(context, "left");
+    } else if ((hit = res.has(ST_MOVE_SOFT_END))) {
+      this.moveToSoftlineBound(context, "right");
+    }
+    if (hit) {
+      return true;
+    }
+    // else if (e.metaKey) {
+    //   if (e.key === "z") {
+    //     if (e.shiftKey) {
+    //       context.page.history.redo();
+    //     } else {
+    //       context.page.history.undo();
+    //     }
+    //     e.preventDefault();
+    //     e.stopPropagation();
+    //   }
+    // } else if (e.ctrlKey) {
+    //   if (e.key === "a" || e.key === "e") {
+    //     this.moveToSoftlineBound(context, e.key === "a" ? "left" : "right");
+    //     return true;
+    //   }
+    // }
   }
   handleArrowKeyDown(
     e: KeyboardEvent,
-    context: RangedEventContext
+    context: RangedBlockEventContext
   ): boolean | void {
     return defaultHandleArrowDown(this, e, context);
   }
   handleArrowKeyUp(
     e: KeyboardEvent,
-    context: RangedEventContext
+    context: RangedBlockEventContext
   ): boolean | void {}
   handleKeyPress(
     e: KeyboardEvent,
-    context: RangedEventContext
+    context: RangedBlockEventContext
   ): boolean | void {}
-  handleKeyUp(e: KeyboardEvent, context: RangedEventContext): boolean | void {}
+  handleKeyUp(
+    e: KeyboardEvent,
+    context: RangedBlockEventContext
+  ): boolean | void {}
 
   handleBeforeInput(
     e: TypedInputEvent,
-    context: RangedEventContext
+    context: RangedBlockEventContext
   ): boolean | void {
+    const { block, range } = context;
+    const editable = block.findEditable(range.commonAncestorContainer);
+    if (!editable) {
+      // handled by multiblock handler or block handler
+      return;
+    }
+    // editable
+
+    if (
+      isPlain(editable) ||
+      parentElementWithFilter(range.startContainer, editable, (el) => {
+        return el instanceof HTMLElement && isPlain(el);
+      })
+    ) {
+      return defaultHandleBeforeInputOfPlainText(this, e, context);
+    }
     return defaultHandleBeforeInput(this, e, context);
   }
 
-  handleCopy(e: ClipboardEvent, context: RangedEventContext): boolean | void {
+  handleCopy(
+    e: ClipboardEvent,
+    context: RangedBlockEventContext
+  ): boolean | void {
     const { page, block, range } = context;
 
     // 处理不垮 Editable 的选中，可以是 collapsed 选中，也可以是 Editable 内部份选中
@@ -203,7 +253,10 @@ export class DefaultBlockHandler extends Handler implements FineHandlerMethods {
 
     return true;
   }
-  handlePaste(e: ClipboardEvent, context: RangedEventContext): boolean | void {
+  handlePaste(
+    e: ClipboardEvent,
+    context: RangedBlockEventContext
+  ): boolean | void {
     // debugger;
     return defaultHandlePaste(this, e, context);
   }

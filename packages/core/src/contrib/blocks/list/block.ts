@@ -157,7 +157,7 @@ export class List extends ABCList {
       });
     } else {
       innerHTMLs!.forEach((item) => {
-        init!.el!.appendChild(createElement("li", { innerHTML: item }));
+        init!.el!.appendChild(createElement("li", { children: [item] }));
       });
     }
     super("list", init);

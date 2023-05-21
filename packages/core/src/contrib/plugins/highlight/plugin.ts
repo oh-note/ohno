@@ -8,23 +8,23 @@ import {
 } from "@ohno-editor/core/system/base";
 import { AnyBlock } from "@ohno-editor/core/system/block";
 import {
-  EventContext,
+  BlockEventContext,
   Handler,
   HandlerMethod,
   InlineHandler,
 } from "@ohno-editor/core/system/handler";
 import "./style.css";
 
-export class InlineSupport implements IPlugin {
+export class Highlight implements IPlugin {
   root: HTMLElement;
-  name: string = "inlinesupport";
+  name: string = "highlight";
   parent?: IComponent | undefined;
 
   inlineHandler: { [key: string]: InlineHandler } = {};
   inlineManager: { [key: string]: IInline } = {};
   constructor() {
     this.root = createElement("div", {
-      className: "oh-is-inlinesupport",
+      className: "oh-is-highlight",
       textContent: "",
     });
   }
@@ -35,7 +35,7 @@ export class InlineSupport implements IPlugin {
     this.inlineManager[manager.name] = manager;
   }
 
-  findInline(node: Node, context: EventContext): HTMLLabelElement | null {
+  findInline(node: Node, context: BlockEventContext): HTMLLabelElement | null {
     const label = parentElementWithTag(node, "label", context.block.root);
     return label as HTMLLabelElement;
   }

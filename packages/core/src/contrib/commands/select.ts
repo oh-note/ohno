@@ -32,6 +32,7 @@ export class Empty<T> extends Command<T> {
 }
 
 export interface LocationPayload {
+  page: Page;
   block?: AnyBlock;
   offset?: EditableInterval;
   newBlock?: AnyBlock;
@@ -53,37 +54,5 @@ export class SetLocation extends Command<LocationPayload> {
     }
   };
   execute(): void {}
-  undo(): void {}
-}
-
-export class SetBlockRange extends Command<BlockActivePayload> {
-  execute(): void {
-    const { newBlock, newOffset } = this.payload;
-    // debugger;
-    if (newBlock) {
-      newBlock.setOffset(newOffset);
-    } else {
-      this.payload.newBlock = this.payload.block;
-      this.payload.newBlock.setOffset(newOffset);
-    }
-  }
-  undo(): void {
-    this.payload.block.setOffset(this.payload.offset);
-  }
-}
-export class SetGlobalRange extends Command<GlobalRangePayload> {
-  declare buffer: {
-    startBlock: AnyBlock;
-    startBias: number;
-    endBlock: AnyBlock;
-    endBias: number;
-  };
-  execute(): void {
-    const { page, startBlock, startOffset, endOffset, endBlock } = this.payload;
-    const startRange = startBlock.getRangeLegend(startOffset)!;
-    const endRange = endBlock.getRangeLegend(endOffset)!;
-    startRange.setEnd(endRange.startContainer, endRange.startOffset);
-    setRange(startRange);
-  }
   undo(): void {}
 }

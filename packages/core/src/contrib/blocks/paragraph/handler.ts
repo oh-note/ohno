@@ -1,8 +1,8 @@
 import {
-  EventContext,
+  BlockEventContext,
   Handler,
   FineHandlerMethods,
-  RangedEventContext,
+  RangedBlockEventContext,
   dispatchKeyEvent,
 } from "@ohno-editor/core/system/handler";
 import {
@@ -31,8 +31,9 @@ import {
   setLocation,
   setRange,
 } from "@ohno-editor/core/system/range";
+import { Code } from "../code";
 
-export interface DeleteContext extends EventContext {
+export interface DeleteContext extends BlockEventContext {
   nextBlock: AnyBlock;
 }
 
@@ -66,7 +67,7 @@ export function prepareDeleteCommand({
   return builder;
 }
 
-export function prepareEnterCommand({ page, block, range }: EventContext) {
+export function prepareEnterCommand({ page, block, range }: BlockEventContext) {
   if (!range) {
     throw new NoRangeError();
   }
@@ -135,16 +136,19 @@ export function prepareEnterCommand({ page, block, range }: EventContext) {
 export class ParagraphHandler extends Handler implements FineHandlerMethods {
   handleKeyPress(
     e: KeyboardEvent,
-    context: RangedEventContext
+    context: RangedBlockEventContext
   ): boolean | void {}
 
-  handleKeyDown(e: KeyboardEvent, context: RangedEventContext): boolean | void {
+  handleKeyDown(
+    e: KeyboardEvent,
+    context: RangedBlockEventContext
+  ): boolean | void {
     return dispatchKeyEvent(this, e, context);
   }
 
   handleDeleteDown(
     e: KeyboardEvent,
-    { page, block, range }: RangedEventContext
+    { page, block, range }: RangedBlockEventContext
   ): boolean | void {
     if (!block.isLocationInRight([range.startContainer, range.startOffset])) {
       return;
@@ -205,7 +209,7 @@ export class ParagraphHandler extends Handler implements FineHandlerMethods {
 
   handleBackspaceDown(
     e: KeyboardEvent,
-    { block, page, range }: RangedEventContext
+    { block, page, range }: RangedBlockEventContext
   ): boolean | void {
     if (
       !range.collapsed ||
@@ -216,9 +220,6 @@ export class ParagraphHandler extends Handler implements FineHandlerMethods {
     }
     const prevBlock = page.getPrevBlock(block);
     if (!prevBlock) {
-      // 在左上方，不做任何操作
-      e.preventDefault();
-      e.stopPropagation();
       return true;
     }
 
@@ -253,7 +254,18 @@ export class ParagraphHandler extends Handler implements FineHandlerMethods {
           });
         } else {
           // 2/2. 如果是个空 Block，直接在删除后将内容放到上面去
+          return new Empty({ page, block, prevBlock })
+            .onExecute(({ page }) => {
+              page.setLocation(
+                prevBlock.getLocation(token_number, -1)!,
+                prevBlock
+              );
+            })
+            .onUndo(({ page }) => {
+              page.setLocation(block.getLocation(token_number, 0)!, block);
+            });
           return new SetLocation({
+            page,
             newBlock: prevBlock,
             newOffset: { start: token_number, end: token_number, index: -1 },
           });
@@ -267,7 +279,7 @@ export class ParagraphHandler extends Handler implements FineHandlerMethods {
 
   handleEnterDown(
     e: KeyboardEvent,
-    { page, block, range }: RangedEventContext
+    { page, block, range }: RangedBlockEventContext
   ): boolean | void {
     if (e.shiftKey) {
       const newBlock = new Paragraph();
@@ -303,7 +315,7 @@ export class ParagraphHandler extends Handler implements FineHandlerMethods {
   }
   handleSpaceDown(
     e: KeyboardEvent,
-    context: RangedEventContext
+    context: RangedBlockEventContext
   ): boolean | void {
     const { page, block, range } = context;
 
@@ -357,8 +369,13 @@ export class ParagraphHandler extends Handler implements FineHandlerMethods {
       });
     } else if (prefix.match(/^( *- *)?(【】|\[\]|\[ \])*$/)) {
       console.log("To Todo List");
-    } else if (prefix.match(/^`{3}.*$/)) {
-      console.log("To Code");
+    } else if (prefix.match(/^`{3} *$/)) {
+      const newBlock = new Code({});
+      command = new BlockReplace({
+        page,
+        block,
+        newBlock,
+      });
     } else {
       return;
     }

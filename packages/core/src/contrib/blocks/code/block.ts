@@ -1,15 +1,11 @@
-import {
-  createElement,
-  createTextNode,
-} from "@ohno-editor/core/helper/document";
-import { outerHTML } from "@ohno-editor/core/helper/element";
+import { createElement } from "@ohno-editor/core/helper/document";
 import { BlockSerializedData } from "@ohno-editor/core/system/base";
 import { Block, BlockInit } from "@ohno-editor/core/system/block";
-import { Offset } from "@ohno-editor/core/system/position";
 import { clipRange } from "@ohno-editor/core/system/range";
 import hljs from "highlight.js";
 import "highlight.js/styles/github.css";
 import "./style.css";
+import { markPlain } from "@ohno-editor/core/helper";
 export interface CodeInit extends BlockInit {
   language?: string;
   code?: string;
@@ -18,27 +14,46 @@ export interface CodeInit extends BlockInit {
 export class Code extends Block<CodeInit> {
   mergeable: boolean = false;
   plain: HTMLElement;
+  lno: HTMLElement;
   render: HTMLElement;
   constructor(init?: CodeInit) {
-    const init_ = Object.assign({}, { code: "" }, init);
+    const init_ = Object.assign({}, { code: " " }, init);
     if (!init_.el) {
-      const plain = createElement("p", { textContent: init_.code || "" });
+      const plain = createElement("p", { textContent: init_.code || " " });
+      markPlain(plain);
       const render = createElement("code");
+
+      const head = createElement("div", {
+        className: "code-head",
+      });
+      const lno = createElement("div", {
+        className: "line-number",
+      });
+
+      const container = createElement("div", {
+        className: "container",
+        children: [render, plain],
+      });
+      const body = createElement("div", {
+        className: "code-body",
+        children: [lno, container],
+      });
+      const root = createElement("div", {
+        className: "root",
+        children: [head, body],
+      });
+
       init_.el = createElement("pre", {
         attributes: {},
-        children: [render, plain],
+        children: [root],
       });
       super("code", init_);
       this.plain = plain;
       this.render = render;
+      this.lno = lno;
       this.updateRender();
     } else {
-      super("code", init_);
-      this.plain = init_.el.querySelector("p")!;
-      this.render = init_.el.querySelector("code")!;
-      if (!this.plain || !this.render) {
-        throw new Error("Sanity Check");
-      }
+      throw new Error("Sanity Check");
     }
   }
 
@@ -47,16 +62,34 @@ export class Code extends Block<CodeInit> {
   }
 
   updateRender() {
-    const code = this.plain.textContent || "";
+    if (this.plain.textContent === "") {
+      this.plain.textContent = " ";
+    }
+    const code = this.plain.textContent || " ";
     const html = hljs.highlightAuto(code).value;
     this.render.innerHTML = html;
+    const lineNumber = code.split("\n").length;
+    const offset = this.lno.childNodes.length;
+    if (offset > lineNumber) {
+      while (this.lno.childNodes[lineNumber]) {
+        this.lno.childNodes[lineNumber].remove();
+      }
+    } else {
+      Array(lineNumber - offset)
+        .fill(0)
+        .forEach((item, index) => {
+          this.lno.appendChild(
+            createElement("div", { textContent: index + offset + "" })
+          );
+        });
+    }
   }
   // serialize(option?: any): CodeInit {
   //   return { code: this.plain.textContent || "", language: this.init.language };
   // }
   serialize(option?: any): BlockSerializedData<CodeInit> {
     const init = {
-      code: this.plain.textContent || "",
+      code: this.plain.textContent || " ",
       language: this.init.language,
     };
 

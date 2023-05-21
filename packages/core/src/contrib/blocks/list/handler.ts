@@ -1,9 +1,9 @@
 import { createElement } from "@ohno-editor/core/helper/document";
 import {
-  EventContext,
+  BlockEventContext,
   Handler,
   FineHandlerMethods,
-  RangedEventContext,
+  RangedBlockEventContext,
   dispatchKeyEvent,
 } from "@ohno-editor/core/system/handler";
 import {
@@ -46,7 +46,7 @@ import {
 } from "@ohno-editor/core/system/range";
 import { EditableInterval } from "@ohno-editor/core/system/base";
 
-export interface DeleteContext extends RangedEventContext {
+export interface DeleteContext extends RangedBlockEventContext {
   nextBlock: AnyBlock;
 }
 
@@ -136,7 +136,7 @@ export function prepareDeleteCommand({
   return builder;
 }
 
-export function removeSelection({ range, page, block }: EventContext) {
+export function removeSelection({ range, page, block }: BlockEventContext) {
   if (!range) {
     throw new NoRangeError();
   }
@@ -235,16 +235,19 @@ export function removeSelection({ range, page, block }: EventContext) {
 export class ListHandler extends Handler implements FineHandlerMethods {
   handleKeyPress(
     e: KeyboardEvent,
-    context: RangedEventContext
+    context: RangedBlockEventContext
   ): boolean | void {}
 
-  handleKeyDown(e: KeyboardEvent, context: RangedEventContext): boolean | void {
+  handleKeyDown(
+    e: KeyboardEvent,
+    context: RangedBlockEventContext
+  ): boolean | void {
     return dispatchKeyEvent(this, e, context);
   }
   // 在 CompositionStart 时处理选中内容
   handleCompositionStart(
     e: CompositionEvent,
-    { range, page, block }: RangedEventContext
+    { range, page, block }: RangedBlockEventContext
   ): boolean | void {
     //  只有在 单
     if (range.collapsed) {
@@ -282,7 +285,7 @@ export class ListHandler extends Handler implements FineHandlerMethods {
   }
   handleDeleteDown(
     e: KeyboardEvent,
-    { page, block, range }: RangedEventContext
+    { page, block, range }: RangedBlockEventContext
   ): boolean | void {
     // 非 collapse 情况下都应该由 beforeInput 处理
     if (
@@ -315,11 +318,11 @@ export class ListHandler extends Handler implements FineHandlerMethods {
     return ["disc", "circle", "square"];
   }
 
-  updateValue({ block }: EventContext) {
+  updateValue({ block }: BlockEventContext) {
     const containers = block.getEditables();
     const lvstack: number[] = [];
     containers.forEach((container, ind, arr) => {
-      const level = parseFloat(container.getAttribute("data-level") || "0");
+      const level = parseFloat(container.dataset["level"] || "0");
       while (lvstack[level] === undefined) {
         lvstack.push(0);
       }
@@ -327,12 +330,12 @@ export class ListHandler extends Handler implements FineHandlerMethods {
         lvstack.pop();
       }
       lvstack[level]++;
-      container.setAttribute("value", lvstack[level] + "");
+      container.dataset["value"] = lvstack[level] + "";
       // this.updateLi(container, null, ind, lvstack[level]);
     });
   }
 
-  indent(context: EventContext, add: boolean = true) {
+  indent(context: BlockEventContext, add: boolean = true) {
     const { page, block } = context;
     const container = block.getCurrentEditable();
     const index = block.getEditableIndex(container);
@@ -353,7 +356,7 @@ export class ListHandler extends Handler implements FineHandlerMethods {
         });
       })
       .withLazyCommand(({ block, index, container }) => {
-        const level = parseInt(container.getAttribute("data-level") || "0");
+        const level = parseInt(container.dataset["level"] || "0");
         const types = this.listStyleTypes;
         return new UpdateContainerStyle({
           block,
@@ -370,7 +373,7 @@ export class ListHandler extends Handler implements FineHandlerMethods {
     page.executeCommand(command);
   }
 
-  handleTabDown(e: KeyboardEvent, context: EventContext): boolean | void {
+  handleTabDown(e: KeyboardEvent, context: BlockEventContext): boolean | void {
     this.indent(context, !e.shiftKey);
     return true;
   }
@@ -379,12 +382,12 @@ export class ListHandler extends Handler implements FineHandlerMethods {
     return List;
   }
   getLevelOfContainer(container: HTMLLIElement) {
-    return parseInt(container.getAttribute("data-level") || "0");
+    return parseInt(container.dataset["level"] || "0");
   }
 
   handleBackspaceDown(
     e: KeyboardEvent,
-    context: RangedEventContext
+    context: RangedBlockEventContext
   ): boolean | void {
     const { block, page, range } = context;
     if (
@@ -478,11 +481,11 @@ export class ListHandler extends Handler implements FineHandlerMethods {
     return true;
   }
 
-  updateView(context: EventContext) {}
+  updateView(context: BlockEventContext) {}
 
   handleEnterDown(
     e: KeyboardEvent,
-    context: RangedEventContext
+    context: RangedBlockEventContext
   ): boolean | void {
     const { page, block, range } = context;
     // 检测是否跨 Container
@@ -680,7 +683,10 @@ export class ListHandler extends Handler implements FineHandlerMethods {
     return true;
   }
 
-  handleBeforeInput(e: TypedInputEvent, context: EventContext): boolean | void {
+  handleBeforeInput(
+    e: TypedInputEvent,
+    context: BlockEventContext
+  ): boolean | void {
     const { block, page, range } = context;
     if (!range) {
       throw new NoRangeError();

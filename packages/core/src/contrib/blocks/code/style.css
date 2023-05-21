@@ -1,9 +1,12 @@
-.oh-is-page pre {
+.oh-is-page .code {
   position: relative;
   tab-size: 4;
+  border: 1px;
+  border-style: solid;
+  border-color: lightgray;
 }
 
-.oh-is-page pre code {
+.oh-is-page .code code {
   background: transparent;
   display: block;
   pointer-events: none;
@@ -12,7 +15,6 @@
   height: 100%;
   position: absolute;
 
-  top: 0;
   user-select: none;
   -webkit-touch-callout: none;
   -webkit-user-select: none;
@@ -22,7 +24,37 @@
   -o-user-select: none;
 }
 
-.oh-is-page pre code ::selection {
+.oh-is-page .code code ::selection {
   background: transparent;
   color: transparent;
+}
+
+.oh-is-page .code .code-head {
+  height: 8px;
+  background-color: #f6f8fa;
+}
+
+.oh-is-page .code .code-body {
+  display: flex;
+  flex-direction: row;
+  padding-left: 4px;
+}
+
+.oh-is-page .code .code-body .line-number {
+  margin-right: 4px;
+}
+
+.oh-is-page .code .code-body .container {
+  width: 100%;
+}
+
+.oh-is-page .code .code-body .container * {
+  margin: 0;
+  font-size: medium;
+  font-family: monospace;
+}
+
+.oh-is-page .code .code-body .container .plain {
+  width: 100%;
+  background-color: white;
 }

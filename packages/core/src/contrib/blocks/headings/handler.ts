@@ -1,9 +1,9 @@
 import { getDefaultRange } from "@ohno-editor/core/helper/document";
 import {
-  EventContext,
+  BlockEventContext,
   Handler,
   FineHandlerMethods,
-  RangedEventContext,
+  RangedBlockEventContext,
   dispatchKeyEvent,
 } from "@ohno-editor/core/system/handler";
 import {
@@ -27,14 +27,17 @@ export class HeadingsHandler extends Handler implements FineHandlerMethods {
   name: string = "headings";
   handleKeyPress(
     e: KeyboardEvent,
-    context: RangedEventContext
+    context: RangedBlockEventContext
   ): boolean | void {}
-  handleKeyDown(e: KeyboardEvent, context: RangedEventContext): boolean | void {
+  handleKeyDown(
+    e: KeyboardEvent,
+    context: RangedBlockEventContext
+  ): boolean | void {
     return dispatchKeyEvent(this, e, context);
   }
   handleDeleteDown(
     e: KeyboardEvent,
-    { page, block, range }: RangedEventContext
+    { page, block, range }: RangedBlockEventContext
   ): boolean | void {
     if (
       !range.collapsed ||
@@ -64,7 +67,7 @@ export class HeadingsHandler extends Handler implements FineHandlerMethods {
 
   handleBackspaceDown(
     e: KeyboardEvent,
-    { page, block, range }: RangedEventContext
+    { page, block, range }: RangedBlockEventContext
   ): boolean | void {
     if (!block.isLocationInLeft([range.startContainer, range.startOffset])) {
       return;
@@ -73,7 +76,7 @@ export class HeadingsHandler extends Handler implements FineHandlerMethods {
     const command = new BlockReplace({
       block,
       page,
-      newBlock: new Paragraph({ innerHTML: block.root.innerHTML }),
+      newBlock: new Paragraph({ children: block.root.innerHTML }),
     });
     page.executeCommand(command);
     return true;
@@ -81,7 +84,7 @@ export class HeadingsHandler extends Handler implements FineHandlerMethods {
 
   handleEnterDown(
     e: KeyboardEvent,
-    { page, block, range }: EventContext
+    { page, block, range }: BlockEventContext
   ): boolean | void {
     if (e.shiftKey) {
       const newBlock = new Paragraph();
@@ -117,7 +120,7 @@ export class HeadingsHandler extends Handler implements FineHandlerMethods {
   }
   handleSpaceDown(
     e: KeyboardEvent,
-    context: RangedEventContext
+    context: RangedBlockEventContext
   ): boolean | void {
     const { page, block, range } = context;
 

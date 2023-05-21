@@ -1,4 +1,7 @@
-import { Handler, RangedEventContext } from "@ohno-editor/core/system/handler";
+import {
+  Handler,
+  RangedBlockEventContext,
+} from "@ohno-editor/core/system/handler";
 import {
   RefLocation,
   createRange,
@@ -9,7 +12,7 @@ import {
 export function defaultHandleArrowDown(
   handler: Handler,
   e: KeyboardEvent,
-  context: RangedEventContext
+  context: RangedBlockEventContext
 ): boolean | void {
   const { page, block, range } = context;
   let anchorBlock;

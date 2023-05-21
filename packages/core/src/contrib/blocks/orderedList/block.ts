@@ -54,7 +54,7 @@ export class OrderedList extends ABCList<OrderedListInit> {
       });
     } else {
       innerHTMLs!.forEach((item) => {
-        init!.el!.appendChild(createElement("li", { innerHTML: item }));
+        init!.el!.appendChild(createElement("li", { children: [item] }));
       });
     }
     super("ordered_list", init);

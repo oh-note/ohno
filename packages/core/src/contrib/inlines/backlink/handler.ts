@@ -1,9 +1,9 @@
 import {
   InlineRangedEventContext,
-  RangedEventContext,
+  RangedBlockEventContext,
   InlineHandler,
   InlineEventContext,
-  EventContext,
+  dispatchKeyEvent,
 } from "@ohno-editor/core/system/handler";
 import { BackLink } from "./inline";
 import { NodeInsert } from "@ohno-editor/core/contrib/commands/html";
@@ -14,54 +14,76 @@ import {
   getNextLocation,
   getPrevLocation,
   getValidAdjacent,
-  normalizeRange,
-  setLocation,
-  setRange,
 } from "@ohno-editor/core/system/range";
 import { biasToLocation } from "@ohno-editor/core/system/position";
-import { defaultHandleBeforeInput } from "@ohno-editor/core/core/default/beforeInput";
+import { defaultHandleBeforeInput } from "@ohno-editor/core/core/default/functions/beforeInput";
 import {
   isHintLeft,
   parentElementWithTag,
 } from "@ohno-editor/core/helper/element";
 
-export class BackLinkHandler implements InlineHandler {
-  handleMouseUp(e: MouseEvent, context: InlineEventContext): boolean | void {
-    const { page, inline, manager, range, first } = context;
-    (manager as BackLink).edit(inline, context);
-    if (range) {
-      const inspan = parentElementWithTag(range.startContainer, "span", inline);
-      if (inspan) {
-        if (isHintLeft(inspan)) {
-          (manager as BackLink).rangeToLeft();
-        } else {
-          (manager as BackLink).rangeToRight();
-        }
-      } else if (!parentElementWithTag(range.startContainer, "q", inline)) {
-        (manager as BackLink).rangeToLeft();
-      }
-      return true;
-    }
+export class BackLinkHandler implements InlineHandler<BackLink> {
+  handleKeyboardActivated(
+    e: KeyboardEvent,
+    context: InlineRangedEventContext<BackLink>
+  ): boolean | void {
+    const { manager, inline } = context;
+    manager.activate(inline, context);
+  }
+  handleKeyboardDeActivated(
+    e: KeyboardEvent,
+    context: InlineRangedEventContext<BackLink>
+  ): void {
+    const { manager, inline } = context;
+    manager.exit();
+  }
+  handleMouseActivated(
+    e: MouseEvent,
+    context: InlineEventContext<BackLink>
+  ): boolean | void {
+    const { manager, inline } = context;
+    manager.activate(inline, context);
+  }
+  handleMouseDeActivated(
+    e: MouseEvent,
+    context: InlineEventContext<BackLink>
+  ): void {
+    const { manager, inline } = context;
+    manager.exit();
   }
 
-  handleMouseDown(e: MouseEvent, context: InlineEventContext): boolean | void {
-    if (e.metaKey) {
-      return;
-    }
-    if (context.first) {
-      return this.handleMouseUp(e, context);
-    }
+  handleKeyPress(
+    e: KeyboardEvent,
+    context: InlineRangedEventContext
+  ): boolean | void {}
+  handleKeyDown(
+    e: KeyboardEvent,
+    context: InlineRangedEventContext
+  ): boolean | void {
+    return dispatchKeyEvent(this, e, context);
   }
 
-  handleMouseEnter(e: MouseEvent, context: InlineEventContext): boolean | void {
-    const { inline, manager } = context;
-    (manager as BackLink).hoverLabel(inline);
+  handleKeyUp(
+    e: KeyboardEvent,
+    context: InlineRangedEventContext
+  ): boolean | void {
+    return dispatchKeyEvent(this, e, context);
   }
 
-  handleMouseLeave(e: MouseEvent, context: InlineEventContext): boolean | void {
-    const { inline, manager } = context;
-    (manager as BackLink).unHoverLabel(inline);
+  handleMouseUp(
+    e: MouseEvent,
+    context: InlineEventContext<BackLink>
+  ): boolean | void {
+    const { page, inline, manager, range } = context;
+    manager.activate(inline, context);
+    return true;
   }
+
+  handleMouseDown(e: MouseEvent, context: InlineEventContext): boolean | void {}
+  handleClick(
+    e: MouseEvent,
+    context: InlineEventContext<BackLink>
+  ): boolean | void {}
 
   handleEscapeDown(
     e: KeyboardEvent,
@@ -71,29 +93,16 @@ export class BackLinkHandler implements InlineHandler {
   }
   handleSpaceDown(
     e: KeyboardEvent,
-    context: RangedEventContext
+    context: RangedBlockEventContext
   ): boolean | void {}
   handleEnterDown(
     e: KeyboardEvent,
-    context: InlineRangedEventContext
+    context: InlineRangedEventContext<BackLink>
   ): boolean | void {
     const { page, inline, manager } = context;
-    (manager as BackLink).simulateEnter();
-    return true;
-  }
-  handleClick(
-    e: MouseEvent,
-    context: InlineRangedEventContext
-  ): boolean | void {
-    const { range, inline, manager } = context;
-    if (e.metaKey) {
-      const option = (manager as BackLink).parseOption(inline);
-      const { cite, type } = option;
-      if (type === "link") {
-        window.open(cite, "_blank");
-      }
-    }
-    // manager.edit(inline, context);
+    // manager.simulateEnter();
+    page.setLocation(getValidAdjacent(inline, "afterend"));
+    manager.exit();
     return true;
   }
 
@@ -101,49 +110,48 @@ export class BackLinkHandler implements InlineHandler {
     e: KeyboardEvent,
     context: InlineRangedEventContext
   ): boolean | void {
-    const { page, block, inline, range, first, manager } = context;
-    const slot = inline.querySelector("q")!;
-    if (first) {
-      manager.edit(inline, context);
-      if (e.key === "ArrowLeft") {
-        (manager as BackLink).rangeToRight();
-      } else if (e.key === "ArrowRight") {
-        (manager as BackLink).rangeToLeft();
-      }
-      return true;
-    } else {
-      // 这里不需要 return  true，在边界时，将位置设置为 label，并由 default 行为来处理光标移动
-      const typedManager = manager as BackLink;
-      if (typedManager.resultSize <= 0) {
-        return;
-      }
-      if (
-        e.key === "ArrowLeft" &&
-        getPrevLocation(range.startContainer, range.startOffset, slot) === null
-      ) {
-        (manager as BackLink).exit();
-        page.setLocation([inline, 0], block);
-      } else if (
-        e.key === "ArrowRight" &&
-        getNextLocation(range.startContainer, range.startOffset, slot) === null
-      ) {
-        (manager as BackLink).exit();
-        page.setLocation([inline, 0], block);
-      } else if (e.key === "ArrowUp") {
-        (manager as BackLink).simulateArrowUp();
-        return true;
-      } else if (e.key === "ArrowDown") {
-        (manager as BackLink).simulateArrowDown();
-        return true;
-      }
-    }
+    // const { page, block, inline, range, first, manager } = context;
+    // const slot = inline.querySelector("q")!;
+    // if (first) {
+    //   manager.activate(inline, context);
+    //   if (e.key === "ArrowLeft") {
+    //     manager.rangeToRight();
+    //   } else if (e.key === "ArrowRight") {
+    //     manager.rangeToLeft();
+    //   }
+    //   return true;
+    // } else {
+    //   // 这里不需要 return  true，在边界时，将位置设置为 label，并由 default 行为来处理光标移动
+    //   const typedManager = manager as BackLink;
+    //   if (typedManager.resultSize <= 0) {
+    //     return;
+    //   }
+    //   if (
+    //     e.key === "ArrowLeft" &&
+    //     getPrevLocation(range.startContainer, range.startOffset, slot) === null
+    //   ) {
+    //     manager.exit();
+    //     page.setLocation([inline, 0], block);
+    //   } else if (
+    //     e.key === "ArrowRight" &&
+    //     getNextLocation(range.startContainer, range.startOffset, slot) === null
+    //   ) {
+    //     manager.exit();
+    //     page.setLocation([inline, 0], block);
+    //   } else if (e.key === "ArrowUp") {
+    //     manager.simulateArrowUp();
+    //     return true;
+    //   } else if (e.key === "ArrowDown") {
+    //     manager.simulateArrowDown();
+    //     return true;
+    //   }
+    // }
   }
   handleDeleteDown(
     e: KeyboardEvent,
     context: InlineRangedEventContext
   ): boolean | void {
     const { range, manager, inline } = context;
-    // if()
     if (range.collapsed) {
       const slot = inline.querySelector("q")!;
       if (!getNextLocation(range.startContainer, range.startOffset, slot)) {
@@ -156,7 +164,6 @@ export class BackLinkHandler implements InlineHandler {
     context: InlineRangedEventContext
   ): boolean | void {
     const { range, manager, inline } = context;
-    // if()
     if (range.collapsed) {
       const slot = inline.querySelector("q")!;
       if (!getPrevLocation(range.startContainer, range.startOffset, slot)) {
@@ -169,24 +176,22 @@ export class BackLinkHandler implements InlineHandler {
     e: KeyboardEvent,
     context: InlineRangedEventContext
   ): boolean | void {
-    const { block, range, manager, page, inline, first } = context;
-    if (first) {
-      if (e.key === "ArrowUp" || e.key === "ArrowDown") {
-        const slot = inline.querySelector("q")!;
-        const loc = biasToLocation(slot, 0)!;
-        page.setLocation(loc, block);
-      }
-      return true;
-    }
+    // const { block, range, manager, page, inline, first } = context;
+    // if (first) {
+    //   if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+    //     const slot = inline.querySelector("q")!;
+    //     const loc = biasToLocation(slot, 0)!;
+    //     page.setLocation(loc, block);
+    //   }
+    //   return true;
+    // }
   }
 
   handleInsideBeforeInput(
     e: TypedInputEvent,
-    context: InlineRangedEventContext
+    context: InlineRangedEventContext<BackLink>
   ): boolean | void {
-    console.log(e);
     const inputType = e.inputType as InputType;
-
     if (
       inputType === "insertText" ||
       inputType === "deleteContentBackward" ||
@@ -199,7 +204,7 @@ export class BackLinkHandler implements InlineHandler {
       // defaultHandleBeforeInput;
       const res = defaultHandleBeforeInput(this, e, context, () => false);
       const { manager, range } = context;
-      (manager as BackLink).update();
+      manager.query();
       return res;
     } else {
       return true;
@@ -208,7 +213,7 @@ export class BackLinkHandler implements InlineHandler {
 
   handleBeforeInput(
     e: TypedInputEvent,
-    context: RangedEventContext
+    context: RangedBlockEventContext
   ): boolean | void {
     const { range, block, page } = context;
 
@@ -249,17 +254,12 @@ export class BackLinkHandler implements InlineHandler {
               start: bias - 1,
               node,
             }).onExecute(({ page }, { current }) => {
-              page.setActiveInline(current);
-              manager.edit(current, context);
-              manager.rangeToLeft();
+              plugin.setActiveInline(current);
+              manager.activate(current, context);
             });
           })
           .build();
         page.executeCommand(command);
-        // page.setActiveInline(node);
-        // manager.edit(node, context);
-        // // (manager as Back)
-        // manager.rangeToLeft();
 
         return true;
       }

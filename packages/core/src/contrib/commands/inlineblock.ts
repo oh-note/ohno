@@ -11,7 +11,13 @@ import {
   CommandCallback,
 } from "@ohno-editor/core/system/history";
 import { Page } from "@ohno-editor/core/system/page";
-import { createRange, setRange } from "@ohno-editor/core/system/range";
+import {
+  createRange,
+  getValidAdjacent,
+  setRange,
+} from "@ohno-editor/core/system/range";
+import { InlineSupport } from "../plugins";
+import { removeActivate, removeHover } from "../..";
 
 export interface IBlockRemovePayload {
   page: Page;
@@ -42,13 +48,37 @@ export class InlineSubmit extends Command<IBlockReplacePayload> {
 
   onExecuteFn?: CommandCallback<IBlockReplacePayload> = ({ page }) => {
     const label = this.buffer.current;
-    page.setActiveInline(label);
-    setRange(createRange(label, 0));
+    const plugin = page.getPlugin<InlineSupport>("inlinesupport");
+    const manager = plugin.getInlineManager(label);
+    this.payload.page.setLocation(getValidAdjacent(label, "afterend"));
+    plugin.setHoveredInline("cursor");
+    plugin.setHoveredInline("mouse");
+    plugin.setActiveInline();
+    removeHover(label);
+    removeActivate(label);
   };
+
   onUndoFn: CommandCallback<IBlockReplacePayload> = ({ page }) => {
+    // const label = this.buffer.current;
+    // const plugin = page.getPlugin<InlineSupport>("inlinesupport");
+    // plugin.setHoveredInline("cursor", label);
+    // plugin.setActiveInline();
+    // const manager = plugin.getInlineManager(label);
+    // this.payload.page.setLocation([label, 0]);
+    // manager.hover(label, {
+    //   page: this.payload.page,
+    //   block: this.payload.block,
+    // });
+    // removeActivate(label);
     const label = this.buffer.current;
-    page.setActiveInline(label);
-    setRange(createRange(label, 0));
+    const plugin = page.getPlugin<InlineSupport>("inlinesupport");
+    const manager = plugin.getInlineManager(label);
+    this.payload.page.setLocation(getValidAdjacent(label, "afterend"));
+    plugin.setHoveredInline("cursor");
+    plugin.setHoveredInline("mouse");
+    plugin.setActiveInline();
+    removeHover(label);
+    removeActivate(label);
   };
 
   execute(): void {
@@ -98,6 +128,7 @@ export class IBlockRemove extends Command<IBlockRemovePayload> {
     current: HTMLLabelElement;
     label: HTMLLabelElement;
     start: number;
+    index: number;
   };
 
   // onExecuteFn?: CommandCallback<IBlockRemovePayload> = ({ block }) => {
@@ -109,29 +140,43 @@ export class IBlockRemove extends Command<IBlockRemovePayload> {
   //   page.activateInline(label);
   //   block.setRange(createRange(label, 0));
   // };
+  constructor(payload: IBlockRemovePayload) {
+    super(payload);
+    const { block, label } = this.payload;
+    const index = block.findEditableIndex(label);
+
+    const bias = block.getBias([label, 0]) - 1;
+    this.buffer = {
+      current: label,
+      label: label.cloneNode(true) as HTMLLabelElement,
+      start: bias,
+      index,
+    };
+  }
 
   execute(): void {
-    const { block, label } = this.payload;
-    const { start } = this.buffer;
+    const { block } = this.payload;
+    const { start, index } = this.buffer;
 
-    if (start) {
-      const label = block.getGlobalLocation(start + 1)![0] as HTMLLabelElement;
-      label.remove();
-    } else {
-      const bias = block.getGlobalBias([label, 0]) - 1;
-      // const offset = elementOffset(block.root, label);
-      this.buffer = {
-        current: label,
-        label: label.cloneNode(true) as HTMLLabelElement,
-        start: bias,
-      };
+    if (start !== undefined) {
+      const label = block.getLocation(start + 1, index)![0] as HTMLLabelElement;
       label.remove();
     }
+    // else {
+    //   const bias = block.getGlobalBias([label, 0]) - 1;
+    //   // const offset = elementOffset(block.root, label);
+    //   this.buffer = {
+    //     current: label,
+    //     label: label.cloneNode(true) as HTMLLabelElement,
+    //     start: bias,
+    //   };
+    //   label.remove();
+    // }
   }
   undo(): void {
     const { block } = this.payload;
-    const { label, start } = this.buffer!;
-    const startLoc = block.getGlobalLocation(start)!;
+    const { label, start, index } = this.buffer!;
+    const startLoc = block.getLocation(start, index)!;
     const range = createRange(...startLoc);
     range.insertNode(label);
     this.buffer.current = label;

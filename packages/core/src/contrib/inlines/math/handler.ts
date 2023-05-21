@@ -1,9 +1,9 @@
 import {
-  EventContext,
+  BlockEventContext,
   Handler,
   InlineRangedEventContext,
   FineHandlerMethods,
-  RangedEventContext,
+  RangedBlockEventContext,
   dispatchKeyEvent,
   InlineHandler,
   InlineEventContext,
@@ -14,8 +14,60 @@ import { NodeInsert } from "@ohno-editor/core/contrib/commands/html";
 import { ListCommandBuilder } from "@ohno-editor/core/contrib/commands/concat";
 import { InlineSupport } from "@ohno-editor/core/contrib/plugins/inlineSupport/plugin";
 import { TextDelete } from "@ohno-editor/core/contrib/commands";
+import { BlockActiveEvent, BlockDeActiveEvent } from "@ohno-editor/core/system";
 
-export class InlineMathHandler implements InlineHandler {
+export class InlineMathHandler implements InlineHandler<KatexMath> {
+  handleKeyboardActivated(
+    e: KeyboardEvent,
+    context: InlineRangedEventContext<KatexMath>
+  ): boolean | void {
+    const { page, inline, manager } = context;
+
+    manager.activate(inline, context);
+    return true;
+  }
+  handleMouseActivated(
+    e: MouseEvent,
+    context: InlineEventContext<KatexMath>
+  ): boolean | void {
+    const { page, inline, manager } = context;
+    manager.activate(inline, context);
+    return true;
+  }
+  handleKeyboardDeActivated(
+    e: KeyboardEvent,
+    context: InlineRangedEventContext<KatexMath>
+  ): boolean | void {
+    const { page, inline, manager } = context;
+    manager.exit();
+    return true;
+  }
+  handleMouseDeActivated(
+    e: MouseEvent,
+    context: InlineEventContext<KatexMath>
+  ): void | boolean {
+    const { page, inline, manager } = context;
+    manager.exit();
+    return true;
+  }
+
+  handleKeyPress(
+    e: KeyboardEvent,
+    context: InlineRangedEventContext
+  ): boolean | void {}
+  handleKeyDown(
+    e: KeyboardEvent,
+    context: InlineRangedEventContext
+  ): boolean | void {
+    return dispatchKeyEvent(this, e, context);
+  }
+  handleKeyUp(
+    e: KeyboardEvent,
+    context: InlineRangedEventContext
+  ): boolean | void {
+    return dispatchKeyEvent(this, e, context);
+  }
+
   handleMouseDown(e: MouseEvent, context: InlineEventContext): boolean | void {
     // const { page, inline, manager } = context;
     // manager.edit(inline, context);
@@ -23,7 +75,7 @@ export class InlineMathHandler implements InlineHandler {
   }
   handleMouseUp(e: MouseEvent, context: InlineEventContext): boolean | void {
     const { page, inline, manager } = context;
-    (manager as KatexMath).edit(inline, context);
+    (manager as KatexMath).activate(inline, context);
     return true;
   }
 
@@ -35,24 +87,21 @@ export class InlineMathHandler implements InlineHandler {
   }
   handleSpaceDown(
     e: KeyboardEvent,
-    context: RangedEventContext
+    context: RangedBlockEventContext
   ): boolean | void {}
+
   handleEnterDown(
     e: KeyboardEvent,
     context: InlineRangedEventContext
   ): boolean | void {
     const { page, inline, manager } = context;
-    manager.edit(inline, context);
+    manager.activate(inline, context);
     return true;
   }
   handleClick(
     e: MouseEvent,
-    context: InlineRangedEventContext
-  ): boolean | void {
-    // const { range, inline, manager } = context;
-    // manager.edit(inline, context);
-    // return true;
-  }
+    context: InlineEventContext<KatexMath>
+  ): boolean | void {}
 
   handleArrowKeyDown(
     e: KeyboardEvent,
@@ -77,7 +126,7 @@ export class InlineMathHandler implements InlineHandler {
 
   handleBeforeInput(
     e: TypedInputEvent,
-    context: RangedEventContext
+    context: RangedBlockEventContext
   ): boolean | void {
     const { range, block, page } = context;
 
@@ -135,10 +184,12 @@ export class InlineMathHandler implements InlineHandler {
               node,
             });
           })
-          .build();
+          .build()
+          .onExecute(() => {
+            plugin.setActiveInline(node);
+            manager.activate(node, context);
+          });
         page.executeCommand(command);
-        page.setActiveInline(node);
-        manager.edit(node, context);
         return true;
       }
     }
