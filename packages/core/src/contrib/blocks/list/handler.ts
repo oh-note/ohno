@@ -462,7 +462,7 @@ export class ListHandler extends Handler implements FineHandlerMethods {
           return new BlockCreate({
             page,
             block,
-            newBlock: new Paragraph({ innerHTML: containers[0].innerHTML }),
+            newBlock: new Paragraph({ children: containers[0].innerHTML }),
             where: "after",
           }).onUndo();
         })

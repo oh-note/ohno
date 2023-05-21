@@ -9,11 +9,15 @@ import {
   Table,
   TodoItem,
   createTextNode,
+  createToolbar,
   outerHTML,
 } from "@ohno-editor/core";
 
 const page = createDefaultPage();
 const el = document.querySelector("#app") as HTMLElement;
+
+createToolbar();
+el.appendChild(createToolbar());
 
 const inlinePlugin = page.getPlugin<InlineSupport>("inlinesupport");
 

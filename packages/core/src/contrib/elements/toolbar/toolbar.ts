@@ -7,6 +7,9 @@ export interface DropdownButton {
 export function createToolbarGroup() {}
 
 export function createToolbar() {
-  const toolbar = createElement("div", { className: "oh-is-toolbar" });
+  const toolbar = createElement("div", {
+    className: "oh-is-toolbar",
+    children: [createElement("button", { textContent: "B" })],
+  });
   return toolbar;
 }

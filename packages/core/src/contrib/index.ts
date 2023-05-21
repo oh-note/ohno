@@ -5,3 +5,4 @@ export * from "./commands";
 export * from "./handlers";
 export * from "./inlines";
 export * from "./plugins";
+export * from "./elements";

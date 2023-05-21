@@ -303,7 +303,9 @@ export class InlineSupportPluginHandler
   handleCompositionStart(
     e: CompositionEvent,
     context: BlockEventContext
-  ): boolean | void {}
+  ): boolean | void {
+    // TODO dispatch composition to inline handler
+  }
   handleCompositionUpdate(
     e: CompositionEvent,
     context: BlockEventContext

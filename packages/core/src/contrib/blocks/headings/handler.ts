@@ -102,7 +102,7 @@ export class HeadingsHandler extends Handler implements FineHandlerMethods {
             throw new Error("sanity check");
           }
           const paragraph = new Paragraph({
-            innerHTML: innerHTML,
+            children: innerHTML,
           });
 
           return new BlockCreate({
@@ -139,7 +139,7 @@ export class HeadingsHandler extends Handler implements FineHandlerMethods {
       let newBlock;
       if ((block as Headings).init.level === level) {
         newBlock = new Paragraph({
-          innerHTML: block.root.innerHTML.replace(/^#+/, ""),
+          children: block.root.innerHTML.replace(/^#+/, ""),
         });
       } else {
         newBlock = new Headings({

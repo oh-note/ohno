@@ -4,10 +4,7 @@ import { createElement } from "@ohno-editor/core/helper/document";
 import { parentElementWithFilter } from "@ohno-editor/core/helper/element";
 import { IComponent, IContainer, IPlugin } from "@ohno-editor/core/system/base";
 import { AnyBlock } from "@ohno-editor/core/system/block";
-import {
-  BlockEventContext,
-  RangedBlockEventContext,
-} from "@ohno-editor/core/system/handler";
+import { RangedBlockEventContext } from "@ohno-editor/core/system/handler";
 import { Command } from "@ohno-editor/core/system/history";
 import { Page } from "@ohno-editor/core/system/page";
 import { computePosition } from "@floating-ui/dom";
@@ -57,7 +54,7 @@ export class SlashMenu implements IPlugin {
   root: HTMLElement;
   name: string = "slashmenu";
   options: MenuItem[];
-  parent?: IComponent | undefined;
+  parent?: Page | undefined;
   context?: RangedBlockEventContext;
   filter?: string;
   component: {
@@ -90,6 +87,7 @@ export class SlashMenu implements IPlugin {
     };
     this.root.appendChild(options);
     this.root.appendChild(noresult);
+    this.root.style.display = "none";
     options.addEventListener("mousemove", this.handleMouseMove.bind(this));
     options.addEventListener("click", this.handleClick.bind(this));
   }
@@ -210,7 +208,7 @@ export class SlashMenu implements IPlugin {
     this.hover = -1;
   }
 
-  setParent(parent?: IContainer | undefined): void {
+  setParent(parent?: Page | undefined): void {
     this.parent = parent;
   }
 

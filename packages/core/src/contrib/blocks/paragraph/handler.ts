@@ -297,7 +297,7 @@ export class ParagraphHandler extends Handler implements FineHandlerMethods {
             throw new Error("sanity check");
           }
           const paragraph = new Paragraph({
-            innerHTML: innerHTML,
+            children: innerHTML,
           });
           return new BlockCreate({
             page: page,
