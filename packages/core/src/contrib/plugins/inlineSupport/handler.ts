@@ -6,20 +6,15 @@
  */
 import {
   BlockEventContext,
-  Handler,
-  FineHandlerMethods,
   RangedBlockEventContext,
   dispatchKeyEvent,
 } from "@ohno-editor/core/system/handler";
 import { InlineSupport } from "./plugin";
 import { getTagName } from "@ohno-editor/core/helper/element";
-import { getValidAdjacent } from "@ohno-editor/core/system";
-import { tryGetDefaultRange } from "@ohno-editor/core/helper";
+import { PagesHandleMethods, getValidAdjacent } from "@ohno-editor/core/system";
+import { isPlain, tryGetDefaultRange } from "@ohno-editor/core/helper";
 
-export class InlineSupportPluginHandler
-  extends Handler
-  implements FineHandlerMethods
-{
+export class InlineSupportPluginHandler implements PagesHandleMethods {
   handleKeyDown(
     e: KeyboardEvent,
     context: RangedBlockEventContext
@@ -200,12 +195,11 @@ export class InlineSupportPluginHandler
       // 首次激活，调用 handleMouseActivated
       if (set) {
         const handler = plugin.getInlineHandler(set);
-        handler.handleMouseActivated?.(e, {
+        return handler.handleMouseActivated?.(e, {
           ...context,
           inline: set,
           manager: plugin.getInlineManager(set),
         });
-        return;
       }
       // 如果已激活，则分发普通事件
       if (label) {
@@ -368,7 +362,7 @@ export class InlineSupportPluginHandler
     e: TypedInputEvent,
     context: RangedBlockEventContext
   ): boolean | void {
-    const { page, range } = context;
+    const { page, block, range } = context;
     const plugin = page.getPlugin<InlineSupport>("inlinesupport");
 
     if (plugin.activeInline) {
@@ -386,10 +380,13 @@ export class InlineSupportPluginHandler
     } else if (plugin.findInline(range.commonAncestorContainer, context)) {
       throw new Error("Saniti Check");
     } else {
-      const keys = Object.keys(plugin.inlineHandler);
-      for (let i = 0; i < keys.length; i++) {
-        if (plugin.inlineHandler[keys[i]].handleBeforeInput?.(e, context)) {
-          return true;
+      const editable = block.findEditable(range.startContainer);
+      if (editable && !isPlain(editable)) {
+        const keys = Object.keys(plugin.inlineHandler);
+        for (let i = 0; i < keys.length; i++) {
+          if (plugin.inlineHandler[keys[i]].handleBeforeInput?.(e, context)) {
+            return true;
+          }
         }
       }
     }

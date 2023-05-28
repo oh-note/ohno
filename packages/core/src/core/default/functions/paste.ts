@@ -1,14 +1,14 @@
-import { RichTextDelete, TextInsert } from "@ohno-editor/core/contrib/commands";
+import { TextInsert } from "@ohno-editor/core/contrib/commands";
 import { BlocksCreate } from "@ohno-editor/core/contrib/commands/block";
 import { outerHTML } from "@ohno-editor/core/helper/element";
 import { OhNoClipboardData } from "@ohno-editor/core/system/base";
 import {
-  Handler,
+  PagesHandleMethods,
   RangedBlockEventContext,
 } from "@ohno-editor/core/system/handler";
 
 export function defaultHandlePaste(
-  handler: Handler,
+  handler: PagesHandleMethods,
   e: ClipboardEvent,
   context: RangedBlockEventContext
 ) {

@@ -121,7 +121,7 @@ export interface IBlock extends IContainer {
   // bias from editable element;
   getBias(loc: RefLocation): number;
   // bias from root
-  getGlobalBias(loc: RefLocation): number;
+  getGlobalBiasPair(loc: RefLocation): [number, number];
 
   // softline function
   // location of bias start from softline head

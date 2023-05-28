@@ -1,16 +1,17 @@
 import {
-  Handler,
+  PagesHandleMethods,
   RangedBlockEventContext,
 } from "@ohno-editor/core/system/handler";
 import {
   RefLocation,
+  compareLocation,
   createRange,
   getValidAdjacent,
   setRange,
 } from "@ohno-editor/core/system/range";
 
 export function defaultHandleArrowDown(
-  handler: Handler,
+  handler: PagesHandleMethods,
   e: KeyboardEvent,
   context: RangedBlockEventContext
 ): boolean | void {
@@ -29,7 +30,7 @@ export function defaultHandleArrowDown(
       anchorLoc = [range.endContainer, range.endOffset];
       anchorBlock = context.endBlock || block;
     }
-    page.toggleSelect;
+
     page.rangeDirection = undefined;
     if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
       return true;
@@ -65,29 +66,50 @@ export function defaultHandleArrowDown(
   const [anchor, anchorOffset] = anchorLoc;
 
   function setAnchor(tgt: Node, tgtOffset: number) {
+    /**在止点不动的情况下设置 Anchor Position */
     const next = createRange(tgt, tgtOffset);
     if (e.shiftKey) {
       if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
-        if (range!.collapsed) {
+        if (range.collapsed) {
           page.rangeDirection = "prev";
-          next.setEnd(range!.endContainer, range!.endOffset);
+          next.setEnd(range.endContainer, range.endOffset);
         } else if (page.rangeDirection === "prev") {
-          next.setEnd(range!.endContainer, range!.endOffset);
+          next.setEnd(range.endContainer, range.endOffset);
         } else {
-          next.setStart(range!.startContainer, range!.startOffset);
+          if (
+            compareLocation(
+              [tgt, tgtOffset],
+              [range.startContainer, range.startOffset]
+            ) === 1
+          ) {
+            page.rangeDirection = "prev";
+            next.setEnd(range.startContainer, range.startOffset);
+          } else {
+            next.setStart(range.startContainer, range.startOffset);
+          }
         }
       } else {
         if (range!.collapsed) {
           page.rangeDirection = "next";
-          next.setStart(range!.startContainer, range!.startOffset);
+          next.setStart(range.startContainer, range.startOffset);
         } else if (page.rangeDirection === "next") {
-          next.setStart(range!.startContainer, range!.startOffset);
+          next.setStart(range.startContainer, range.startOffset);
         } else {
-          next.setEnd(range!.endContainer, range!.endOffset);
+          if (
+            compareLocation(
+              [tgt, tgtOffset],
+              [range.endContainer, range.endOffset]
+            ) === 1
+          ) {
+            next.setEnd(range.endContainer, range.endOffset);
+          } else {
+            page.rangeDirection = "next";
+            next.setStart(range.endContainer, range.endOffset);
+          }
         }
       }
     }
-    setRange(next);
+    page.setRange(next);
   }
 
   const editable = anchorBlock.findEditable(anchor);
@@ -196,7 +218,9 @@ export function defaultHandleArrowDown(
     }
   } else if (e.key === "ArrowLeft") {
     let prev;
-    if (e.altKey) {
+    if (e.ctrlKey || e.metaKey) {
+      prev = anchorBlock.getSoftLineHead(anchorLoc);
+    } else if (e.altKey) {
       prev = anchorBlock.getPrevWordLocation(anchorLoc);
     } else {
       prev = anchorBlock.getPrevLocation(anchorLoc);
@@ -224,8 +248,9 @@ export function defaultHandleArrowDown(
   } else if (e.key === "ArrowRight") {
     // 任何时候，因为 block 的复杂性
     let next;
-
-    if (e.altKey) {
+    if (e.ctrlKey || e.metaKey) {
+      next = anchorBlock.getSoftLineTail(anchorLoc);
+    } else if (e.altKey) {
       next = anchorBlock.getNextWordLocation(anchorLoc);
     } else {
       next = anchorBlock.getNextLocation(anchorLoc);

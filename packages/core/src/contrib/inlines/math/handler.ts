@@ -1,8 +1,5 @@
 import {
-  BlockEventContext,
-  Handler,
   InlineRangedEventContext,
-  FineHandlerMethods,
   RangedBlockEventContext,
   dispatchKeyEvent,
   InlineHandler,
@@ -14,7 +11,6 @@ import { NodeInsert } from "@ohno-editor/core/contrib/commands/html";
 import { ListCommandBuilder } from "@ohno-editor/core/contrib/commands/concat";
 import { InlineSupport } from "@ohno-editor/core/contrib/plugins/inlineSupport/plugin";
 import { TextDelete } from "@ohno-editor/core/contrib/commands";
-import { BlockActiveEvent, BlockDeActiveEvent } from "@ohno-editor/core/system";
 
 export class InlineMathHandler implements InlineHandler<KatexMath> {
   handleKeyboardActivated(

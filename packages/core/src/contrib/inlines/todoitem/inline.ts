@@ -1,8 +1,5 @@
 import { createElement, createInline } from "@ohno-editor/core/helper/document";
-import {
-  BlockEventContext,
-  FineHandlerMethods,
-} from "@ohno-editor/core/system/handler";
+import { BlockEventContext } from "@ohno-editor/core/system/handler";
 import { InlineBase } from "@ohno-editor/core/system/inline";
 import { makeRangeInNode, setRange } from "@ohno-editor/core/system/range";
 import { addMarkdownHint } from "@ohno-editor/core/helper/markdown";
@@ -22,7 +19,7 @@ export interface TodoItemInit {
   [key: string]: any;
 }
 
-const EDIT_EL = "data";
+export const EDIT_EL = "data";
 
 export class TodoItem extends InlineBase {
   // options: BackLinkOption[];
@@ -48,7 +45,7 @@ export class TodoItem extends InlineBase {
     const { title, status } = option || { title: "" };
 
     const checkbox = createElement("input", {
-      attributes: { type: "checkbox" },
+      attributes: { type: "checkbox", tabindex: "-1" },
     });
     const titleEl = createElement(EDIT_EL, { textContent: title });
 

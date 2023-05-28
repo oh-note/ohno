@@ -1,27 +1,22 @@
 import {
   BlockEventContext,
-  Handler,
-  FineHandlerMethods,
   MultiBlockEventContext,
   RangedBlockEventContext,
   dispatchKeyEvent,
+  PagesHandleMethods,
 } from "@ohno-editor/core/system/handler";
 import { Placeholder } from "./plugin";
 import {
   BlockMove,
   BlocksMove,
 } from "@ohno-editor/core/contrib/commands/block";
-import {
-  createRange,
-  setLocation,
-  setRange,
-} from "@ohno-editor/core/system/range";
+import { createRange, setRange } from "@ohno-editor/core/system/range";
 import {
   BlockActiveEvent,
   BlockUpdateEvent,
 } from "@ohno-editor/core/system/pageevent";
 
-export class PlaceholaderHandler extends Handler implements FineHandlerMethods {
+export class PlaceholaderHandler implements PagesHandleMethods {
   handleBlockUpdated(e: BlockUpdateEvent, context: any): boolean | void {
     const { page, block } = e;
     const plugin = page.getPlugin<Placeholder>("dragable");
@@ -78,11 +73,11 @@ export class PlaceholaderHandler extends Handler implements FineHandlerMethods {
           e.key === "ArrowDown"
             ? page.getNextBlock(blocks[blocks.length - 1])
             : page.getPrevBlock(blocks[0]);
-        const startBias = blocks[0].getGlobalBias([
+        const startBias = blocks[0].getGlobalBiasPair([
           range.startContainer,
           range.startOffset,
         ]);
-        const endBias = blocks[blocks.length - 1].getGlobalBias([
+        const endBias = blocks[blocks.length - 1].getGlobalBiasPair([
           range.endContainer,
           range.endOffset,
         ]);
@@ -96,21 +91,21 @@ export class PlaceholaderHandler extends Handler implements FineHandlerMethods {
             .onExecute(({ orders }, { newOrders }) => {
               const startBlock = page.query(newOrders[0])!;
               const endBlock = page.query(newOrders[newOrders.length - 1])!;
-              const startLoc = startBlock.getGlobalLocation(startBias);
-              const endLoc = endBlock.getGlobalLocation(endBias);
+              const startLoc = startBlock.getLocation(...startBias);
+              const endLoc = endBlock.getLocation(...endBias);
               setRange(createRange(...startLoc!, ...endLoc!));
             })
             .onUndo(({ orders }) => {
               const startBlock = page.query(orders[0])!;
               const endBlock = page.query(orders[orders.length - 1])!;
-              const startLoc = startBlock.getGlobalLocation(startBias);
-              const endLoc = endBlock.getGlobalLocation(endBias);
+              const startLoc = startBlock.getLocation(...startBias);
+              const endLoc = endBlock.getLocation(...endBias);
               setRange(createRange(...startLoc!, ...endLoc!));
             });
           page.executeCommand(command);
         }
       } else {
-        const bias = block.getGlobalBias([
+        const bias = block.getGlobalBiasPair([
           range.startContainer,
           range.startOffset,
         ]);
@@ -127,11 +122,11 @@ export class PlaceholaderHandler extends Handler implements FineHandlerMethods {
           })
             .onExecute(({ order }, { newOrder }) => {
               const block = page.query(newOrder)!;
-              page.setLocation(block.getGlobalLocation(bias)!, block);
+              page.setLocation(block.getLocation(...bias)!);
             })
             .onUndo(({ order }) => {
               const block = page.query(order)!;
-              page.setLocation(block.getGlobalLocation(bias)!, block);
+              page.setLocation(block.getLocation(...bias)!);
             });
           page.executeCommand(command);
         }

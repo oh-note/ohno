@@ -1,4 +1,5 @@
 import {
+  ChildrenPayload,
   createElement,
   getDefaultRange,
 } from "@ohno-editor/core/helper/document";
@@ -13,13 +14,9 @@ import {
 import { Block, BlockInit } from "@ohno-editor/core/system/block";
 import "./style.css";
 export interface TableInit extends BlockInit {
-  shape?: {
-    row: number;
-    col: number;
-    innerHTMLs?: (string | undefined)[][];
-  };
-
-  children?: HTMLParagraphElement[][];
+  row: number;
+  col: number;
+  children?: ChildrenPayload[][];
 }
 
 export class Table extends Block<TableInit> {
@@ -30,52 +27,27 @@ export class Table extends Block<TableInit> {
   // thead: HTMLTableSectionElement;
   tbody: HTMLTableSectionElement;
   constructor(init?: TableInit) {
-    init = init || {};
+    init = init || { row: 3, col: 3 };
     init.el = createElement("table", {
       attributes: {},
     });
     const { children } = init;
-    let shape = init.shape;
-
-    if (children && shape) {
-      throw new Error("children and shape should assign only one at once.");
-    }
 
     const tableEl = createElement("table");
     // const thead = createElement("thead");
     const tbody = createElement("tbody");
-    let table;
-    if (children) {
-      table = children.map((row, rid) => {
-        const tr = row.map((cellEl, cid) => {
-          return createElement("td", { children: [cellEl] });
-        });
-        const rowEl = createElement("tr", { children: tr });
-        tbody.appendChild(rowEl);
-        return rowEl;
-      });
-    }
 
-    if (!shape) {
-      shape = { row: 3, col: 3 };
-    }
-
-    const { row, col, innerHTMLs } = shape;
-    table = Array(row)
+    const { row, col } = init;
+    const table = Array(row)
       .fill(0)
       .map((_, rid) => {
-        const rowInnerHTMLs = (innerHTMLs && innerHTMLs[rid]) || [];
+        const rowChildren = (children && children[rid]) || [];
         const tr = Array(col)
           .fill(0)
           .map((_, cid) => {
-            const cellInnerHTML = rowInnerHTMLs[cid] || "";
-            const cell = createElement("p");
-            cell.innerHTML = cellInnerHTML;
+            const child = rowChildren[cid] || "";
+            const cell = createElement("p", { children: child });
             return createElement("td", { children: [cell] });
-            // if (rid === 0) {
-            //   return createElement("th", { children: [cell] });
-            // } else {
-            // }
           });
         const rowEl = createElement("tr", { children: tr });
         tbody.appendChild(rowEl);
@@ -263,15 +235,13 @@ export class Table extends Block<TableInit> {
 
   serialize(option?: any): BlockSerializedData<TableInit> {
     const init = {
-      shape: {
-        col: this.colNumber,
-        row: this.rowNumber,
-        innerHTMLs: this.rows.map((item) => {
-          const cellEl = item.querySelectorAll("p");
-          return Array.from(cellEl).map((item) => item.innerHTML);
-        }),
-      },
-    };
+      col: this.colNumber,
+      row: this.rowNumber,
+      children: this.rows.map((item) => {
+        const cellEl = item.querySelectorAll("p");
+        return Array.from(cellEl).map((item) => item.innerHTML);
+      }),
+    } as TableInit;
     return [{ type: this.type, init, unmergeable: true }];
   }
 

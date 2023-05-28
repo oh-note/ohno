@@ -1,13 +1,11 @@
-import {
-  getDefaultRange,
-  tryGetDefaultRange,
-} from "@ohno-editor/core/helper/document";
+import { tryGetDefaultRange } from "@ohno-editor/core/helper/document";
 import {
   BlockEventContext,
-  Handler,
-  FineHandlerMethods,
   RangedBlockEventContext,
   dispatchKeyEvent,
+  ControlKeyEventHandleMethods,
+  UIEventHandleMethods,
+  PagesHandleMethods,
 } from "@ohno-editor/core/system/handler";
 import {
   BlockCreate,
@@ -21,7 +19,7 @@ import {
 } from "../paragraph";
 import { Blockquote } from "./block";
 import "./style.css";
-export class BlockQuoteHandler extends Handler implements FineHandlerMethods {
+export class BlockQuoteHandler implements PagesHandleMethods {
   handleKeyPress(
     e: KeyboardEvent,
     context: BlockEventContext
@@ -99,7 +97,7 @@ export class BlockQuoteHandler extends Handler implements FineHandlerMethods {
           throw new Error("sanity check");
         }
         const blockquote = new Blockquote({
-          innerHTML: innerHTML,
+          children: innerHTML,
         });
         return new BlockCreate({
           block: block,

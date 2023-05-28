@@ -118,12 +118,12 @@ export function locationInFirstLine(
     return true;
   }
   const range = createRange(container, offset);
+  const [second, _] = getRects(range);
   const test = createElement("span", {
     textContent: "|",
   });
   root.insertBefore(test, root.firstChild);
   const first = test.getClientRects();
-  const [second, _] = getRects(range);
   test.remove();
   return inSameLine(first[0], second[0]);
 }
@@ -928,7 +928,11 @@ export function getRects(range: Range, force?: boolean): [DOMRect[], DOMRect] {
     range.collapse(true);
   }
 
-  if (rects.length === 0) {
+  if (
+    rects.length === 0 ||
+    (range.startContainer instanceof Text &&
+      range.startContainer.textContent?.length === 0)
+  ) {
     const flag = createTextNode("|");
     range.collapse(true);
     range.insertNode(flag);
@@ -1101,6 +1105,20 @@ export function clipRange(node: ValidNode, range: Range): Range | null {
   }
   // 互相独立无重叠
   return null;
+}
+
+export function compareLocation(a: RefLocation, b: RefLocation): number {
+  if (a[0] === b[0] && a[1] === b[1]) {
+    return 0;
+  }
+  const range = createRange(...a, ...b);
+  if (range.collapsed) {
+    // a > b
+    return -1;
+  } else {
+    // a < b
+    return 1;
+  }
 }
 
 export function makeRangeInNode(node: ValidNode, range?: Range): Range {

@@ -1,10 +1,9 @@
 import { createElement } from "@ohno-editor/core/helper/document";
 import {
   BlockEventContext,
-  Handler,
-  FineHandlerMethods,
   RangedBlockEventContext,
   dispatchKeyEvent,
+  PagesHandleMethods,
 } from "@ohno-editor/core/system/handler";
 import {
   LAST_POSITION,
@@ -21,6 +20,7 @@ import {
   ValidNode,
   outerHTML,
   parentElementWithTag,
+  prevValidSibling,
 } from "@ohno-editor/core/helper/element";
 import { ListCommandBuilder } from "@ohno-editor/core/contrib/commands/concat";
 // import { TextDeleteSelection } from "@ohno-editor/core/contrib/commands/text";
@@ -37,14 +37,17 @@ import { addMarkdownHint } from "@ohno-editor/core/helper/markdown";
 import { Paragraph } from "../paragraph";
 import { FormatMultipleText } from "@ohno-editor/core/contrib/commands/format";
 import { formatTags } from "@ohno-editor/core/system/format";
-import { RichTextDelete, TextInsert } from "@ohno-editor/core/contrib/commands";
-import { ListInit } from "./block";
 import {
-  createRange,
-  setLocation,
-  setRange,
-} from "@ohno-editor/core/system/range";
+  NodeInsert,
+  RichTextDelete,
+  TextDelete,
+  TextInsert,
+} from "@ohno-editor/core/contrib/commands";
+import { ListInit } from "./block";
+import { createRange, setRange } from "@ohno-editor/core/system/range";
 import { EditableInterval } from "@ohno-editor/core/system/base";
+import { InlineSupport } from "../../plugins";
+import { Flag } from "../../inlines/flag/inline";
 
 export interface DeleteContext extends RangedBlockEventContext {
   nextBlock: AnyBlock;
@@ -232,7 +235,7 @@ export function removeSelection({ range, page, block }: BlockEventContext) {
   return builder;
 }
 
-export class ListHandler extends Handler implements FineHandlerMethods {
+export class ListHandler implements PagesHandleMethods {
   handleKeyPress(
     e: KeyboardEvent,
     context: RangedBlockEventContext
@@ -343,7 +346,7 @@ export class ListHandler extends Handler implements FineHandlerMethods {
       .withLazyCommand(({ block, index, container }) => {
         let level = this.getLevelOfContainer(container as HTMLLIElement);
         if (add) {
-          level = Math.min(level + 1, 3);
+          level = Math.min(level + 1, 6);
         } else {
           level = Math.max(level - 1, 0);
         }
@@ -415,7 +418,7 @@ export class ListHandler extends Handler implements FineHandlerMethods {
         block,
         page,
         newBlock: new Paragraph({
-          innerHTML: block.getFirstEditable().innerHTML,
+          children: block.getFirstEditable().innerHTML,
         }),
       });
     } else {
@@ -450,9 +453,7 @@ export class ListHandler extends Handler implements FineHandlerMethods {
             page,
             block,
             newBlock: new this.ListBlockType({
-              children: (containers as HTMLElement[]).slice(
-                1
-              ) as HTMLLIElement[],
+              children: containers.map((item: HTMLElement) => item.innerHTML),
             }),
             where: "after",
           }).removeCallback();
@@ -565,8 +566,24 @@ export class ListHandler extends Handler implements FineHandlerMethods {
           if (innerHTML === undefined) {
             throw new Error("sanity check");
           }
-          const newLi = createElement("li");
-          newLi.innerHTML = innerHTML;
+          const todoFlagLoc = block.getLocation(1, index);
+          const children = [innerHTML];
+          let hasFlag = false;
+          if (todoFlagLoc && todoFlagLoc[0] instanceof HTMLLabelElement) {
+            if (todoFlagLoc[0].dataset["name"] === "flag") {
+              hasFlag = true;
+              const plugin = page.getPlugin<InlineSupport>("inlinesupport");
+              const manager = plugin.getInlineManager<Flag>("flag");
+              const node = manager.create({
+                first: "TODO",
+                constrain: ["DONE", "TODO"],
+              });
+              children.unshift(node);
+            }
+          }
+
+          const newLi = createElement("li", { children });
+          // newLi.innerHTML = innerHTML;
           addMarkdownHint(newLi);
 
           return new ContainerInsert({
@@ -578,7 +595,11 @@ export class ListHandler extends Handler implements FineHandlerMethods {
           })
             .onExecute(() => {
               this.updateValue(context);
-              page.setLocation(block.getLocation(0, index + 1)!, block);
+              if (hasFlag) {
+                page.setLocation(block.getLocation(2, index + 1)!, block);
+              } else {
+                page.setLocation(block.getLocation(0, index + 1)!, block);
+              }
             })
             .onUndo(() => {
               this.updateValue(context);
@@ -599,35 +620,14 @@ export class ListHandler extends Handler implements FineHandlerMethods {
     const endLi = parentElementWithTag(range.endContainer, "li", block.root)!;
     const endIndex = block.getEditableIndex(endLi);
 
-    // const startOffset = {
-    //   start: locationToBias(
-    //     startLi,
-    //     range.startContainer as ValidNode,
-    //     range.startOffset
-    //   ),
-    //   end: getTokenSize(startLi),
-    //   index: startIndex,
-    // };
-    // const endOffset = {
-    //   start: 0,
-    //   end: locationToBias(
-    //     endLi,
-    //     range.endContainer as ValidNode,
-    //     range.endOffset
-    //   ),
-    //   index: endIndex,
-    // };
-
-    const globalStart = block.getGlobalBias([
+    const globalStart = block.getGlobalBiasPair([
       range.startContainer,
       range.startOffset,
     ]);
-    const globalEnd = block.getGlobalBias([
-      range.startContainer,
-      range.startOffset,
+    const globalEnd = block.getGlobalBiasPair([
+      range.endContainer,
+      range.endOffset,
     ]);
-
-    // const command = new RichTextDelete()
 
     const builder = new ListCommandBuilder({ page, block })
       .withLazyCommand(({ page, block }, extra) => {
@@ -640,8 +640,13 @@ export class ListHandler extends Handler implements FineHandlerMethods {
           start,
           index: startIndex,
           token_number: getTokenSize(startLi) - start,
-        }).onUndo(({ block }) => {
-          block.getRange({ start: globalStart, end: globalEnd });
+        }).onUndo(({ block, page }) => {
+          // debugger;
+          const startLoc = block.getLocation(...globalStart)!;
+          const endLoc = block.getLocation(...globalEnd)!;
+          const range = createRange(...startLoc, ...endLoc);
+
+          page.setRange(range);
         });
       })
       .withLazyCommand(() => {
@@ -656,7 +661,7 @@ export class ListHandler extends Handler implements FineHandlerMethods {
           index: endIndex,
           token_number,
         }).onExecute(({ block, start, index }) => {
-          page.setLocation(block.getLocation(-1, startIndex)!, block);
+          page.setLocation(block.getLocation(0, endIndex)!, block);
         });
       })
       .withLazyCommand(() => {
@@ -694,6 +699,57 @@ export class ListHandler extends Handler implements FineHandlerMethods {
 
     // 检测是否跨 Container
     if (parentElementWithTag(range.commonAncestorContainer, "li", block.root)) {
+      // [] 识别并插入
+      // debugger;
+      if (
+        e.inputType === "insertText" &&
+        range.collapsed &&
+        range.startOffset == 1 &&
+        block.getBias([range.startContainer, range.startOffset]) === 1 &&
+        range.startContainer.textContent![0].match(/[[【]/) &&
+        e.data!.match(/[】\]]/) &&
+        !prevValidSibling(range.startContainer)
+      ) {
+        const plugin = page.getPlugin<InlineSupport>("inlinesupport");
+        const manager = plugin.getInlineManager<Flag>("flag");
+        const node = manager.create({
+          first: "TODO",
+          constrain: ["DONE", "TODO"],
+        });
+        const index = block.findEditableIndex(range.startContainer);
+        const command = new ListCommandBuilder({
+          block,
+          page,
+          node,
+          bias: 1,
+          index,
+        })
+          .withLazyCommand(({ page, block, index }) => {
+            return new TextDelete({
+              page,
+              block,
+              start: 1,
+              index,
+              token_number: -1,
+            });
+          })
+          .withLazyCommand(({ page, block, index, node }) => {
+            return new NodeInsert({
+              page,
+              block,
+              index,
+              start: 0,
+              node,
+            }).onExecute(({ page }, { current }) => {
+              page.setLocation(block.getLocation(2, index)!);
+            });
+          })
+          .build();
+        page.executeCommand(command);
+        // 删除 [ 并插入 Flag
+        return true;
+      }
+
       return;
     }
 
@@ -746,11 +802,11 @@ export class ListHandler extends Handler implements FineHandlerMethods {
     }
 
     let command;
-    const globalStart = block.getGlobalBias([
+    const globalStart = block.getGlobalBiasPair([
       range.startContainer,
       range.startOffset,
     ]);
-    const globalEnd = block.getGlobalBias([
+    const globalEnd = block.getGlobalBiasPair([
       range.endContainer,
       range.endOffset,
     ]);
@@ -790,8 +846,10 @@ export class ListHandler extends Handler implements FineHandlerMethods {
           }
         )
         .onUndo(() => {
-          const range = block.getRange({ start: globalStart, end: globalEnd })!;
-          setRange(range);
+          const startLoc = block.getLocation(...globalStart)!;
+          const endLoc = block.getLocation(...globalEnd)!;
+          const range = createRange(...startLoc, ...endLoc);
+          page.setRange(range);
         });
     } else {
       // 下面这些都是要先把选中内容删干净，即跨 Container 的删除
@@ -807,7 +865,10 @@ export class ListHandler extends Handler implements FineHandlerMethods {
             index,
             token_number,
           }).onUndo(() => {
-            setRange(block.getRange({ start: globalStart, end: globalEnd })!);
+            const startLoc = block.getLocation(...globalStart)!;
+            const endLoc = block.getLocation(...globalEnd)!;
+            const range = createRange(...startLoc, ...endLoc);
+            page.setRange(range);
           });
         })
         .withLazyCommand(() => {

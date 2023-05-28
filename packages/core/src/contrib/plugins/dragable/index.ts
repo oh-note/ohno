@@ -9,7 +9,7 @@ export function DragablePlugin(): PluginComponent {
   return {
     manager: manager,
     handlers: {
-      plugins: new DragablePluginHandler({}),
+      plugins: new DragablePluginHandler(),
     },
   };
 }

@@ -1,12 +1,11 @@
 import {
   BlockEventContext,
-  Handler,
-  FineHandlerMethods,
   RangedBlockEventContext,
   dispatchKeyEvent,
+  PagesHandleMethods,
 } from "@ohno-editor/core/system/handler";
 
-export class FigureHandler extends Handler implements FineHandlerMethods {
+export class FigureHandler implements PagesHandleMethods {
   name: string = "figure";
   handleKeyPress(
     e: KeyboardEvent,

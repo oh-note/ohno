@@ -9,7 +9,7 @@ export function InlineSupportPlugin(): PluginComponent {
   return {
     manager: manager,
     handlers: {
-      plugins: new InlineSupportPluginHandler({}),
+      plugins: new InlineSupportPluginHandler(),
     },
   };
 }

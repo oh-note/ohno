@@ -1,20 +1,13 @@
-import { getDefaultRange } from "@ohno-editor/core/helper/document";
 import {
   BlockEventContext,
-  Handler,
-  FineHandlerMethods,
   RangedBlockEventContext,
   dispatchKeyEvent,
+  PagesHandleMethods,
 } from "@ohno-editor/core/system/handler";
-import {
-  FIRST_POSITION,
-  intervalToRange,
-} from "@ohno-editor/core/system/position";
 import {
   BlockCreate,
   BlockReplace,
 } from "@ohno-editor/core/contrib/commands/block";
-import { containHTMLElement } from "@ohno-editor/core/helper/element";
 import {
   Paragraph,
   prepareDeleteCommand,
@@ -23,7 +16,7 @@ import {
 import { Headings } from "./block";
 import { createRange } from "@ohno-editor/core/system/range";
 
-export class HeadingsHandler extends Handler implements FineHandlerMethods {
+export class HeadingsHandler implements PagesHandleMethods {
   name: string = "headings";
   handleKeyPress(
     e: KeyboardEvent,
@@ -69,6 +62,10 @@ export class HeadingsHandler extends Handler implements FineHandlerMethods {
     e: KeyboardEvent,
     { page, block, range }: RangedBlockEventContext
   ): boolean | void {
+    if (!range.collapsed) {
+      return;
+    }
+    
     if (!block.isLocationInLeft([range.startContainer, range.startOffset])) {
       return;
     }
@@ -84,7 +81,7 @@ export class HeadingsHandler extends Handler implements FineHandlerMethods {
 
   handleEnterDown(
     e: KeyboardEvent,
-    { page, block, range }: BlockEventContext
+    { page, block, range }: RangedBlockEventContext
   ): boolean | void {
     if (e.shiftKey) {
       const newBlock = new Paragraph();
@@ -96,26 +93,39 @@ export class HeadingsHandler extends Handler implements FineHandlerMethods {
       });
       page.executeCommand(command);
     } else {
-      const command = prepareEnterCommand({ page, block, range })
-        .withLazyCommand(({ block, page }, { innerHTML }) => {
-          if (innerHTML === undefined) {
-            throw new Error("sanity check");
-          }
-          const paragraph = new Paragraph({
-            children: innerHTML,
-          });
+      let command;
+      if (block.isLocationInLeft([range.startContainer, range.startOffset])) {
+        const newBlock = new Paragraph({});
+        command = new BlockCreate({
+          page,
+          block,
+          newBlock,
+          where: "before",
+        }).onExecute(({ block, page }) => {
+          page.setLocation(block.getLocation(0, 0)!, block);
+        });
+      } else {
+        command = prepareEnterCommand({ page, block, range })
+          .withLazyCommand(({ block, page }, { innerHTML }) => {
+            if (innerHTML === undefined) {
+              throw new Error("sanity check");
+            }
+            const paragraph = new Paragraph({
+              children: innerHTML,
+            });
 
-          return new BlockCreate({
-            block: block,
-            newBlock: paragraph,
-            where: "after",
-            page: page,
-          });
-        })
-        .build();
-
+            return new BlockCreate({
+              block: block,
+              newBlock: paragraph,
+              where: "after",
+              page: page,
+            });
+          })
+          .build();
+      }
       page.executeCommand(command);
     }
+
     return true;
   }
   handleSpaceDown(
@@ -144,7 +154,7 @@ export class HeadingsHandler extends Handler implements FineHandlerMethods {
       } else {
         newBlock = new Headings({
           level,
-          innerHTML: block.root.innerHTML.replace(/^#+/, ""),
+          children: block.root.innerHTML.replace(/^#+/, ""),
         });
       }
       const command = new BlockReplace({

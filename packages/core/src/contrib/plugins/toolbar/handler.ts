@@ -1,16 +1,12 @@
 import {
   BlockEventContext,
-  Handler,
-  FineHandlerMethods,
   RangedBlockEventContext,
   dispatchKeyEvent,
+  PagesHandleMethods,
 } from "@ohno-editor/core/system/handler";
 import { Toolbar } from "./plugin";
 
-export class ToolbarPluginHandler
-  extends Handler
-  implements FineHandlerMethods
-{
+export class ToolbarPluginHandler implements PagesHandleMethods {
   handleKeyPress(
     e: KeyboardEvent,
     context: BlockEventContext

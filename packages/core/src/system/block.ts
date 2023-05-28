@@ -250,9 +250,12 @@ export class Block<T extends BlockInit> implements IBlock {
     return locationToBias(editable, ...loc, token_filter);
   }
 
-  getGlobalBias(loc: RefLocation): number {
-    return locationToBias(this.root, ...loc);
+  getGlobalBiasPair(loc: RefLocation): [number, number] {
+    const index = this.findEditableIndex(loc[0]);
+    const bias = this.getBias(loc);
+    return [bias, index];
   }
+
   getSoftLineBias(loc: RefLocation): number {
     const editable = this.findEditable(loc[0])!;
     if (!editable) {

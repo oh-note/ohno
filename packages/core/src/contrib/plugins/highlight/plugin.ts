@@ -9,8 +9,6 @@ import {
 import { AnyBlock } from "@ohno-editor/core/system/block";
 import {
   BlockEventContext,
-  Handler,
-  HandlerMethod,
   InlineHandler,
 } from "@ohno-editor/core/system/handler";
 import "./style.css";

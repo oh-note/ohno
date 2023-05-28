@@ -116,7 +116,7 @@ export function locationToBias(
         curSize = 2;
       } else {
         // <b><i>...</i>|</b>
-        curSize = getTokenSize(cur) + 2;
+        curSize = getTokenSize(cur, false, token_filter) + 2;
       }
     } else {
       // <b>|</b> -> 相当于跳出去，从 |<b></b> 开始遍历
@@ -155,7 +155,7 @@ export function locationToBias(
       } else if (token_filter(cur)) {
         curSize = 2;
       } else {
-        curSize = getTokenSize(cur) + 2;
+        curSize = getTokenSize(cur, false, token_filter) + 2;
       }
     }
   }

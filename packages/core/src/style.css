@@ -1,3 +1,24 @@
+@keyframes caret-animation {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Apply the caret animation to the contenteditable element */
+::selection::after {
+  content: "";
+  width: 1px;
+  height: 1em;
+  background-color: black; /* Set the caret color */
+  animation: caret-animation 1s infinite; /* Enable the blinking animation */
+}
+
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;

@@ -1,25 +1,18 @@
-import { defaultHandleBeforeInputOfPlainText } from "@ohno-editor/core/core/default/functions/beforeInput";
-import {
-  isParent,
-  parentElementWithFilter,
-  parentElementWithTag,
-} from "@ohno-editor/core/helper/element";
+import { isParent } from "@ohno-editor/core/helper/element";
 import {
   BlockEventContext,
-  Handler,
-  FineHandlerMethods,
   RangedBlockEventContext,
   dispatchKeyEvent,
+  PagesHandleMethods,
 } from "@ohno-editor/core/system/handler";
 import {
   BlockActiveEvent,
   BlockDeActiveEvent,
   BlockUpdateEvent,
 } from "@ohno-editor/core/system/pageevent";
-import { setLocation } from "@ohno-editor/core/system/range";
 import { Equation } from "./block";
 
-export class EquationHandler extends Handler implements FineHandlerMethods {
+export class EquationHandler implements PagesHandleMethods {
   handleBlockUpdated(e: BlockUpdateEvent, context: any): boolean | void {
     const { page, block } = e;
     (block as Equation).update();

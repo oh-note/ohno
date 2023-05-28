@@ -9,7 +9,6 @@ import "./style.css";
 export type HeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;
 
 export interface HeadingsInit extends BlockInit {
-  innerHTML?: string;
   level: HeadingLevel;
   children?: ChildrenPayload;
 }
@@ -21,10 +20,6 @@ export class Headings extends Block<HeadingsInit> {
       attributes: {},
       children: init.children,
     });
-
-    if (init.innerHTML) {
-      init.el.innerHTML = init.innerHTML;
-    }
 
     super("headings", init);
   }
@@ -43,9 +38,9 @@ export class Headings extends Block<HeadingsInit> {
     }
     return "";
   }
+
   serialize(option?: any): BlockSerializedData<HeadingsInit> {
-    const init = { level: this.init.level, innerHTML: this.root.innerHTML };
+    const init = { level: this.init.level, children: this.inner.innerHTML };
     return [{ type: this.type, init }];
-    // return { level: this.init.level, innerHTML: this.root.innerHTML };
   }
 }

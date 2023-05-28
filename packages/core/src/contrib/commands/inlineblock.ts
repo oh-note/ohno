@@ -135,6 +135,13 @@ export class IBlockRemove extends Command<IBlockRemovePayload> {
   //   block.setOffset({ ...this.buffer.offset, end: undefined });
   // };
 
+  onUndoFn?: CommandCallback<IBlockRemovePayload> = (
+    { page, block },
+    { index, start }
+  ) => {
+    page.setLocation(block.getLocation(start + 2, index)!);
+  };
+
   // onUndoFn?: CommandCallback<IBlockRemovePayload> = ({ page, block }) => {
   //   const label = this.buffer.current;
   //   page.activateInline(label);
@@ -162,16 +169,6 @@ export class IBlockRemove extends Command<IBlockRemovePayload> {
       const label = block.getLocation(start + 1, index)![0] as HTMLLabelElement;
       label.remove();
     }
-    // else {
-    //   const bias = block.getGlobalBias([label, 0]) - 1;
-    //   // const offset = elementOffset(block.root, label);
-    //   this.buffer = {
-    //     current: label,
-    //     label: label.cloneNode(true) as HTMLLabelElement,
-    //     start: bias,
-    //   };
-    //   label.remove();
-    // }
   }
   undo(): void {
     const { block } = this.payload;

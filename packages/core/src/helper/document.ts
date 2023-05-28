@@ -89,7 +89,6 @@ export function dechildren(children: ChildrenPayload): (Node | string)[] {
     return [children];
   }
 }
-
 export function createElement<K extends HTMLElementTagName>(
   tagName: K,
   props?: {
@@ -103,7 +102,21 @@ export function createElement<K extends HTMLElementTagName>(
     children?: ChildrenPayload;
     style?: Style;
   }
-): HTMLElementTagNameMap[K] {
+): HTMLElementTagNameMap[K];
+export function createElement(
+  tagName: string,
+  props?: {
+    id?: string;
+    className?: string;
+    textContent?: string;
+    innerHTML?: string;
+    attributes?: { [key: string]: string };
+    dataset?: { [key: string]: any };
+    eventHandler?: EventAttribute;
+    children?: ChildrenPayload;
+    style?: Style;
+  }
+): HTMLElement {
   const {
     id,
     className,
@@ -185,4 +198,25 @@ export function tryGetDefaultRange(): Range | null {
   }
 
   return null;
+}
+
+// Check if the element is already visible
+export function isElementInViewport(element: HTMLElement) {
+  const rect = element.getBoundingClientRect();
+  return (
+    rect.top >= 0 &&
+    rect.left >= 0 &&
+    rect.bottom <=
+      (window.innerHeight || document.documentElement.clientHeight) &&
+    rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+  );
+}
+
+export function scrollIntoViewIfNeeded(
+  el: HTMLElement,
+  arg?: boolean | ScrollIntoViewOptions
+) {
+  if (!isElementInViewport(el)) {
+    el.scrollIntoView(arg);
+  }
 }

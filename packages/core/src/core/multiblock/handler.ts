@@ -10,14 +10,11 @@ import { ValidNode } from "@ohno-editor/core/helper/element";
 import { formatTags } from "@ohno-editor/core/system/format";
 import {
   MultiBlockEventContext,
-  Handler,
   dispatchKeyEvent,
-  FineHandlerMethods,
-  BlockEventContext,
   RangedBlockEventContext,
+  PagesHandleMethods,
 } from "@ohno-editor/core/system/handler";
 import {
-  Offset,
   getTokenSize,
   locationToBias,
   rangeToInterval,
@@ -26,10 +23,7 @@ import {
 import { defaultHandleArrowDown } from "../default/functions/arrowDown";
 import {
   createRange,
-  locationInLeft,
   normalizeContainer,
-  normalizeRange,
-  setLocation,
   setRange,
 } from "@ohno-editor/core/system/range";
 import {
@@ -40,7 +34,7 @@ import { OhNoClipboardData } from "@ohno-editor/core/system/base";
 import { defaultHandlePaste } from "../default/functions/paste";
 
 function handleBeforeInputFormat(
-  handler: Handler,
+  handler: PagesHandleMethods,
   e: TypedInputEvent,
   { blocks, page, range }: MultiBlockEventContext
 ) {
@@ -128,7 +122,7 @@ function handleBeforeInputFormat(
 }
 
 function prepareDeleteMultiArea(
-  handler: Handler,
+  handler: PagesHandleMethods,
   context: MultiBlockEventContext
 ) {
   const { page, range, block, endBlock, blocks } = context;
@@ -142,9 +136,11 @@ function prepareDeleteMultiArea(
   // 最后一个命令不指定位置，默认还在初始位置，除了 Enter 定位到最后一个 Container 的初始位置
   const builder = new ListCommandBuilder<MultiBlockEventContext>(context)
     .withLazyCommand(({ block, page, range }, extra) => {
-      if (
-        block.getGlobalBias([range.startContainer, range.startOffset]) === 0
-      ) {
+      const bias = block.getGlobalBiasPair([
+        range.startContainer,
+        range.startOffset,
+      ]);
+      if (bias[0] === 0 && bias[1] === 0) {
         return new BlockRemove({ page, block });
       }
       const container = block.findEditable(range.startContainer)!;
@@ -244,7 +240,7 @@ function prepareDeleteMultiArea(
   return builder;
 }
 
-export class MultiBlockHandler extends Handler implements FineHandlerMethods {
+export class MultiBlockHandler implements PagesHandleMethods {
   handleCopy(
     e: ClipboardEvent,
     context: MultiBlockEventContext
@@ -270,6 +266,7 @@ export class MultiBlockHandler extends Handler implements FineHandlerMethods {
 
     return true;
   }
+
   handlePaste(
     e: ClipboardEvent,
     context: MultiBlockEventContext
@@ -278,24 +275,36 @@ export class MultiBlockHandler extends Handler implements FineHandlerMethods {
     context.page.executeCommand(command);
     return defaultHandlePaste(this, e, context);
   }
+
   handleBlur(e: FocusEvent, context: MultiBlockEventContext): void | boolean {
     console.log("handleBlur", e, context.block);
   }
+
   handleFocus(e: FocusEvent, context: MultiBlockEventContext): void | boolean {
     const sel = document.getSelection();
     if (sel && sel.rangeCount > 0) {
       console.log("handleFocus", e, context.block);
     }
   }
+
   handleEnterDown(
     e: KeyboardEvent,
     context: MultiBlockEventContext
   ): boolean | void {
-    const builder = prepareDeleteMultiArea(this, context);
+    const builder = prepareDeleteMultiArea(this, context).withLazyCommand(
+      ({ block, page, endBlock }) => {
+        return new Empty({ page, block, endBlock }).onExecute(
+          ({ endBlock }) => {
+            page.setLocation(endBlock.getLocation(0, 0)!, endBlock);
+          }
+        );
+      }
+    );
     const command = builder.build();
     context.page.executeCommand(command);
     return true;
   }
+
   handleKeyDown(
     e: KeyboardEvent,
     context: MultiBlockEventContext
@@ -465,14 +474,7 @@ export class MultiBlockHandler extends Handler implements FineHandlerMethods {
             index,
           });
         });
-        // builder.withLazyCommand(({ page, block }) => {
-        //   return new TextInsert({
-        //     page,
-        //     block,
-        //     innerHTML: e.data as string,
-        //     insertOffset: { ...offsets[0], end: undefined },
-        //   }).onExecute(({ insertOffset }) => {});
-        // });
+
         command = builder.build();
       } else if (e.inputType === "insertFromPaste") {
         command = builder.build();

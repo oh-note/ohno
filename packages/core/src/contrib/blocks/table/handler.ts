@@ -1,9 +1,8 @@
 import {
   BlockEventContext,
-  Handler,
-  FineHandlerMethods,
   RangedBlockEventContext,
   dispatchKeyEvent,
+  PagesHandleMethods,
 } from "@ohno-editor/core/system/handler";
 import {
   createRange,
@@ -15,7 +14,7 @@ import { TableChange, TableChangePayload } from "./command";
 import { ST_ADD_DOWN, ST_ADD_RIGHT, ST_ADD_UP } from "./consts";
 import { ST_ADD_LEFT } from "./consts";
 
-export class TableHandler extends Handler implements FineHandlerMethods {
+export class TableHandler implements PagesHandleMethods {
   handleKeyPress(
     e: KeyboardEvent,
     context: RangedBlockEventContext

@@ -84,17 +84,6 @@ export class Code extends Block<CodeInit> {
         });
     }
   }
-  // serialize(option?: any): CodeInit {
-  //   return { code: this.plain.textContent || "", language: this.init.language };
-  // }
-  serialize(option?: any): BlockSerializedData<CodeInit> {
-    const init = {
-      code: this.plain.textContent || " ",
-      language: this.init.language,
-    };
-
-    return [{ type: this.type, init, unmergeable: false }];
-  }
 
   public get language(): string {
     return this.init.language || "";
@@ -117,5 +106,14 @@ export class Code extends Block<CodeInit> {
       return this.head + innerRange.cloneContents().textContent + this.tail;
     }
     return "";
+  }
+
+  serialize(option?: any): BlockSerializedData<CodeInit> {
+    const init = {
+      code: this.plain.textContent || " ",
+      language: this.init.language,
+    };
+
+    return [{ type: this.type, init, unmergeable: false }];
   }
 }

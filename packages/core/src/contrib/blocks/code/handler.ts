@@ -1,15 +1,13 @@
 import {
   BlockEventContext,
-  Handler,
-  FineHandlerMethods,
   RangedBlockEventContext,
   dispatchKeyEvent,
+  PagesHandleMethods,
 } from "@ohno-editor/core/system/handler";
 
 import { Code } from "./block";
 import { AnyBlock } from "@ohno-editor/core/system/block";
 import {
-  defaultHandleBeforeInputOfPlainText,
   insertPlainText,
 } from "@ohno-editor/core/core/default/functions/beforeInput";
 import { BlockUpdateEvent } from "@ohno-editor/core/system/pageevent";
@@ -18,7 +16,7 @@ export interface DeleteContext extends BlockEventContext {
   nextBlock: AnyBlock;
 }
 
-export class CodeHandler extends Handler implements FineHandlerMethods {
+export class CodeHandler implements PagesHandleMethods {
   handleBlockUpdated(e: BlockUpdateEvent, context: any): void | boolean {
     console.log(e);
     (e.block as Code).updateRender();

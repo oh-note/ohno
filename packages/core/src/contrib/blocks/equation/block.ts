@@ -66,6 +66,7 @@ export class Equation extends Block<EquationInit> {
   floatMode() {
     this.input.style.display = "block";
     this.component.math.style.position = "absolute";
+    this.component.math.style.width = getComputedStyle(this.root).width;
     computePosition(this.root, this.component.math, {
       placement: "top-start",
     }).then(({ x, y }) => {
@@ -81,6 +82,7 @@ export class Equation extends Block<EquationInit> {
   }
   hideMode() {
     this.component.math.style.position = "unset";
+    this.component.math.style.width = "unset";
     this.input.style.display = "none";
   }
 

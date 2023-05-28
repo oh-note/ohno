@@ -4,10 +4,9 @@
  */
 import {
   BlockEventContext,
-  Handler,
-  FineHandlerMethods,
   RangedBlockEventContext,
   dispatchKeyEvent,
+  PagesHandleMethods,
 } from "@ohno-editor/core/system/handler";
 import { isPlain } from "@ohno-editor/core/helper";
 import { defaultHandleArrowDown } from "./functions/arrowDown";
@@ -37,7 +36,7 @@ import {
   ST_UNDO,
 } from "./consts";
 
-export class DefaultBlockHandler extends Handler implements FineHandlerMethods {
+export class DefaultBlockHandler implements PagesHandleMethods {
   handleClick(e: MouseEvent, context: BlockEventContext): boolean | void {}
 
   handleMouseEnter(e: MouseEvent, context: BlockEventContext): boolean | void {}

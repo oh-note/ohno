@@ -1,6 +1,6 @@
 import {
   BlockEventContext,
-  Handler,
+  PagesHandleMethods,
   HandlerMethod,
   HandlerMethods,
   MultiBlockEventContext,
@@ -13,6 +13,7 @@ import { ROOT_CLASS } from "./config";
 import {
   createElement,
   getDefaultRange,
+  scrollIntoViewIfNeeded,
   tryGetDefaultRange,
 } from "@ohno-editor/core/helper/document";
 import {
@@ -36,6 +37,7 @@ import {
   RefLocation,
   getValidAdjacent,
   setLocation,
+  setRange,
   validateRange,
 } from "./range";
 import { throttle } from "@ohno-editor/core/helper/lodash";
@@ -49,12 +51,12 @@ import {
 } from "../helper/status";
 
 export class PageHandler {
-  pluginHandlers: Handler[] = [];
-  multiBlockHandlers: Handler[] = [];
-  beforeBlockHandlers: Handler[] = [];
-  blockHandlers: { [key: string]: Handler[] } = {};
-  globalHandlers: Handler[] = [];
-  inlineHandler: { [key: string]: Handler[] } = {};
+  pluginHandlers: PagesHandleMethods[] = [];
+  multiBlockHandlers: PagesHandleMethods[] = [];
+  beforeBlockHandlers: PagesHandleMethods[] = [];
+  blockHandlers: { [key: string]: PagesHandleMethods[] } = {};
+  globalHandlers: PagesHandleMethods[] = [];
+  inlineHandler: { [key: string]: PagesHandleMethods[] } = {};
   // handlers: Handler[] = [];
   // afterHandlers: { [key: string]: Handler[] } = {};
 
@@ -65,7 +67,7 @@ export class PageHandler {
     this.handleMouseMove = throttle(this.handleMouseMove, 100).bind(this);
   }
 
-  private deflag(entry: HandlerFlag): Handler[] {
+  private deflag(entry: HandlerFlag): PagesHandleMethods[] {
     if (entry === undefined) {
       return [];
     }
@@ -293,7 +295,7 @@ export class PageHandler {
   }
 
   _dispatchEvent<K extends Event | PageEvent>(
-    handlers: Handler[],
+    handlers: PagesHandleMethods[],
     context:
       | BlockEventContext
       | RangedBlockEventContext
@@ -600,7 +602,7 @@ export class PageHandler {
   }
 }
 
-export type HandlerFlag = Handler[] | Handler | undefined;
+export type HandlerFlag = PagesHandleMethods[] | PagesHandleMethods | undefined;
 
 export interface HandlerEntry {
   plugins?: HandlerFlag;
@@ -670,7 +672,7 @@ export class Page implements IPage {
     this.selected = new Set();
     // this.active
     this.outer = createElement("div", { className: "oh-is-root" });
-    this.inner = createElement("div", { className: ROOT_CLASS });
+    this.inner = createElement("article", { className: ROOT_CLASS });
     this.inner.contentEditable = "true";
     this.pluginRoot = createElement("div", { className: "oh-is-plugins" });
     this.outer.append(this.pluginRoot, this.inner);
@@ -845,8 +847,13 @@ export class Page implements IPage {
       if (res) {
         return res[0];
       }
+    } else {
+      const latest = this.chain.find(flag.order);
+      if (latest) {
+        return latest[0];
+      }
     }
-    return flag as AnyBlock;
+    return null;
   }
   private denode(
     res: [AnyBlock, DictNode<string, AnyBlock>] | null
@@ -1043,9 +1050,21 @@ export class Page implements IPage {
         throw new Error("Can not set location out of block");
       }
     }
+    scrollIntoViewIfNeeded(loc[0].parentElement!, { block: "nearest" });
     this.setActivate(block);
   }
-  setRange(range: Range) {}
+  setRange(range: Range, block?: AnyBlock) {
+    setRange(range);
+    scrollIntoViewIfNeeded(range.commonAncestorContainer.parentElement!, {
+      block: "nearest",
+    });
+    if (!block) {
+      block = this.findBlock(range.commonAncestorContainer)!;
+    }
+    if (block) {
+      this.setActivate(block);
+    }
+  }
 
   findBlock(target: EventTarget | Node | null | undefined): AnyBlock | null {
     if (!target) {

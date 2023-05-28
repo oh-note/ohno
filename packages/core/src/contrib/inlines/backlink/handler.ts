@@ -15,12 +15,7 @@ import {
   getPrevLocation,
   getValidAdjacent,
 } from "@ohno-editor/core/system/range";
-import { biasToLocation } from "@ohno-editor/core/system/position";
 import { defaultHandleBeforeInput } from "@ohno-editor/core/core/default/functions/beforeInput";
-import {
-  isHintLeft,
-  parentElementWithTag,
-} from "@ohno-editor/core/helper/element";
 
 export class BackLinkHandler implements InlineHandler<BackLink> {
   handleKeyboardActivated(
@@ -192,6 +187,7 @@ export class BackLinkHandler implements InlineHandler<BackLink> {
     context: InlineRangedEventContext<BackLink>
   ): boolean | void {
     const inputType = e.inputType as InputType;
+
     if (
       inputType === "insertText" ||
       inputType === "deleteContentBackward" ||

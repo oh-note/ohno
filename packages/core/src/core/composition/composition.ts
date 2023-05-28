@@ -14,18 +14,17 @@ import {
 } from "@ohno-editor/core/helper/element";
 import {
   BlockEventContext,
-  Handler,
+  PagesHandleMethods,
   RangedBlockEventContext,
 } from "@ohno-editor/core/system/handler";
 import { tokenBetweenRange } from "@ohno-editor/core/system/position";
 import {
   createRange,
-  setLocation,
   setRange,
   validateRange,
 } from "@ohno-editor/core/system/range";
 
-export class CompositionHandler extends Handler {
+export class CompositionHandler implements PagesHandleMethods {
   handleKeyDown(e: KeyboardEvent, context: BlockEventContext): boolean | void {
     if (e.isComposing) {
       return true;

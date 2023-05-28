@@ -1,12 +1,12 @@
 import { InlineComponent } from "@ohno-editor/core/system/page";
-import { TodoItemHandler } from "./handler";
-import { TodoItem, TodoItemInit } from "./inline";
+import { FlagHandler } from "./handler";
+import { Flag, FlagInit, FlagPayload } from "./inline";
 import { InlineSupport } from "@ohno-editor/core/contrib/plugins/inlineSupport/plugin";
 
-export { TodoItem, TodoItemHandler };
-export function TodoItemInline(init: TodoItemInit): InlineComponent {
-  const instance = new TodoItem();
-  const handler = new TodoItemHandler();
+export { Flag, FlagHandler };
+export function FlagInline(init: FlagInit): InlineComponent {
+  const instance = new Flag(init);
+  const handler = new FlagHandler();
   return {
     manager: instance,
     onPageCreated: (page) => {

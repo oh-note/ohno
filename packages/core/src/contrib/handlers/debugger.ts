@@ -1,6 +1,9 @@
-import { BlockEventContext, Handler } from "@ohno-editor/core/system/handler";
+import {
+  BlockEventContext,
+  PagesHandleMethods,
+} from "@ohno-editor/core/system/handler";
 
-export class DebuggerHandler extends Handler {
+export class DebuggerHandler implements PagesHandleMethods {
   handleCopy(e: ClipboardEvent, context: BlockEventContext): void | boolean {
     console.log("handleCopy", e, context.block);
   }

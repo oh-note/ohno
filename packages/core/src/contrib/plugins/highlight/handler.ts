@@ -1,30 +1,14 @@
 import {
   BlockEventContext,
-  Handler,
-  HandlerMethods,
-  FineHandlerMethods,
-  MultiBlockEventContext,
   RangedBlockEventContext,
   dispatchKeyEvent,
+  PagesHandleMethods,
 } from "@ohno-editor/core/system/handler";
 import { Highlight } from "./plugin";
-import {
-  BlockCreate,
-  BlockMove,
-  BlocksMove,
-} from "@ohno-editor/core/contrib/commands/block";
-import {
-  createRange,
-  setLocation,
-  setRange,
-} from "@ohno-editor/core/system/range";
 import { InlineRangedEventContext } from "@ohno-editor/core/system/handler";
 import { getTagName } from "@ohno-editor/core/helper/element";
 
-export class HighlightPluginHandler
-  extends Handler
-  implements FineHandlerMethods
-{
+export class HighlightPluginHandler implements PagesHandleMethods {
   currentInline?: HTMLLabelElement;
 
   handleKeyDown(
@@ -240,7 +224,7 @@ export class HighlightPluginHandler
   }
 
   handleBeforeInput(
-    e: InputEvent,
+    e: TypedInputEvent,
     context: RangedBlockEventContext
   ): boolean | void {
     const { page } = context;

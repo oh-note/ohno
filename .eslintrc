@@ -24,6 +24,7 @@
         "prettier/prettier": "warn",
         "prefer-const": "warn",
         "no-var": "warn",
+        "@typescript-eslint/no-empty-interface": "off",
         "@typescript-eslint/no-non-null-assertion": "off",
         "no-empty": "warn",
         "@typescript-eslint/no-explicit-any": "off",

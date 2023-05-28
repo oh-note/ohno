@@ -1,12 +1,15 @@
-import { createElement } from "@ohno-editor/core/helper/document";
+import {
+  ChildrenPayload,
+  createElement,
+} from "@ohno-editor/core/helper/document";
 import { BlockSerializedData } from "@ohno-editor/core/system/base";
 import { Block, BlockInit } from "@ohno-editor/core/system/block";
 import { clipRange } from "@ohno-editor/core/system/range";
 
 export interface BlockQuoteInit extends BlockInit {
-  innerHTML?: string;
-  children?: HTMLElement[];
+  type?: string;
   level?: number; // TODO 用 level 模拟 blockquote 深度
+  children?: ChildrenPayload;
 }
 
 export class Blockquote extends Block<BlockQuoteInit> {
@@ -15,24 +18,11 @@ export class Blockquote extends Block<BlockQuoteInit> {
     if (!init.el) {
       init.el = createElement("blockquote", {
         attributes: {},
-      });
-    }
-    if (init.innerHTML) {
-      init.el.innerHTML = init.innerHTML;
-    }
-    if (init.children) {
-      init.children.forEach((item) => {
-        if (item) {
-          init!.el?.appendChild(item.cloneNode(true));
-        }
+        children: init.children,
       });
     }
 
     super("blockquote", init);
-  }
-
-  serialize(option?: any): BlockSerializedData<BlockQuoteInit> {
-    return [{ type: this.type, init: { innerHTML: this.root.innerHTML } }];
   }
 
   public get head(): string {
@@ -48,5 +38,9 @@ export class Blockquote extends Block<BlockQuoteInit> {
       return this.head + innerRange.cloneContents().textContent;
     }
     return "";
+  }
+
+  serialize(option?: any): BlockSerializedData<BlockQuoteInit> {
+    return [{ type: this.type, init: { children: this.root.innerHTML } }];
   }
 }

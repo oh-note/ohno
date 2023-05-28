@@ -1,13 +1,13 @@
 import {
   BlockEventContext,
-  Handler,
-  FineHandlerMethods,
   RangedBlockEventContext,
   dispatchKeyEvent,
+  PagesHandleMethods,
 } from "@ohno-editor/core/system/handler";
 import { SlashMenu } from "./plugin";
+import { isPlain } from "@ohno-editor/core/helper";
 
-export class SlashMenuHandler extends Handler implements FineHandlerMethods {
+export class SlashMenuHandler implements PagesHandleMethods {
   handleKeyPress(
     e: KeyboardEvent,
     context: BlockEventContext
@@ -125,6 +125,14 @@ export class SlashMenuHandler extends Handler implements FineHandlerMethods {
   ): boolean | void {
     const { page, range, block } = context;
     // 弹出条件：首次输入 /
+    if (range.collapsed) {
+      return;
+    }
+    const editable = block.findEditable(range.startContainer);
+    if (!editable || isPlain(editable)) {
+      return;
+    }
+
     const slashmenu = page.getPlugin<SlashMenu>("slashmenu");
     if (e.inputType === "insertText" && e.data === "/") {
       slashmenu.open(context);

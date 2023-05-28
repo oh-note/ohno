@@ -15,14 +15,15 @@
  *  - 先降级，再退回 p，可能有分隔 li -> For
  *
  */
-import { createElement } from "@ohno-editor/core/helper/document";
+import {
+  ChildrenPayload,
+  createElement,
+} from "@ohno-editor/core/helper/document";
 import { BlockInit } from "@ohno-editor/core/system/block";
 import { ABCList } from "../list";
 
 export interface OrderedListInit extends BlockInit {
-  innerHTMLs?: string[];
-
-  children?: HTMLLIElement[];
+  children?: ChildrenPayload[];
 }
 
 export class OrderedList extends ABCList<OrderedListInit> {
@@ -34,29 +35,16 @@ export class OrderedList extends ABCList<OrderedListInit> {
         attributes: {},
       });
     }
-    const { innerHTMLs, children } = init;
 
-    if (children && innerHTMLs) {
-      throw new Error(
-        "innerHTMLs or children should assign only one at the same time."
-      );
-    }
+    const { children } = init;
 
-    if (children) {
-      children.forEach((item) => {
-        if (!(item instanceof HTMLLIElement)) {
-          throw new Error(
-            `children must be a  <li></li> element list, 
-            use firstLiChildren to assign children for first <li> element`
-          );
-        }
-        init!.el!.appendChild(item.cloneNode(true));
+    (children || [""]).forEach((item) => {
+      const child = createElement("li", {
+        children: item,
       });
-    } else {
-      innerHTMLs!.forEach((item) => {
-        init!.el!.appendChild(createElement("li", { children: [item] }));
-      });
-    }
+      init!.el!.appendChild(child);
+    });
+
     super("ordered_list", init);
   }
 }

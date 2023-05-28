@@ -16,6 +16,7 @@
  *
  */
 import {
+  ChildrenPayload,
   createElement,
   getDefaultRange,
 } from "@ohno-editor/core/helper/document";
@@ -25,14 +26,14 @@ import {
 } from "@ohno-editor/core/helper/element";
 import {
   BlockSerializedData,
+  Editable,
   EditableFlag,
 } from "@ohno-editor/core/system/base";
 import { Block, BlockInit } from "@ohno-editor/core/system/block";
 
 export interface ListInit extends BlockInit {
-  innerHTMLs?: string[];
   // firstLiChildren?: HTMLElement[];
-  children?: HTMLLIElement[];
+  children?: ChildrenPayload[];
 }
 
 export class ABCList<T extends ListInit = ListInit> extends Block<T> {
@@ -81,22 +82,22 @@ export class ABCList<T extends ListInit = ListInit> extends Block<T> {
     return null;
   }
 
-  getLeftEditable(el?: HTMLElement) {
+  getLeftEditable(el?: HTMLElement): Editable | null {
     return el!.previousElementSibling! as HTMLElement;
   }
-  getRightEditable(el?: HTMLElement) {
+  getRightEditable(el?: HTMLElement): Editable | null {
     return el!.nextElementSibling as HTMLElement;
   }
-  getAboveEditable(el?: HTMLElement) {
+  getAboveEditable(el?: HTMLElement): Editable | null {
     return this.getLeftEditable(el);
   }
-  getBelowEditable(el?: HTMLElement) {
+  getBelowEditable(el?: HTMLElement): Editable | null {
     return this.getRightEditable(el);
   }
-  getPrevEditable(el?: HTMLElement | undefined): HTMLElement | null {
+  getPrevEditable(el?: HTMLElement | undefined): Editable | null {
     return this.getAboveEditable(el);
   }
-  getNextEditable(el?: HTMLElement | undefined): HTMLElement | null {
+  getNextEditable(el?: HTMLElement | undefined): Editable | null {
     return this.getBelowEditable(el);
   }
 
@@ -120,7 +121,7 @@ export class ABCList<T extends ListInit = ListInit> extends Block<T> {
 
   serialize(option?: any): BlockSerializedData<T> {
     const init = {
-      innerHTMLs: Array.from(this.root.querySelectorAll("li")).map(
+      children: Array.from(this.root.querySelectorAll("li")).map(
         (item) => item.innerHTML
       ),
     } as T;
@@ -137,29 +138,15 @@ export class List extends ABCList {
         attributes: {},
       });
     }
-    const { innerHTMLs, children } = init;
+    const { children } = init;
 
-    if (children && innerHTMLs) {
-      throw new Error(
-        "innerHTMLs or children should assign only one at the same time."
-      );
-    }
+    (children || [""]).forEach((item) => {
+      const child = createElement("li", {
+        children: item,
+      });
+      init!.el!.appendChild(child);
+    });
 
-    if (children) {
-      children.forEach((item) => {
-        if (!(item instanceof HTMLLIElement)) {
-          throw new Error(
-            `children must be a  <li></li> element list, 
-            use firstLiChildren to assign children for first <li> element`
-          );
-        }
-        init!.el!.appendChild(item.cloneNode(true));
-      });
-    } else {
-      innerHTMLs!.forEach((item) => {
-        init!.el!.appendChild(createElement("li", { children: [item] }));
-      });
-    }
     super("list", init);
   }
 }

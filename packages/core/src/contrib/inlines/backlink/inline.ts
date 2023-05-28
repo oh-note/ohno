@@ -1,7 +1,7 @@
 import { createElement, createInline } from "@ohno-editor/core/helper/document";
 import {
   BlockEventContext,
-  FineHandlerMethods,
+  UIEventHandleMethods,
 } from "@ohno-editor/core/system/handler";
 import { InlineBase } from "@ohno-editor/core/system/inline";
 import { makeRangeInNode, setRange } from "@ohno-editor/core/system/range";
@@ -19,7 +19,7 @@ export interface BackLinkInit {
   onLoad: (content: string) => Promise<BackLinkOption[]>;
 }
 
-export class BackLink extends InlineBase implements FineHandlerMethods {
+export class BackLink extends InlineBase implements UIEventHandleMethods {
   // options: BackLinkOption[];
   hoveredItem: number = -1;
   component: {
@@ -107,42 +107,6 @@ export class BackLink extends InlineBase implements FineHandlerMethods {
       }
     });
   }
-
-  // update() {
-  //   const slot = this.current!.querySelector("q")!.cloneNode(
-  //     true
-  //   ) as HTMLElement;
-  //   removeMarkdownHint(slot);
-  //   this.status = "onload";
-  //   this.toggleComponent(this.component.onload);
-  //   this.hoveredItem = -1;
-  //   this.onLoad(slot.textContent?.trim() || "")
-  //     .then((results) => {
-  //       this.options = results;
-  //       if (results.length === 0) {
-  //         this.toggleComponent(this.component.noresult);
-  //         this.hoveredItem = -1;
-  //       } else {
-  //         const els = results.map((item, index) => {
-  //           const el = createElement("option", {
-  //             textContent: item.content,
-  //             dataset: { cite: item.cite, type: item.type, index },
-  //           });
-
-  //           return el;
-  //         });
-  //         this.component.results.replaceChildren(...els);
-  //         this.toggleComponent(this.component.results);
-  //         this.onHover(0);
-  //       }
-  //     })
-  //     .catch(() => {
-  //       this.toggleComponent(this.component.failed);
-  //     })
-  //     .finally(() => {
-  //       this.status = "loaded";
-  //     });
-  // }
 
   query() {
     if (!this.current) {

@@ -1,9 +1,8 @@
 import {
   BlockEventContext,
-  Handler,
-  FineHandlerMethods,
   RangedBlockEventContext,
   dispatchKeyEvent,
+  PagesHandleMethods,
 } from "@ohno-editor/core/system/handler";
 import {
   getTokenSize,
@@ -23,14 +22,10 @@ import { AnyBlock } from "@ohno-editor/core/system/block";
 import { Blockquote } from "../blockquote";
 import { List } from "../list";
 import { RichTextDelete, TextInsert } from "@ohno-editor/core/contrib/commands";
-import { Empty, SetLocation } from "@ohno-editor/core/contrib/commands/select";
+import { Empty } from "@ohno-editor/core/contrib/commands/select";
 import { ContainerRemove } from "@ohno-editor/core/contrib/commands/container";
 import { OrderedList } from "../orderedList";
-import {
-  createRange,
-  setLocation,
-  setRange,
-} from "@ohno-editor/core/system/range";
+import { createRange, setRange } from "@ohno-editor/core/system/range";
 import { Code } from "../code";
 
 export interface DeleteContext extends BlockEventContext {
@@ -133,7 +128,7 @@ export function prepareEnterCommand({ page, block, range }: BlockEventContext) {
   return builder;
 }
 
-export class ParagraphHandler extends Handler implements FineHandlerMethods {
+export class ParagraphHandler implements PagesHandleMethods {
   handleKeyPress(
     e: KeyboardEvent,
     context: RangedBlockEventContext
@@ -254,20 +249,11 @@ export class ParagraphHandler extends Handler implements FineHandlerMethods {
           });
         } else {
           // 2/2. 如果是个空 Block，直接在删除后将内容放到上面去
-          return new Empty({ page, block, prevBlock })
-            .onExecute(({ page }) => {
-              page.setLocation(
-                prevBlock.getLocation(token_number, -1)!,
-                prevBlock
-              );
-            })
-            .onUndo(({ page }) => {
-              page.setLocation(block.getLocation(token_number, 0)!, block);
-            });
-          return new SetLocation({
-            page,
-            newBlock: prevBlock,
-            newOffset: { start: token_number, end: token_number, index: -1 },
+          return new Empty({ page, block, prevBlock }).onExecute(({ page }) => {
+            page.setLocation(
+              prevBlock.getLocation(token_number, -1)!,
+              prevBlock
+            );
           });
         }
       })
@@ -333,7 +319,7 @@ export class ParagraphHandler extends Handler implements FineHandlerMethods {
       const level = matchRes[1].length as 1 | 2 | 3 | 4 | 5 | 6;
       const newBlock = new Headings({
         level,
-        innerHTML: block.root.innerHTML.replace(/^#+/, ""),
+        children: block.root.innerHTML.replace(/^#+/, ""),
       });
       command = new BlockReplace({
         page,
@@ -342,7 +328,7 @@ export class ParagraphHandler extends Handler implements FineHandlerMethods {
       });
     } else if ((matchRes = prefix.match(/^[>》]([!? ])?$/))) {
       const newBlock = new Blockquote({
-        innerHTML: block.root.innerHTML.replace(/^(》|&gt;)([!? ])?/, ""),
+        children: block.root.innerHTML.replace(/^(》|&gt;)([!? ])?/, ""),
       });
       command = new BlockReplace({
         page,
@@ -351,7 +337,7 @@ export class ParagraphHandler extends Handler implements FineHandlerMethods {
       });
     } else if (prefix.match(/^ *- *$/)) {
       const newBlock = new List({
-        innerHTMLs: [block.root.innerHTML.replace(/^ *- */, "")],
+        children: [block.root.innerHTML.replace(/^ *- */, "")],
       });
       command = new BlockReplace({
         page,
@@ -360,7 +346,7 @@ export class ParagraphHandler extends Handler implements FineHandlerMethods {
       });
     } else if (prefix.match(/^ *([0-9]+\.) *$/)) {
       const newBlock = new OrderedList({
-        innerHTMLs: [block.root.innerHTML.replace(/^ *([0-9]+\.) */, "")],
+        children: [block.root.innerHTML.replace(/^ *([0-9]+\.) */, "")],
       });
       command = new BlockReplace({
         page,

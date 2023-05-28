@@ -4,9 +4,10 @@ import {
 } from "@ohno-editor/core/helper/document";
 import { BlockSerializedData } from "@ohno-editor/core/system/base";
 import { Block, BlockInit } from "@ohno-editor/core/system/block";
+import "./style.css";
 
 export interface ParagraphInit extends BlockInit {
-  innerHTML?: string;
+  // innerHTML?: string;
   children?: ChildrenPayload;
 }
 
@@ -19,15 +20,10 @@ export class Paragraph extends Block<ParagraphInit> {
       children: init.children,
     });
 
-    if (init.innerHTML) {
-      // throw new Error("InnerHTML is deprecated, use children");
-      console.error("InnerHTML is deprecated, use children");
-    }
-
     super("paragraph", init);
   }
   serialize(option?: any): BlockSerializedData<ParagraphInit> {
-    const init = { innerHTML: this.inner.innerHTML };
+    const init = { children: this.inner.innerHTML };
     return [{ type: this.type, init }];
   }
 }

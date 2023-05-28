@@ -5,7 +5,7 @@ import {
   InlineEventContext,
   dispatchKeyEvent,
 } from "@ohno-editor/core/system/handler";
-import { TodoItem } from "./inline";
+import { Flag } from "./inline";
 import { NodeInsert } from "@ohno-editor/core/contrib/commands/html";
 import { ListCommandBuilder } from "@ohno-editor/core/contrib/commands/concat";
 import { InlineSupport } from "@ohno-editor/core/contrib/plugins/inlineSupport/plugin";
@@ -17,38 +17,42 @@ import {
 import { defaultHandleBeforeInput } from "@ohno-editor/core/core/default/functions/beforeInput";
 import { tryGetDefaultRange } from "@ohno-editor/core/helper";
 
-export class TodoItemHandler implements InlineHandler<TodoItem> {
+export class FlagHandler implements InlineHandler<Flag> {
   handleKeyboardActivated(
     e: KeyboardEvent,
-    context: InlineRangedEventContext<TodoItem>
+    context: InlineRangedEventContext<Flag>
   ): boolean | void {
     const { inline, manager } = context;
-    if (e.code === "Space") {
-      manager.hover(inline, context);
-      manager.toggleCheckbox();
-      manager.plugin.setHoveredInline("cursor", inline);
-      manager.plugin.setActiveInline();
-    } else {
-      manager.activate(inline, context);
-    }
+    manager.hover(inline, context);
+    manager.toggleCheckbox();
+    manager.plugin.setHoveredInline("cursor");
+    manager.plugin.setHoveredInline("mouse");
+    manager.plugin.setActiveInline();
+    manager.exit();
   }
   handleKeyboardDeActivated(
     e: KeyboardEvent,
-    context: InlineRangedEventContext<TodoItem>
+    context: InlineRangedEventContext<Flag>
   ): void {
     const { manager, inline } = context;
     manager.exit();
   }
   handleMouseActivated(
     e: MouseEvent,
-    context: InlineEventContext<TodoItem>
+    context: InlineEventContext<Flag>
   ): boolean | void {
     const { manager, inline } = context;
-    manager.activate(inline, context);
+    manager.hover(inline, context);
+    manager.toggleCheckbox();
+    manager.plugin.setHoveredInline("cursor");
+    manager.plugin.setHoveredInline("mouse");
+    manager.plugin.setActiveInline();
+    manager.exit();
+    return true;
   }
   handleMouseDeActivated(
     e: MouseEvent,
-    context: InlineEventContext<TodoItem>
+    context: InlineEventContext<Flag>
   ): void {
     const { manager, inline } = context;
     manager.exit();
@@ -74,25 +78,24 @@ export class TodoItemHandler implements InlineHandler<TodoItem> {
 
   handleMouseUp(
     e: MouseEvent,
-    context: InlineEventContext<TodoItem>
+    context: InlineEventContext<Flag>
   ): boolean | void {
     const { inline, page, manager } = context;
     const range = tryGetDefaultRange();
-    if (e.target === inline.querySelector("input")) {
-      manager.toggleCheckbox();
-      manager.activate(inline, context);
-      page.focusEditable();
-    }
+    manager.toggleCheckbox();
+    manager.plugin.setHoveredInline("cursor", inline);
+    manager.plugin.setActiveInline();
+
     return true;
   }
 
   handleMouseDown(e: MouseEvent, context: InlineEventContext): boolean | void {
-    return;
+    return true;
   }
 
   handleClick(
     e: MouseEvent,
-    context: InlineEventContext<TodoItem>
+    context: InlineEventContext<Flag>
   ): boolean | void {
     return true;
   }
@@ -115,7 +118,7 @@ export class TodoItemHandler implements InlineHandler<TodoItem> {
   }
   handleSpaceDown(
     e: KeyboardEvent,
-    context: InlineRangedEventContext<TodoItem>
+    context: InlineRangedEventContext<Flag>
   ): boolean | void {
     if (e.shiftKey) {
       const { manager } = context;
@@ -125,7 +128,7 @@ export class TodoItemHandler implements InlineHandler<TodoItem> {
   }
   handleTabDown(
     e: KeyboardEvent,
-    context: InlineRangedEventContext<TodoItem>
+    context: InlineRangedEventContext<Flag>
   ): boolean | void {
     const { manager } = context;
     manager.toggleCheckbox();
@@ -133,7 +136,7 @@ export class TodoItemHandler implements InlineHandler<TodoItem> {
   }
   handleEnterDown(
     e: KeyboardEvent,
-    context: InlineRangedEventContext<TodoItem>
+    context: InlineRangedEventContext<Flag>
   ): boolean | void {
     const { page, inline, manager } = context;
     // manager.simulateEnter();
@@ -148,8 +151,7 @@ export class TodoItemHandler implements InlineHandler<TodoItem> {
   ): boolean | void {
     const { range, manager, inline } = context;
     if (range.collapsed) {
-      const slot = inline.querySelector("data")!;
-      // debugger;
+      const slot = inline.querySelector("q")!;
       if (!getPrevLocation(range.startContainer, range.startOffset, slot)) {
         return true;
       }
@@ -159,84 +161,16 @@ export class TodoItemHandler implements InlineHandler<TodoItem> {
   handleArrowKeyUp(
     e: KeyboardEvent,
     context: InlineRangedEventContext
-  ): boolean | void {
-    // const { block, range, manager, page, inline, first } = context;
-    // if (first) {
-    //   if (e.key === "ArrowUp" || e.key === "ArrowDown") {
-    //     const slot = inline.querySelector("q")!;
-    //     const loc = biasToLocation(slot, 0)!;
-    //     page.setLocation(loc, block);
-    //   }
-    //   return true;
-    // }
-  }
+  ): boolean | void {}
 
   handleInsideBeforeInput(
     e: TypedInputEvent,
-    context: InlineRangedEventContext<TodoItem>
+    context: InlineRangedEventContext<Flag>
   ): boolean | void {
     const inputType = e.inputType as InputType;
     const { manager } = context;
     const res = defaultHandleBeforeInput(this, e, context, () => false);
 
     return res;
-  }
-
-  handleBeforeInput(
-    e: TypedInputEvent,
-    context: RangedBlockEventContext
-  ): boolean | void {
-    const { range, block, page } = context;
-
-    if (!range.collapsed) {
-      return;
-    }
-    if (e.inputType === "insertText" && (e.data === "]" || e.data === "】")) {
-      const text = (range.startContainer.textContent || "").slice(
-        0,
-        range.startOffset
-      );
-      if (text.slice(-2).match(/[[【] /)) {
-        const plugin = page.getPlugin<InlineSupport>("inlinesupport");
-        const manager = plugin.getInlineManager<TodoItem>("todoitem");
-
-        const node = manager.create();
-
-        const bias = block.getBias([range.startContainer, range.startOffset]);
-        const index = block.findEditableIndex(range.startContainer);
-        const command = new ListCommandBuilder({
-          block,
-          page,
-          node,
-          bias,
-          index,
-        })
-          .withLazyCommand(({ page, block, index }) => {
-            return new TextDelete({
-              page,
-              block,
-              start: bias,
-              index,
-              token_number: -2,
-            });
-          })
-          .withLazyCommand(({ page, block, index, node }) => {
-            return new NodeInsert({
-              page,
-              block,
-              index,
-              start: bias - 2,
-              node,
-            }).onExecute(({ page }, { current }) => {
-              plugin.setActiveInline(current);
-              manager.activate(current, context);
-            });
-          })
-          .build();
-        page.executeCommand(command);
-
-        return true;
-      }
-    }
   }
 }

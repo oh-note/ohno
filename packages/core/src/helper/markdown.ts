@@ -27,7 +27,7 @@ const tagToHint: { [key: string]: string } = {
   del: "~~",
   code: "`",
   em: " ",
-  label: " ",
+  // label: " ",
   q: "[[",
 };
 

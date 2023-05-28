@@ -1,7 +1,4 @@
 import {
-  BlockEventContext,
-  Handler,
-  HandlerMethod,
   HandlerMethods,
   RangedBlockEventContext,
 } from "@ohno-editor/core/system/handler";
@@ -364,10 +361,10 @@ export function defaultHandleBeforeInput(
           label: hint as HTMLLabelElement,
         })
           .onExecute(() => {
-            page.setLocation(block.getLocation(start - 2, editable)!, block);
+            page.setLocation(block.getLocation(start - 2, index)!, block);
           })
           .onUndo(() => {
-            page.setLocation(block.getLocation(start, editable)!, block);
+            page.setLocation(block.getLocation(start, index)!, block);
           });
       } else {
         const bias = block.getBias([range.startContainer, range.startOffset]);

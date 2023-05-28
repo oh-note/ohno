@@ -1,8 +1,7 @@
 import {
   MultiBlockEventContext,
-  Handler,
-  FineHandlerMethods,
   RangedBlockEventContext,
+  PagesHandleMethods,
 } from "@ohno-editor/core/system/handler";
 import { defaultHandleArrowDown } from "../default/functions/arrowDown";
 import {
@@ -12,7 +11,7 @@ import {
 } from "@ohno-editor/core/system/range";
 import { OhNoClipboardData } from "@ohno-editor/core/system/base";
 
-export class BlockModeHandler extends Handler implements FineHandlerMethods {
+export class BlockModeHandler implements PagesHandleMethods {
   handleCopy(
     e: ClipboardEvent,
     context: MultiBlockEventContext

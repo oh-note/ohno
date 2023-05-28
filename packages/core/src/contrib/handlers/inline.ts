@@ -3,12 +3,14 @@ import {
   isParent,
   parentElementWithTag,
 } from "@ohno-editor/core/helper/element";
-import { BlockEventContext, Handler } from "@ohno-editor/core/system/handler";
+import {
+  BlockEventContext,
+  PagesHandleMethods,
+} from "@ohno-editor/core/system/handler";
 
-export class InlineTest extends Handler {
+export class InlineTest implements PagesHandleMethods {
   el: HTMLElement;
   constructor() {
-    super();
     this.el = createElement("div");
     this.el.appendChild(createElement("input"));
   }
