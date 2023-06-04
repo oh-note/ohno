@@ -1,46 +1,69 @@
+import { ChildrenData, createElement } from "@ohno-editor/core/helper/document";
 import {
-  ChildrenPayload,
-  createElement,
-} from "@ohno-editor/core/helper/document";
-import { BlockSerializedData } from "@ohno-editor/core/system/base";
-import { Block, BlockInit } from "@ohno-editor/core/system/block";
+  BaseBlockSerializer,
+  BlockSerializedData,
+} from "@ohno-editor/core/system";
+import { Block, BlockData } from "@ohno-editor/core/system/block";
 import { clipRange } from "@ohno-editor/core/system/range";
 import "./style.css";
+import { outerHTML } from "@ohno-editor/core/helper";
 export type HeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;
 
-export interface HeadingsInit extends BlockInit {
+export interface HeadingsData extends BlockData {
   level: HeadingLevel;
-  children?: ChildrenPayload;
+  children?: ChildrenData;
 }
 
-export class Headings extends Block<HeadingsInit> {
-  constructor(init?: HeadingsInit) {
-    init = init || { level: 2 };
-    init.el = createElement(`h${init.level}`, {
+export class Headings extends Block<HeadingsData> {
+  constructor(data?: HeadingsData) {
+    data = data || { level: 2 };
+    const root = createElement(`h${data.level}`, {
       attributes: {},
-      children: init.children,
+      children: data.children,
     });
 
-    super("headings", init);
+    super("headings", root, { meta: data });
+  }
+  public get level(): HeadingLevel {
+    return this.meta.level;
   }
 
-  public get head(): string {
-    return "#".repeat(this.init.level) + " ";
+  // toMarkdown(range?: Range | undefined): string {
+  //   if (!range || range.collapsed) {
+  //     return this.head + (this.inner.textContent || "");
+  //   }
+  //   const innerRange = clipRange(this.inner, range);
+  //   if (innerRange) {
+  //     return this.head + innerRange.cloneContents().textContent;
+  //   }
+  //   return "";
+  // }
+
+  // serialize(option?: any): BlockSerializedData<HeadingsData> {
+  //   const init = { level: this.meta.level, children: this.inner.innerHTML };
+  //   return [{ type: this.type, init }];
+  // }
+}
+
+export class HeadingsSerializer extends BaseBlockSerializer<Headings> {
+  toMarkdown(block: Headings): string {
+    return "#".repeat(block.level) + " " + block.root.textContent;
   }
 
-  toMarkdown(range?: Range | undefined): string {
-    if (!range || range.collapsed) {
-      return this.head + (this.inner.textContent || "");
-    }
-    const innerRange = clipRange(this.inner, range);
-    if (innerRange) {
-      return this.head + innerRange.cloneContents().textContent;
-    }
-    return "";
+  toHTML(block: Headings): string {
+    return this.outerHTML(block.root);
+  }
+  toJson(block: Headings): BlockSerializedData<HeadingsData> {
+    return {
+      type: block.type,
+      data: {
+        level: block.level,
+        children: block.getFirstEditable().innerHTML,
+      },
+    };
   }
 
-  serialize(option?: any): BlockSerializedData<HeadingsInit> {
-    const init = { level: this.init.level, children: this.inner.innerHTML };
-    return [{ type: this.type, init }];
+  deserialize(data: BlockSerializedData<HeadingsData>): Headings {
+    return new Headings(data.data);
   }
 }

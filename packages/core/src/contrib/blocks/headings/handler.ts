@@ -41,8 +41,7 @@ export class HeadingsHandler implements PagesHandleMethods {
     const nextBlock = page.getNextBlock(block);
     if (!nextBlock) {
       // 在右下方，不做任何操作
-      e.preventDefault();
-      e.stopPropagation();
+
       return true;
     }
 
@@ -65,7 +64,7 @@ export class HeadingsHandler implements PagesHandleMethods {
     if (!range.collapsed) {
       return;
     }
-    
+
     if (!block.isLocationInLeft([range.startContainer, range.startOffset])) {
       return;
     }
@@ -147,7 +146,7 @@ export class HeadingsHandler implements PagesHandleMethods {
     if ((matchRes = prefix.match(/^(#{1,6})$/))) {
       const level = matchRes[1].length as 1 | 2 | 3 | 4 | 5 | 6;
       let newBlock;
-      if ((block as Headings).init.level === level) {
+      if ((block as Headings).meta.level === level) {
         newBlock = new Paragraph({
           children: block.root.innerHTML.replace(/^#+/, ""),
         });

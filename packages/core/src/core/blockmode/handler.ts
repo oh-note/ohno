@@ -3,7 +3,7 @@ import {
   RangedBlockEventContext,
   PagesHandleMethods,
 } from "@ohno-editor/core/system/handler";
-import { defaultHandleArrowDown } from "../default/functions/arrowDown";
+import { defaultHandleArrowDown } from "../default/functional/arrowDown";
 import {
   createRange,
   normalizeContainer,
@@ -12,32 +12,6 @@ import {
 import { OhNoClipboardData } from "@ohno-editor/core/system/base";
 
 export class BlockModeHandler implements PagesHandleMethods {
-  handleCopy(
-    e: ClipboardEvent,
-    context: MultiBlockEventContext
-  ): void | boolean {
-    const { blocks, block, endBlock, range } = context;
-    const data = blocks.map((curBlock) => {
-      let text, html, json;
-      text = curBlock.toMarkdown(range);
-      html = curBlock.toHTML(range);
-      json = curBlock.serialize(range);
-      return { text: text, html: html, json: json };
-    });
-    const markdown = data.map((item) => item.text).join("\n");
-    const html = data.map((item) => item.html).join("");
-    const json: OhNoClipboardData = {
-      data: data.flatMap((item) => item.json),
-      inline: false,
-    };
-
-    e.clipboardData!.setData("text/plain", markdown);
-    e.clipboardData!.setData("text/html", html);
-    e.clipboardData!.setData("text/ohno", JSON.stringify(json));
-
-    return true;
-  }
-
   handleBlur(e: FocusEvent, context: MultiBlockEventContext): void | boolean {
     console.log("handleBlur", e, context.block);
   }
@@ -94,32 +68,7 @@ export class BlockModeHandler implements PagesHandleMethods {
   ): void | boolean {
     console.log("handleMouseLeave", e, context.block);
   }
-  handleMouseUp(
-    e: MouseEvent,
-    context: MultiBlockEventContext
-  ): void | boolean {
-    console.log("handleMouseUp", e, context.block);
-    const { block, endBlock, range, page } = context;
-    const startRoot = block.findEditable(range.startContainer)!;
-    const endRoot = endBlock.findEditable(range.endContainer)!;
-    range.startOffset, range.endOffset;
-    const [startContainer, startOffset] = normalizeContainer(
-      startRoot,
-      range.startContainer,
-      range.startOffset,
-      "left"
-    );
-    const [endContainer, endOffset] = normalizeContainer(
-      endRoot,
-      range.endContainer,
-      range.endOffset,
-      "right"
-    );
-    setRange(createRange(startContainer, startOffset, endContainer, endOffset));
 
-    page.rangeDirection = "next";
-    return true;
-  }
   handleClick(e: MouseEvent, context: MultiBlockEventContext): void | boolean {
     console.log("handleClick", e, context.block);
   }

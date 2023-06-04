@@ -6,7 +6,6 @@ import {
   PagesHandleMethods,
 } from "@ohno-editor/core/system/handler";
 import {
-  LAST_POSITION,
   getTokenSize,
   locationToBias,
   tokenBetweenRange,
@@ -43,11 +42,12 @@ import {
   TextDelete,
   TextInsert,
 } from "@ohno-editor/core/contrib/commands";
-import { ListInit } from "./block";
-import { createRange, setRange } from "@ohno-editor/core/system/range";
+import { ListData } from "./block";
+import { createRange } from "@ohno-editor/core/system/range";
 import { EditableInterval } from "@ohno-editor/core/system/base";
 import { InlineSupport } from "../../plugins";
 import { Flag } from "../../inlines/flag/inline";
+import { ListDentCommand } from "./command";
 
 export interface DeleteContext extends RangedBlockEventContext {
   nextBlock: AnyBlock;
@@ -61,7 +61,7 @@ export function prepareDeleteCommand({
 }: DeleteContext) {
   // const offset = block.getOffset();
   const start = block.getBias([range.startContainer, range.startOffset]);
-  const editable = block.getCurrentEditable();
+  const editable = block.findEditable(range.startContainer)!;
   const index = block.getEditableIndex(editable);
   const containers = block.getEditables();
   const builder = new ListCommandBuilder({ page, block, nextBlock });
@@ -87,7 +87,6 @@ export function prepareDeleteCommand({
             block,
             index,
             newContainer: containers,
-            afterOffset: { ...LAST_POSITION, index },
             where: "below",
           });
         });
@@ -136,6 +135,7 @@ export function prepareDeleteCommand({
         });
       });
   }
+
   return builder;
 }
 
@@ -203,7 +203,7 @@ export function removeSelection({ range, page, block }: BlockEventContext) {
           offsets[offsets.length - 1].end,
           offsets[offsets.length - 1].index
         )!;
-        setRange(createRange(...startLoc, ...endLoc));
+        page.setRange(createRange(...startLoc, ...endLoc));
       });
     })
     .withLazyCommand(() => {
@@ -277,7 +277,7 @@ export class ListHandler implements PagesHandleMethods {
           page.setLocation(block.getLocation(start, index)!, block);
         })
         .onUndo(({ block }) => {
-          setRange(block.getRange({ start, end }, index)!);
+          page.setRange(block.getRange({ start, end }, index)!);
         });
     } else {
       const builder = removeSelection({ page, block, range });
@@ -317,10 +317,6 @@ export class ListHandler implements PagesHandleMethods {
     return true;
   }
 
-  public get listStyleTypes(): string[] {
-    return ["disc", "circle", "square"];
-  }
-
   updateValue({ block }: BlockEventContext) {
     const containers = block.getEditables();
     const lvstack: number[] = [];
@@ -338,50 +334,39 @@ export class ListHandler implements PagesHandleMethods {
     });
   }
 
-  indent(context: BlockEventContext, add: boolean = true) {
-    const { page, block } = context;
-    const container = block.getCurrentEditable();
-    const index = block.getEditableIndex(container);
-    const command = new ListCommandBuilder({ block, index, container })
-      .withLazyCommand(({ block, index, container }) => {
-        let level = this.getLevelOfContainer(container as HTMLLIElement);
-        if (add) {
-          level = Math.min(level + 1, 6);
-        } else {
-          level = Math.max(level - 1, 0);
-        }
+  indent(context: RangedBlockEventContext, add: boolean = true) {
+    const { page, block, range } = context;
+    const typedblock = block as List;
+    const indexs = [];
+    const startIndex = block.findEditableIndex(range.startContainer);
+    if (range.collapsed) {
+      indexs.push(startIndex);
+    } else {
+      const endIndex = block.findEditableIndex(range.endContainer);
+      for (let i = startIndex; i <= endIndex; i++) {
+        indexs.push(i);
+      }
+    }
 
-        return new SetContainerAttribute({
-          block,
-          index,
-          name: "data-level",
-          value: `${level}`,
-        });
-      })
-      .withLazyCommand(({ block, index, container }) => {
-        const level = parseInt(container.dataset["level"] || "0");
-        const types = this.listStyleTypes;
-        return new UpdateContainerStyle({
-          block,
-          index,
-          style: {
-            marginLeft: `${level * 20}px`,
-            listStyleType: types[level % types.length],
-          },
-        }).onExecute(() => {
-          this.updateValue(context);
-        });
-      })
-      .build();
+    const command = new ListDentCommand({
+      page,
+      block: typedblock,
+      indexs,
+      bias: add ? 1 : -1,
+    });
+
     page.executeCommand(command);
   }
 
-  handleTabDown(e: KeyboardEvent, context: BlockEventContext): boolean | void {
+  handleTabDown(
+    e: KeyboardEvent,
+    context: RangedBlockEventContext
+  ): boolean | void {
     this.indent(context, !e.shiftKey);
     return true;
   }
 
-  public get ListBlockType(): new (init?: ListInit) => any {
+  public get ListBlockType(): new (init?: ListData) => any {
     return List;
   }
   getLevelOfContainer(container: HTMLLIElement) {
@@ -453,7 +438,9 @@ export class ListHandler implements PagesHandleMethods {
             page,
             block,
             newBlock: new this.ListBlockType({
-              children: containers.map((item: HTMLElement) => item.innerHTML),
+              children: containers
+                .slice(1)
+                .map((item: HTMLElement) => item.innerHTML),
             }),
             where: "after",
           }).removeCallback();
@@ -478,7 +465,6 @@ export class ListHandler implements PagesHandleMethods {
     }
 
     page.executeCommand(command);
-    // 向前合并
     return true;
   }
 
@@ -521,7 +507,7 @@ export class ListHandler implements PagesHandleMethods {
             start,
             token_number,
           }).onUndo(({ block, start, index }) => {
-            setRange(
+            page.setRange(
               block.getRange({ start, end: start + token_number }, index)!
             );
           });
@@ -842,7 +828,7 @@ export class ListHandler implements PagesHandleMethods {
               endLoc = block.getLocation(-1, offset.index)!;
             }
 
-            setRange(createRange(...startLoc, ...endLoc));
+            page.setRange(createRange(...startLoc, ...endLoc));
           }
         )
         .onUndo(() => {
@@ -936,15 +922,18 @@ export class ListHandler implements PagesHandleMethods {
       ) {
         command = builder.build();
       } else {
-        console.log(e);
         return true;
       }
     }
     if (command) {
       page.executeCommand(command);
     }
-    console.log(e);
 
     return true;
   }
+
+  handleCopy(
+    e: ClipboardEvent,
+    context: RangedBlockEventContext
+  ): boolean | void {}
 }

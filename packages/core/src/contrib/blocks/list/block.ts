@@ -16,7 +16,7 @@
  *
  */
 import {
-  ChildrenPayload,
+  ChildrenData,
   createElement,
   getDefaultRange,
 } from "@ohno-editor/core/helper/document";
@@ -25,35 +25,19 @@ import {
   parentElementWithTag,
 } from "@ohno-editor/core/helper/element";
 import {
+  BaseBlockSerializer,
   BlockSerializedData,
   Editable,
   EditableFlag,
-} from "@ohno-editor/core/system/base";
-import { Block, BlockInit } from "@ohno-editor/core/system/block";
+} from "@ohno-editor/core/system";
+import { Block, BlockData } from "@ohno-editor/core/system/block";
 
-export interface ListInit extends BlockInit {
-  // firstLiChildren?: HTMLElement[];
-  children?: ChildrenPayload[];
+export interface ListData extends BlockData {
+  indent?: number[];
+  children?: ChildrenData[];
 }
 
-export class ABCList<T extends ListInit = ListInit> extends Block<T> {
-  getCurrentEditable(): HTMLElement {
-    // document.getSelection().focusNode
-    const range = getDefaultRange();
-
-    const li = parentElementWithTag(
-      range.commonAncestorContainer,
-      "li",
-      this.root
-    );
-    if (!li) {
-      throw new Error(
-        "Error when get currentContainer: focus are not in li element"
-      );
-    }
-    return li;
-  }
-
+export class ABCList<T extends ListData = ListData> extends Block<T> {
   getEditable(flag: EditableFlag): HTMLElement {
     if (typeof flag === "number") {
       if (flag < 0) {
@@ -107,6 +91,7 @@ export class ABCList<T extends ListInit = ListInit> extends Block<T> {
   getLastEditable() {
     return this.root.lastElementChild as HTMLElement;
   }
+
   getEditables(): HTMLElement[] {
     return Array.from(this.root.querySelectorAll("li"));
   }
@@ -119,34 +104,78 @@ export class ABCList<T extends ListInit = ListInit> extends Block<T> {
     return index;
   }
 
-  serialize(option?: any): BlockSerializedData<T> {
-    const init = {
-      children: Array.from(this.root.querySelectorAll("li")).map(
-        (item) => item.innerHTML
-      ),
-    } as T;
-    return [{ type: this.type, init }];
+  getIndentLevel(el: HTMLElement): number {
+    return parseInt(el.dataset["level"] || "0");
+  }
+
+  public get listStyleTypes(): string[] {
+    return ["disc", "circle", "square"];
+  }
+
+  updateValue() {
+    const containers = this.getEditables();
+    const lvstack: number[] = [];
+    containers.forEach((container) => {
+      const level = parseFloat(container.dataset["level"] || "0");
+      while (lvstack[level] === undefined) {
+        lvstack.push(0);
+      }
+      while (level < lvstack.length - 1) {
+        lvstack.pop();
+      }
+      lvstack[level]++;
+      container.dataset["value"] = lvstack[level] + "";
+    });
   }
 }
 
 export class List extends ABCList {
   isMultiEditable: boolean = true;
-  constructor(init?: ListInit) {
-    init = init || {};
-    if (!init.el) {
-      init.el = createElement("ul", {
-        attributes: {},
-      });
-    }
-    const { children } = init;
+  constructor(data?: ListData) {
+    data = data || {};
+    const root = createElement("ul", {
+      attributes: {},
+    });
+
+    const { children } = data;
 
     (children || [""]).forEach((item) => {
       const child = createElement("li", {
         children: item,
       });
-      init!.el!.appendChild(child);
+      root.appendChild(child);
     });
 
-    super("list", init);
+    super("list", root);
+  }
+}
+
+export class ListSerializer extends BaseBlockSerializer<List> {
+  toMarkdown(block: List): string {
+    return (
+      block
+        .getEditables()
+        .map((item) => {
+          return " - " + item.textContent;
+        })
+        .join("/n") + "\n"
+    );
+  }
+  toHTML(block: List): string {
+    return this.outerHTML(block.root);
+  }
+  toJson(block: List): BlockSerializedData<ListData> {
+    return {
+      type: block.type,
+      data: {
+        children: block.getEditables().map((item) => {
+          return item.innerHTML;
+        }),
+      },
+    };
+  }
+
+  deserialize(data: BlockSerializedData<ListData>): List {
+    return new List(data.data);
   }
 }

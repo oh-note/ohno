@@ -7,11 +7,7 @@ import { addMarkdownHint } from "@ohno-editor/core/helper/markdown";
 import { AnyBlock } from "@ohno-editor/core/system/block";
 import { Command } from "@ohno-editor/core/system/history";
 import { Page } from "@ohno-editor/core/system/page";
-import {
-  Offset,
-  getTokenSize,
-  intervalToRange,
-} from "@ohno-editor/core/system/position";
+import { getTokenSize } from "@ohno-editor/core/system/position";
 import { createRange } from "@ohno-editor/core/system/range";
 
 export interface InsertNodePayload {

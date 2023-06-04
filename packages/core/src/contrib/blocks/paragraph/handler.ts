@@ -25,8 +25,9 @@ import { RichTextDelete, TextInsert } from "@ohno-editor/core/contrib/commands";
 import { Empty } from "@ohno-editor/core/contrib/commands/select";
 import { ContainerRemove } from "@ohno-editor/core/contrib/commands/container";
 import { OrderedList } from "../orderedList";
-import { createRange, setRange } from "@ohno-editor/core/system/range";
+import { createRange } from "@ohno-editor/core/system/range";
 import { Code } from "../code";
+import { Divide } from "../divide";
 
 export interface DeleteContext extends BlockEventContext {
   nextBlock: AnyBlock;
@@ -82,7 +83,7 @@ export function prepareEnterCommand({ page, block, range }: BlockEventContext) {
         index: 0,
         token_number,
       }).onUndo(({ block, start, token_number }) => {
-        setRange(
+        page.setRange(
           block.getEditableRange({
             start,
             end: start + token_number,
@@ -150,11 +151,15 @@ export class ParagraphHandler implements PagesHandleMethods {
     }
     const nextBlock = page.getNextBlock(block);
     if (!nextBlock) {
-      // 在右下方，不做任何操作
-      e.preventDefault();
-      e.stopPropagation();
       return true;
     }
+    if (!nextBlock.mergeable) {
+      const newRange = createRange();
+      newRange.selectNode(nextBlock.root);
+      page.setRange(newRange);
+      return true;
+    }
+
     // 需要将下一个 Block 的第一个 Container 删除，然后添加到尾部
     // 执行过程是 TextInsert -> ContainerDelete
     if (nextBlock.isMultiEditable) {
@@ -196,8 +201,7 @@ export class ParagraphHandler implements PagesHandleMethods {
     } else {
       const command = prepareDeleteCommand({ page, block, nextBlock }).build();
       page.executeCommand(command);
-      e.preventDefault();
-      e.stopPropagation();
+
       return true;
     }
   }
@@ -215,6 +219,14 @@ export class ParagraphHandler implements PagesHandleMethods {
     }
     const prevBlock = page.getPrevBlock(block);
     if (!prevBlock) {
+      return true;
+    }
+
+    if (!prevBlock.mergeable) {
+      const newRange = createRange();
+      newRange.selectNode(prevBlock.root);
+      page.setRange(newRange);
+      // page.setLocation(prevBlock.getLocation(0, 0)!);
       return true;
     }
 
@@ -362,13 +374,19 @@ export class ParagraphHandler implements PagesHandleMethods {
         block,
         newBlock,
       });
+    } else if ((editable.textContent || "").match(/^-{3} *$/)) {
+      const newBlock = new Divide();
+      command = new BlockReplace({
+        page,
+        block,
+        newBlock,
+      });
     } else {
       return;
     }
     if (command) {
       page.executeCommand(command);
-      e.stopPropagation();
-      e.preventDefault();
+      return true;
     }
   }
 }

@@ -15,26 +15,25 @@
  *  - 先降级，再退回 p，可能有分隔 li -> For
  *
  */
+import { ChildrenData, createElement } from "@ohno-editor/core/helper/document";
 import {
-  ChildrenPayload,
-  createElement,
-} from "@ohno-editor/core/helper/document";
-import { BlockInit } from "@ohno-editor/core/system/block";
+  BaseBlockSerializer,
+  BlockData,
+  BlockSerializedData,
+} from "@ohno-editor/core/system/block";
 import { ABCList } from "../list";
 
-export interface OrderedListInit extends BlockInit {
-  children?: ChildrenPayload[];
+export interface OrderedListData extends BlockData {
+  children?: ChildrenData[];
 }
 
-export class OrderedList extends ABCList<OrderedListInit> {
+export class OrderedList extends ABCList<OrderedListData> {
   isMultiEditable: boolean = true;
-  constructor(init?: OrderedListInit) {
+  constructor(init?: OrderedListData) {
     init = init || {};
-    if (!init.el) {
-      init.el = createElement("ol", {
-        attributes: {},
-      });
-    }
+    const root = createElement("ol", {
+      attributes: {},
+    });
 
     const { children } = init;
 
@@ -42,9 +41,45 @@ export class OrderedList extends ABCList<OrderedListInit> {
       const child = createElement("li", {
         children: item,
       });
-      init!.el!.appendChild(child);
+      root.appendChild(child);
     });
 
-    super("ordered_list", init);
+    super("ordered_list", root);
+  }
+
+  public get listStyleTypes(): string[] {
+    return ["decimal", "lower-alpha", "lower-roman"];
+  }
+}
+
+export class OrderedListSerializer extends BaseBlockSerializer<OrderedList> {
+  toMarkdown(block: OrderedList): string {
+    return (
+      block
+        .getEditables()
+        .map((item) => {
+          return " - " + item.textContent;
+        })
+        .join("/n") + "\n"
+    );
+  }
+
+  toHTML(block: OrderedList): string {
+    return this.outerHTML(block.root);
+  }
+
+  toJson(block: OrderedList): BlockSerializedData<OrderedListData> {
+    return {
+      type: block.type,
+      data: {
+        children: block.getEditables().map((item) => {
+          return item.innerHTML;
+        }),
+      },
+    };
+  }
+
+  deserialize(data: BlockSerializedData<OrderedListData>): OrderedList {
+    return new OrderedList(data.data);
   }
 }

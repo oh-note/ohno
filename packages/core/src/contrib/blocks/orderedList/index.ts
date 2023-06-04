@@ -1,5 +1,5 @@
 import { BlockComponent, HandlerEntry } from "@ohno-editor/core/system/page";
-import { OrderedList } from "./block";
+import { OrderedList, OrderedListSerializer } from "./block";
 import { OrderedListHandler } from "./handler";
 
 export { OrderedList, OrderedListHandler };
@@ -11,5 +11,6 @@ export function OrderedListBlock(): BlockComponent {
     handlers: {
       blocks: { ordered_list: new OrderedListHandler() },
     },
+    serializer: new OrderedListSerializer(),
   };
 }

@@ -1,22 +1,8 @@
-import {
-  FIRST_POSITION,
-  Offset,
-  elementOffset,
-  getTokenSize,
-  intervalToRange,
-} from "@ohno-editor/core/system/position";
 import { AnyBlock } from "@ohno-editor/core/system/block";
-import {
-  Command,
-  CommandBuffer,
-  Payload,
-} from "@ohno-editor/core/system/history";
+import { Command, Payload } from "@ohno-editor/core/system/history";
 import { Page } from "@ohno-editor/core/system/page";
-import { nodesOfRange, setRange } from "@ohno-editor/core/system/range";
-import { addMarkdownHint } from "@ohno-editor/core/helper/markdown";
-import { ValidNode, calcDepths } from "@ohno-editor/core/helper/element";
+import { ValidNode } from "@ohno-editor/core/helper/element";
 import {
-  createElement,
   createFlagNode,
   createTextNode,
   innerHTMLToNodeList,
@@ -28,11 +14,6 @@ export interface ContainerInsertPayload {
   index: number;
   newContainer: HTMLElement[];
   where: "above" | "below";
-  beforeOffset?: Offset;
-  afterOffset?: Offset;
-  undo_hint?: {
-    newIndex: number[];
-  };
 }
 
 export interface ContainerRemovePayload extends Payload {
@@ -86,14 +67,6 @@ export class ContainerInsert extends Command<ContainerInsertPayload> {
     this.buffer = {
       newIndex,
     };
-    // const newIndex = block.getIndexOfContainer(newContainer);
-    // if (!this.payload.afterOffset) {
-    //   this.payload.afterOffset = { ...FIRST_POSITION, index: newIndex[0] };
-    // }
-    // this.payload.undo_hint = {
-    //   newIndex: newIndex,
-    // };
-    // block.setOffset(this.payload.afterOffset);
   }
   undo(): void {
     const { block } = this.payload;
@@ -105,7 +78,6 @@ export class ContainerInsert extends Command<ContainerInsertPayload> {
         const newContainer = block.getEditable(item)!;
         newContainer.remove();
       });
-    // block.setOffset(beforeOffset!);
   }
 
   public get label(): string {

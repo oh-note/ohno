@@ -1,28 +1,14 @@
 import {
   createElement,
   createInline,
-  getDefaultRange,
-  innerHTMLToNodeList,
-  makeInlineBlock,
 } from "@ohno-editor/core/helper/document";
-import {
-  getTagName,
-  parentElementWithFilter,
-  parentElementWithTag,
-} from "@ohno-editor/core/helper/element";
 import { BlockEventContext } from "@ohno-editor/core/system/handler";
-import { TextInsert } from "@ohno-editor/core/contrib/commands";
 import katex from "katex";
-import { InlineBase, RangeElement } from "@ohno-editor/core/system/inline";
-import { setOffset } from "@ohno-editor/core/system/position";
+import { InlineBase } from "@ohno-editor/core/system/inline";
 import {
-  createRange,
   getValidAdjacent,
-  setLocation,
-  setRange,
 } from "@ohno-editor/core/system/range";
 import { computePosition } from "@floating-ui/dom";
-import { InlineSubmit } from "@ohno-editor/core/contrib/commands/inlineblock";
 
 export interface Option {
   element?: HTMLElement;

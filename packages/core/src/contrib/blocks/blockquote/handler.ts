@@ -44,8 +44,7 @@ export class BlockQuoteHandler implements PagesHandleMethods {
     const nextBlock = page.getNextBlock(block);
     if (!nextBlock) {
       // 在右下方，不做任何操作
-      e.preventDefault();
-      e.stopPropagation();
+
       return true;
     }
 
@@ -88,9 +87,6 @@ export class BlockQuoteHandler implements PagesHandleMethods {
     e: KeyboardEvent,
     { page, block, range }: BlockEventContext
   ): boolean | void {
-    e.stopPropagation();
-    e.preventDefault();
-
     const command = prepareEnterCommand({ page, block, range })
       .withLazyCommand(({ block, page }, { innerHTML }) => {
         if (innerHTML === undefined) {
@@ -109,6 +105,7 @@ export class BlockQuoteHandler implements PagesHandleMethods {
       .build();
 
     page.executeCommand(command);
+    return true;
   }
   handleSpaceDown(
     e: KeyboardEvent,
@@ -124,24 +121,20 @@ export class BlockQuoteHandler implements PagesHandleMethods {
       return;
     }
     // 存在 HTMLElement 取消判定
-    if (containHTMLElement(block.root)) {
-      return;
-    }
+    // if (containHTMLElement(block.root)) {
+    //   return;
+    // }
 
     const prefix = block.root.textContent || "";
     if (prefix.match(/^#{1,6} *$/)) {
       console.log("To Heading");
     } else if (prefix.match(/^ *(-*) *$/)) {
-      console.log("To List");
+      console.log("To Blockquote List");
     } else if (prefix.match(/^ *([0-9]+\.) *$/)) {
-      console.log("To Ordered List");
-    } else if (prefix.match(/^`{3}.*$/)) {
-      console.log("To Ordered List");
+      console.log("To Blockquote Ordered List");
     } else {
       return;
     }
-
-    e.stopPropagation();
-    e.preventDefault();
+    return true;
   }
 }

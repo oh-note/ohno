@@ -10,12 +10,10 @@ import { NodeInsert } from "@ohno-editor/core/contrib/commands/html";
 import { ListCommandBuilder } from "@ohno-editor/core/contrib/commands/concat";
 import { InlineSupport } from "@ohno-editor/core/contrib/plugins/inlineSupport/plugin";
 import { TextDelete } from "@ohno-editor/core/contrib/commands";
-import {
-  getPrevLocation,
-  getValidAdjacent,
-} from "@ohno-editor/core/system/range";
-import { defaultHandleBeforeInput } from "@ohno-editor/core/core/default/functions/beforeInput";
+import { getValidAdjacent } from "@ohno-editor/core/system/range";
+import { defaultHandleBeforeInput } from "@ohno-editor/core/core/default/functional/beforeInput";
 import { tryGetDefaultRange } from "@ohno-editor/core/helper";
+import { defaultSelection } from "@ohno-editor/core/system/selection";
 
 export class TodoItemHandler implements InlineHandler<TodoItem> {
   handleKeyboardActivated(
@@ -150,7 +148,12 @@ export class TodoItemHandler implements InlineHandler<TodoItem> {
     if (range.collapsed) {
       const slot = inline.querySelector("data")!;
       // debugger;
-      if (!getPrevLocation(range.startContainer, range.startOffset, slot)) {
+      if (
+        !defaultSelection.getPrevLocation(
+          [range.startContainer, range.startOffset],
+          slot
+        )
+      ) {
         return true;
       }
     }

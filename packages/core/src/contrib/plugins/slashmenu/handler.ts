@@ -125,10 +125,11 @@ export class SlashMenuHandler implements PagesHandleMethods {
   ): boolean | void {
     const { page, range, block } = context;
     // 弹出条件：首次输入 /
-    if (range.collapsed) {
+    if (!range.collapsed) {
       return;
     }
     const editable = block.findEditable(range.startContainer);
+
     if (!editable || isPlain(editable)) {
       return;
     }

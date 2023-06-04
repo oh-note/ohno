@@ -8,7 +8,7 @@ export type EventAttribute = {
   [key in keyof HTMLElementEventMap]?: (e: HTMLElementEventMap[key]) => void;
 };
 
-export type ChildrenPayload = string | Node | (string | Node)[];
+export type ChildrenData = string | Node | (string | Node)[];
 
 export function createTextNode(text?: string): Text {
   text = text || "";
@@ -82,7 +82,7 @@ export function createInline(
   return res;
 }
 
-export function dechildren(children: ChildrenPayload): (Node | string)[] {
+export function dechildren(children: ChildrenData): (Node | string)[] {
   if (Array.isArray(children)) {
     return children;
   } else {
@@ -99,7 +99,7 @@ export function createElement<K extends HTMLElementTagName>(
     attributes?: { [key: string]: string };
     dataset?: { [key: string]: any };
     eventHandler?: EventAttribute;
-    children?: ChildrenPayload;
+    children?: ChildrenData;
     style?: Style;
   }
 ): HTMLElementTagNameMap[K];
@@ -113,7 +113,7 @@ export function createElement(
     attributes?: { [key: string]: string };
     dataset?: { [key: string]: any };
     eventHandler?: EventAttribute;
-    children?: ChildrenPayload;
+    children?: ChildrenData;
     style?: Style;
   }
 ): HTMLElement {
@@ -201,7 +201,8 @@ export function tryGetDefaultRange(): Range | null {
 }
 
 // Check if the element is already visible
-export function isElementInViewport(element: HTMLElement) {
+export function isElementInViewport(node: Node) {
+  const element = node instanceof HTMLElement ? node : node.parentElement!;
   const rect = element.getBoundingClientRect();
   return (
     rect.top >= 0 &&
@@ -213,9 +214,10 @@ export function isElementInViewport(element: HTMLElement) {
 }
 
 export function scrollIntoViewIfNeeded(
-  el: HTMLElement,
+  node: Node,
   arg?: boolean | ScrollIntoViewOptions
 ) {
+  const el = node instanceof HTMLElement ? node : node.parentElement!;
   if (!isElementInViewport(el)) {
     el.scrollIntoView(arg);
   }

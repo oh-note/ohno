@@ -2,6 +2,7 @@ import {
   createFlagNode,
   createTextNode,
   innerHTMLToNodeList,
+  tryGetDefaultRange,
 } from "@ohno-editor/core/helper/document";
 import {
   ElementFilter,
@@ -136,13 +137,25 @@ export class TextDelete extends Command<TextDeletePayload> {
   notifyExecute(page: Page): void {
     const { block } = this.payload;
     page.dispatchPageEvent(
-      new BlockUpdateEvent({ page, block, undo: false, from: "TextDelete" })
+      new BlockUpdateEvent({
+        page,
+        range: tryGetDefaultRange()!,
+        block,
+        undo: false,
+        from: "TextDelete",
+      })
     );
   }
   notifyUndo(page: Page): void {
     const { block } = this.payload;
     page.dispatchPageEvent(
-      new BlockUpdateEvent({ page, block, undo: true, from: "TextDelete" })
+      new BlockUpdateEvent({
+        page,
+        range: tryGetDefaultRange()!,
+        block,
+        undo: true,
+        from: "TextDelete",
+      })
     );
   }
 }
@@ -243,13 +256,25 @@ export class RichTextDelete extends Command<TextDeletePayload> {
   notifyExecute(page: Page): void {
     const { block } = this.payload;
     page.dispatchPageEvent(
-      new BlockUpdateEvent({ page, block, undo: false, from: "RichTextDelete" })
+      new BlockUpdateEvent({
+        page,
+        range: tryGetDefaultRange()!,
+        block,
+        undo: false,
+        from: "RichTextDelete",
+      })
     );
   }
   notifyUndo(page: Page): void {
     const { block } = this.payload;
     page.dispatchPageEvent(
-      new BlockUpdateEvent({ page, block, undo: true, from: "RichTextDelete" })
+      new BlockUpdateEvent({
+        page,
+        range: tryGetDefaultRange()!,
+        block,
+        undo: true,
+        from: "RichTextDelete",
+      })
     );
   }
 }
@@ -307,7 +332,6 @@ export class TextInsert extends Command<TextInsertPayload> {
       start: bias,
       token_filter,
     } = this.payload;
-
     const editable = block.getEditable(query);
     const loc = block.getLocation(bias, query, token_filter)!;
     const range = createRange(...loc);
@@ -347,13 +371,25 @@ export class TextInsert extends Command<TextInsertPayload> {
   notifyExecute(page: Page): void {
     const { block } = this.payload;
     page.dispatchPageEvent(
-      new BlockUpdateEvent({ page, block, undo: false, from: "TextInsert" })
+      new BlockUpdateEvent({
+        page,
+        range: tryGetDefaultRange()!,
+        block,
+        undo: false,
+        from: "TextInsert",
+      })
     );
   }
   notifyUndo(page: Page): void {
     const { block } = this.payload;
     page.dispatchPageEvent(
-      new BlockUpdateEvent({ page, block, undo: true, from: "TextInsert" })
+      new BlockUpdateEvent({
+        page,
+        range: tryGetDefaultRange()!,
+        block,
+        undo: true,
+        from: "TextInsert",
+      })
     );
   }
 

@@ -1,3 +1,4 @@
+import { Page } from "@ohno-editor/core/system";
 import {
   PagesHandleMethods,
   RangedBlockEventContext,
@@ -7,8 +8,61 @@ import {
   compareLocation,
   createRange,
   getValidAdjacent,
-  setRange,
 } from "@ohno-editor/core/system/range";
+
+export function setAnchor(
+  tgt: Node,
+  tgtOffset: number,
+  range: Range,
+  shiftKey: boolean,
+  direction: "left" | "right",
+  page: Page
+) {
+  /**在止点不动的情况下设置 Anchor Position */
+  const next = createRange(tgt, tgtOffset);
+  if (shiftKey) {
+    if (direction === "left") {
+      if (range.collapsed) {
+        page.rangeDirection = "prev";
+        next.setEnd(range.endContainer, range.endOffset);
+      } else if (page.rangeDirection === "prev") {
+        next.setEnd(range.endContainer, range.endOffset);
+      } else {
+        if (
+          compareLocation(
+            [tgt, tgtOffset],
+            [range.startContainer, range.startOffset]
+          ) === 1
+        ) {
+          page.rangeDirection = "prev";
+          next.setEnd(range.startContainer, range.startOffset);
+        } else {
+          next.setStart(range.startContainer, range.startOffset);
+        }
+      }
+    } else {
+      if (range!.collapsed) {
+        page.rangeDirection = "next";
+        next.setStart(range.startContainer, range.startOffset);
+      } else if (page.rangeDirection === "next") {
+        next.setStart(range.startContainer, range.startOffset);
+      } else {
+        if (
+          compareLocation(
+            [tgt, tgtOffset],
+            [range.endContainer, range.endOffset]
+          ) === 1
+        ) {
+          next.setEnd(range.endContainer, range.endOffset);
+        } else {
+          page.rangeDirection = "next";
+          next.setStart(range.endContainer, range.endOffset);
+        }
+      }
+    }
+  }
+  page.setRange(next);
+}
 
 export function defaultHandleArrowDown(
   handler: PagesHandleMethods,
@@ -18,7 +72,8 @@ export function defaultHandleArrowDown(
   const { page, block, range } = context;
   let anchorBlock;
   let anchorLoc: RefLocation;
-
+  const direction =
+    e.key === "ArrowUp" || e.key === "ArrowLeft" ? "left" : "right";
   if (!e.shiftKey && !range.collapsed) {
     // 之前选中了，但这次按键没有选：取消
     if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
@@ -65,53 +120,6 @@ export function defaultHandleArrowDown(
   }
   const [anchor, anchorOffset] = anchorLoc;
 
-  function setAnchor(tgt: Node, tgtOffset: number) {
-    /**在止点不动的情况下设置 Anchor Position */
-    const next = createRange(tgt, tgtOffset);
-    if (e.shiftKey) {
-      if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
-        if (range.collapsed) {
-          page.rangeDirection = "prev";
-          next.setEnd(range.endContainer, range.endOffset);
-        } else if (page.rangeDirection === "prev") {
-          next.setEnd(range.endContainer, range.endOffset);
-        } else {
-          if (
-            compareLocation(
-              [tgt, tgtOffset],
-              [range.startContainer, range.startOffset]
-            ) === 1
-          ) {
-            page.rangeDirection = "prev";
-            next.setEnd(range.startContainer, range.startOffset);
-          } else {
-            next.setStart(range.startContainer, range.startOffset);
-          }
-        }
-      } else {
-        if (range!.collapsed) {
-          page.rangeDirection = "next";
-          next.setStart(range.startContainer, range.startOffset);
-        } else if (page.rangeDirection === "next") {
-          next.setStart(range.startContainer, range.startOffset);
-        } else {
-          if (
-            compareLocation(
-              [tgt, tgtOffset],
-              [range.endContainer, range.endOffset]
-            ) === 1
-          ) {
-            next.setEnd(range.endContainer, range.endOffset);
-          } else {
-            page.rangeDirection = "next";
-            next.setStart(range.endContainer, range.endOffset);
-          }
-        }
-      }
-    }
-    page.setRange(next);
-  }
-
   const editable = anchorBlock.findEditable(anchor);
   if (!editable) {
     throw new EditableNotFound(anchor, anchorBlock.order);
@@ -148,7 +156,7 @@ export function defaultHandleArrowDown(
         // }
       }
       if (prev) {
-        setAnchor(...prev);
+        setAnchor(...prev, range, e.shiftKey, direction, page);
       }
 
       return true;
@@ -164,7 +172,7 @@ export function defaultHandleArrowDown(
         next = anchorBlock.getLocation(-1, editable);
       }
       if (next) {
-        setAnchor(...next);
+        setAnchor(...next, range, e.shiftKey, direction, page);
       }
       return true;
     }
@@ -197,7 +205,7 @@ export function defaultHandleArrowDown(
         // }
       }
       if (next) {
-        setAnchor(...next);
+        setAnchor(...next, range, e.shiftKey, direction, page);
       }
 
       return true;
@@ -212,7 +220,7 @@ export function defaultHandleArrowDown(
         next = anchorBlock.getLocation(-1, editable);
       }
       if (next) {
-        setAnchor(...next);
+        setAnchor(...next, range, e.shiftKey, direction, page);
       }
       return true;
     }
@@ -241,7 +249,7 @@ export function defaultHandleArrowDown(
       }
     }
     if (prev) {
-      setAnchor(...prev);
+      setAnchor(...prev, range, e.shiftKey, direction, page);
     }
     // 如果没有，则直接停在当前位置不动
     return true;
@@ -271,7 +279,7 @@ export function defaultHandleArrowDown(
       }
     }
     if (next) {
-      setAnchor(...next);
+      setAnchor(...next, range, e.shiftKey, direction, page);
     }
 
     return true;

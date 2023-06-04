@@ -14,6 +14,7 @@ import {
 import { createRange, setRange } from "@ohno-editor/core/system/range";
 import {
   BlockActiveEvent,
+  BlockSelectChangeEvent,
   BlockUpdateEvent,
 } from "@ohno-editor/core/system/pageevent";
 
@@ -25,6 +26,7 @@ export class DragablePluginHandler implements PagesHandleMethods {
       plugin.span(block);
     }
   }
+
   handleBlockActivated(e: BlockActiveEvent, context: any): boolean | void {
     const { page, block } = e;
     const plugin = page.getPlugin<Dragable>("dragable");
@@ -62,6 +64,9 @@ export class DragablePluginHandler implements PagesHandleMethods {
     context: RangedBlockEventContext | MultiBlockEventContext
   ): boolean | void {
     const { page, block, range, isMultiBlock, endBlock } = context;
+    if (e.shiftKey) {
+      return;
+    }
 
     if (e.altKey && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
       const where = e.key === "ArrowDown" ? "after" : "before";
@@ -104,7 +109,8 @@ export class DragablePluginHandler implements PagesHandleMethods {
           });
         page.executeCommand(command);
       }
-
+      const plugin = page.getPlugin<Dragable>("dragable");
+      plugin.span(block, true);
       return true;
     }
   }
@@ -113,11 +119,7 @@ export class DragablePluginHandler implements PagesHandleMethods {
     e: KeyboardEvent,
     context: RangedBlockEventContext
   ): boolean | void {
-    const { page, block, endBlock } = context;
-    if (!endBlock) {
-      const plugin = page.getPlugin<Dragable>("dragable");
-      plugin.span(block);
-    }
+    // const { page, block, endBlock } = context;
   }
   handleDeleteDown(
     e: KeyboardEvent,

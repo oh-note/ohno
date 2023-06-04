@@ -18,9 +18,8 @@ import {
   getTokenSize,
   locationToBias,
   rangeToInterval,
-  setOffset,
 } from "@ohno-editor/core/system/position";
-import { defaultHandleArrowDown } from "../default/functions/arrowDown";
+import { defaultHandleArrowDown } from "../default/functional/arrowDown";
 import {
   createRange,
   normalizeContainer,
@@ -31,7 +30,7 @@ import {
   TextInsert,
 } from "@ohno-editor/core/contrib/commands/text";
 import { OhNoClipboardData } from "@ohno-editor/core/system/base";
-import { defaultHandlePaste } from "../default/functions/paste";
+import { defaultHandlePaste } from "../default/functional/paste";
 
 function handleBeforeInputFormat(
   handler: PagesHandleMethods,
@@ -128,21 +127,23 @@ function prepareDeleteMultiArea(
   const { page, range, block, endBlock, blocks } = context;
   page.getNextBlock;
   const pageOffset = rangeToInterval(page.blockRoot!, range);
+  // todo find editable first
 
-  // 最两边的 Container 删除文字 -> TextDelete
-  // 第一个和最后一个 block 去除范围内 container -> ContainerRemove
-  // 中间的 block 删除 -> BlockRemove
-  // 第一个命令指定光标位置在 range start 位置
-  // 最后一个命令不指定位置，默认还在初始位置，除了 Enter 定位到最后一个 Container 的初始位置
+  const startGlobalBias: [number, number] = block.findEditable(
+    range.startContainer
+  )
+    ? block.getGlobalBiasPair([range.startContainer, range.startOffset])
+    : [0, 0];
+  // todo find editable first
+  const endGlobalBias: [number, number] = endBlock.findEditable(
+    range.endContainer
+  )
+    ? endBlock.getGlobalBiasPair([range.endContainer, range.endOffset])
+    : [-1, -1];
+
   const builder = new ListCommandBuilder<MultiBlockEventContext>(context)
     .withLazyCommand(({ block, page, range }, extra) => {
-      const bias = block.getGlobalBiasPair([
-        range.startContainer,
-        range.startOffset,
-      ]);
-      if (bias[0] === 0 && bias[1] === 0) {
-        return new BlockRemove({ page, block });
-      }
+      // 始终保留第一个 block
       const container = block.findEditable(range.startContainer)!;
       const startIndex = block.getEditableIndex(container);
       extra["startContainer"] = container;
@@ -164,10 +165,16 @@ function prepareDeleteMultiArea(
       })
         .onExecute()
         .onUndo(() => {
-          setOffset(page.blockRoot, pageOffset);
+          const startLoc = block.getLocation(...startGlobalBias)!;
+          const endLoc = endBlock.getLocation(...endGlobalBias)!;
+          const range = createRange(...startLoc, ...endLoc);
+          page.setRange(range);
         });
     })
     .withLazyCommand(({ endBlock, range, page }, extra) => {
+      if (!endBlock.mergeable) {
+        return;
+      }
       const container = endBlock.findEditable(range.endContainer)!;
       const endIndex = endBlock.getEditableIndex(container);
       extra["endContainer"] = container;
@@ -245,19 +252,55 @@ export class MultiBlockHandler implements PagesHandleMethods {
     e: ClipboardEvent,
     context: MultiBlockEventContext
   ): void | boolean {
-    const { blocks, block, endBlock, range } = context;
-    const data = blocks.map((curBlock) => {
+    const { page, blocks, block, endBlock, range } = context;
+    const data = blocks.map((curBlock, index) => {
       let text, html, json;
-      text = curBlock.toMarkdown(range);
-      html = curBlock.toHTML(range);
-      json = curBlock.serialize(range);
+
+      const blockser = page.getBlockSerializer(block.type);
+
+      if (curBlock === block || curBlock == endBlock) {
+        if (!curBlock.isMultiEditable && curBlock.mergeable) {
+          // paragraph/quoteblock
+          const editable = curBlock.findEditable(
+            index === 0 ? range.startContainer : range.endContainer
+          );
+          if (editable) {
+            const inlineRange = block.selection.clipRange(editable, range);
+            if (inlineRange) {
+              json = page.inlineSerializer.serialize(inlineRange);
+              html = page.inlineSerializer.toHTML(inlineRange);
+              text = page.inlineSerializer.toMarkdown(inlineRange);
+            } else {
+              text = blockser.serialize(curBlock, "markdown");
+              html = blockser.serialize(curBlock, "html");
+              json = blockser.serialize(curBlock, "json");
+            }
+          } else {
+            text = blockser.serialize(curBlock, "markdown");
+            html = blockser.serialize(curBlock, "html");
+            json = blockser.serialize(curBlock, "json");
+          }
+        } else {
+          text = blockser.serialize(curBlock, "markdown");
+          html = blockser.serialize(curBlock, "html");
+          json = blockser.serialize(curBlock, "json");
+        }
+      } else {
+        text = blockser.serialize(curBlock, "markdown");
+        html = blockser.serialize(curBlock, "html");
+        json = blockser.serialize(curBlock, "json");
+      }
+      // single editable: copy inline content
+
+      // multiple editable, mergable: copy editable with bound inline content
+
+      // unmergeable: copy all
       return { text: text, html: html, json: json };
     });
     const markdown = data.map((item) => item.text).join("\n");
     const html = data.map((item) => item.html).join("");
     const json: OhNoClipboardData = {
       data: data.flatMap((item) => item.json),
-      inline: false,
     };
 
     e.clipboardData!.setData("text/plain", markdown);
@@ -318,8 +361,7 @@ export class MultiBlockHandler implements PagesHandleMethods {
         } else {
           context.page.history.undo();
         }
-        e.preventDefault();
-        e.stopPropagation();
+        return true;
       }
     }
   }
@@ -418,12 +460,17 @@ export class MultiBlockHandler implements PagesHandleMethods {
       command = handleBeforeInputFormat(this, e, context);
     } else {
       // 下面这些都是要先把选中内容删干净，即跨 Container 的删除
+
       const builder = prepareDeleteMultiArea(this, context);
       builder
         .withLazyCommand(({ endBlock, page }, extra) => {
           // 先存储 innerHTML
           // 如果是 multiblock ，则 remove container 或 remove Block
           // 否则直接 remove Block
+          if (!endBlock.mergeable) {
+            extra["innerHTML"] = "";
+            return;
+          }
           const { endContainer } = extra;
           extra["innerHTML"] = endContainer.innerHTML;
           if (

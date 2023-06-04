@@ -10,12 +10,9 @@ import { NodeInsert } from "@ohno-editor/core/contrib/commands/html";
 import { ListCommandBuilder } from "@ohno-editor/core/contrib/commands/concat";
 import { InlineSupport } from "@ohno-editor/core/contrib/plugins/inlineSupport/plugin";
 import { TextDelete } from "@ohno-editor/core/contrib/commands";
-import {
-  getNextLocation,
-  getPrevLocation,
-  getValidAdjacent,
-} from "@ohno-editor/core/system/range";
-import { defaultHandleBeforeInput } from "@ohno-editor/core/core/default/functions/beforeInput";
+import { getValidAdjacent } from "@ohno-editor/core/system/range";
+import { defaultHandleBeforeInput } from "@ohno-editor/core/core/default/functional/beforeInput";
+import { defaultSelection } from "@ohno-editor/core/system/selection";
 
 export class BackLinkHandler implements InlineHandler<BackLink> {
   handleKeyboardActivated(
@@ -105,51 +102,53 @@ export class BackLinkHandler implements InlineHandler<BackLink> {
     e: KeyboardEvent,
     context: InlineRangedEventContext
   ): boolean | void {
-    // const { page, block, inline, range, first, manager } = context;
-    // const slot = inline.querySelector("q")!;
-    // if (first) {
-    //   manager.activate(inline, context);
-    //   if (e.key === "ArrowLeft") {
-    //     manager.rangeToRight();
-    //   } else if (e.key === "ArrowRight") {
-    //     manager.rangeToLeft();
-    //   }
-    //   return true;
-    // } else {
-    //   // 这里不需要 return  true，在边界时，将位置设置为 label，并由 default 行为来处理光标移动
-    //   const typedManager = manager as BackLink;
-    //   if (typedManager.resultSize <= 0) {
-    //     return;
-    //   }
-    //   if (
-    //     e.key === "ArrowLeft" &&
-    //     getPrevLocation(range.startContainer, range.startOffset, slot) === null
-    //   ) {
-    //     manager.exit();
-    //     page.setLocation([inline, 0], block);
-    //   } else if (
-    //     e.key === "ArrowRight" &&
-    //     getNextLocation(range.startContainer, range.startOffset, slot) === null
-    //   ) {
-    //     manager.exit();
-    //     page.setLocation([inline, 0], block);
-    //   } else if (e.key === "ArrowUp") {
-    //     manager.simulateArrowUp();
-    //     return true;
-    //   } else if (e.key === "ArrowDown") {
-    //     manager.simulateArrowDown();
-    //     return true;
-    //   }
-    // }
+    const { page, block, inline, range, manager } = context;
+    const slot = inline.querySelector("q")!;
+
+    // 这里不需要 return  true，在边界时，将位置设置为 label，并由 default 行为来处理光标移动
+    const typedManager = manager as BackLink;
+
+    if (
+      e.key === "ArrowLeft" &&
+      defaultSelection.getPrevLocation(
+        [range.startContainer, range.startOffset],
+        slot
+      ) === null
+    ) {
+      typedManager.exit();
+      page.setLocation([inline, 0], block);
+    } else if (
+      e.key === "ArrowRight" &&
+      defaultSelection.getNextLocation(
+        [range.startContainer, range.startOffset],
+        slot
+      ) === null
+    ) {
+      typedManager.exit();
+      page.setLocation([inline, 0], block);
+    }
+    // if()
+    if (e.key === "ArrowUp") {
+      // typedManager.simulateArrowUp();
+      return true;
+    } else if (e.key === "ArrowDown") {
+      // typedManager.simulateArrowDown();
+      return true;
+    }
   }
   handleDeleteDown(
     e: KeyboardEvent,
     context: InlineRangedEventContext
   ): boolean | void {
-    const { range, manager, inline } = context;
+    const { range, manager, inline, block } = context;
     if (range.collapsed) {
       const slot = inline.querySelector("q")!;
-      if (!getNextLocation(range.startContainer, range.startOffset, slot)) {
+      if (
+        defaultSelection.getNextLocation(
+          [range.startContainer, range.startOffset],
+          slot
+        )
+      ) {
         return true;
       }
     }
@@ -161,7 +160,12 @@ export class BackLinkHandler implements InlineHandler<BackLink> {
     const { range, manager, inline } = context;
     if (range.collapsed) {
       const slot = inline.querySelector("q")!;
-      if (!getPrevLocation(range.startContainer, range.startOffset, slot)) {
+      if (
+        !defaultSelection.getPrevLocation(
+          [range.startContainer, range.startOffset],
+          slot
+        )
+      ) {
         return true;
       }
     }

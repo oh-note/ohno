@@ -14,7 +14,7 @@ import { BlockRemove } from "../../commands";
 export class Dragable implements IPlugin {
   root: HTMLElement;
   name: string = "dragable";
-  parent?: Page;
+  parent!: Page;
   current?: AnyBlock;
   draged?: AnyBlock;
   constructor() {
@@ -33,9 +33,10 @@ export class Dragable implements IPlugin {
         const html = block.toHTML();
         event.dataTransfer.setData("text/plain", text);
         event.dataTransfer.setData("text/html", html);
+        const ser = this.parent.getBlockSerializer(block.type);
+
         const ohnoData: OhNoClipboardData = {
-          data: block.serialize(),
-          inline: false,
+          data: [ser.toJson(block)],
           context: {
             dragFrom: this.current.order,
           },
@@ -60,7 +61,7 @@ export class Dragable implements IPlugin {
     throw new Error("Method not implemented.");
   }
   setParent(parent?: Page): void {
-    this.parent = parent;
+    this.parent = parent!;
   }
   serialize(option?: any): string {
     throw new Error("Method not implemented.");
@@ -71,14 +72,16 @@ export class Dragable implements IPlugin {
   detach(): void {
     throw new Error("Method not implemented.");
   }
-
+  // close() {
+  //   this.root.style.display = "none";
+  // }
   span(block: AnyBlock, force?: boolean) {
     this.root.style.height = block.root.clientHeight + "px";
+    // this.root.style.display = "block";
     if (this.current !== block || force) {
       this.current = block;
       computePosition(block.root, this.root, { placement: "left-start" }).then(
         ({ x, y }) => {
-          // this.root.style.backgroundColor = "black";
           Object.assign(this.root.style, {
             left: `${x - 8}px`,
             top: `${y}px`,

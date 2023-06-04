@@ -4,7 +4,7 @@ import {
   HTMLElementTagName,
   createElement,
 } from "@ohno-editor/core/helper/document";
-import { elementOffset, intervalToRange } from "./position";
+import { intervalOfElement, intervalToRange } from "./position";
 import {
   ValidNode,
   getTagName,
@@ -99,7 +99,7 @@ export function addFormat(
   });
   addMarkdownHint(wrap);
   range.insertNode(wrap);
-  const offsets = [elementOffset(container, wrap)];
+  const offsets = [intervalOfElement(container, wrap)];
   return { fathers: [wrap], offsets };
 }
 export function removeFormat(
@@ -121,7 +121,7 @@ export function removeFormat(
   }
   if (formatedChildren) {
     formatedChildren.forEach((item) => {
-      const itemOffset = elementOffset(container, item);
+      const itemOffset = intervalOfElement(container, item);
       offsets.push(itemOffset);
       update(itemOffset);
       const childs = validChildNodes(item);
@@ -131,7 +131,7 @@ export function removeFormat(
 
   const flatFathers = fathers.flatMap((item) => {
     if (getTagName(item) === format) {
-      const itemOffset = elementOffset(container, item);
+      const itemOffset = intervalOfElement(container, item);
       offsets.push(itemOffset);
       update(itemOffset);
 

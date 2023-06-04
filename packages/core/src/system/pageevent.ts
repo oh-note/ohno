@@ -72,3 +72,51 @@ export class BlockDeActiveEvent extends PageEvent implements BlockDeActiveInit {
     this.from = init.from;
   }
 }
+
+export interface BlockSelectChangeInit extends PageEventInit {
+  block: AnyBlock;
+  endBlock?: AnyBlock;
+  range: Range;
+}
+
+export class BlockSelectChangeEvent
+  extends PageEvent
+  implements BlockSelectChangeInit
+{
+  readonly block: AnyBlock;
+  readonly endBlock?: AnyBlock;
+
+  readonly range: Range;
+  readonly from: string;
+
+  constructor(init: BlockSelectChangeInit) {
+    super("BlockSelectChange", init);
+    this.block = init.block;
+    this.range = init.range;
+    this.endBlock = init.endBlock;
+    this.from = init.from;
+  }
+}
+
+export interface BlockInvalideLocationInit extends PageEventInit {
+  block: AnyBlock;
+  endBlock?: AnyBlock;
+  range: Range;
+}
+
+export class BlockInvalideLocationEvent
+  extends PageEvent
+  implements BlockInvalideLocationInit
+{
+  readonly block: AnyBlock;
+
+  readonly range: Range;
+  readonly from: string;
+
+  constructor(init: BlockSelectChangeInit) {
+    super("BlockInvalideLocation", init);
+    this.block = init.block;
+    this.range = init.range;
+    this.from = init.from;
+  }
+}

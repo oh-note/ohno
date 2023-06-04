@@ -17,7 +17,7 @@ import {
   PagesHandleMethods,
   RangedBlockEventContext,
 } from "@ohno-editor/core/system/handler";
-import { tokenBetweenRange } from "@ohno-editor/core/system/position";
+
 import {
   createRange,
   setRange,
@@ -48,7 +48,7 @@ export class CompositionHandler implements PagesHandleMethods {
       // 删除选中文字
       // const command = new TextDelete
       // block.getBias
-      const token_number = tokenBetweenRange(range);
+      const token_number = block.selection.tokenBetweenRange(range);
       const editable = block.findEditable(range.startContainer);
       if (!editable) {
         throw new Error("editable not found.");
@@ -75,7 +75,7 @@ export class CompositionHandler implements PagesHandleMethods {
         (!cur.previousSibling || cur.previousSibling instanceof HTMLElement)
       ) {
         // 两边没有元素或者只有 HTML 元素
-        console.log("1");
+
         const text = UNIQUE_SPACE;
         cur.replaceWith(text);
         range.setStart(text, 1);
@@ -86,12 +86,12 @@ export class CompositionHandler implements PagesHandleMethods {
         range.startContainer,
         range.startOffset,
       ])!;
-      const next = createRange(...nextLoc);
+      const next = block.selection.createRange(...nextLoc);
       const text = UNIQUE_SPACE;
       next.insertNode(text);
       next.setStart(text, 1);
       next.setEnd(text, 1);
-      setRange(next);
+      page.setRange(next);
     } else {
       // console.log("3");
       // const text = createTextNode(" ");

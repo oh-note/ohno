@@ -5,3 +5,4 @@ export * from "./placeholder";
 export * from "./slashmenu";
 export * from "./toolbar";
 export * from "./keyvis";
+export * from "./link";

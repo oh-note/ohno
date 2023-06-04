@@ -1,15 +1,9 @@
 import {
-  Offset,
-  elementOffset,
+  intervalOfElement,
   intervalToRange,
-  setOffset,
 } from "@ohno-editor/core/system/position";
 import { AnyBlock } from "@ohno-editor/core/system/block";
-import {
-  Command,
-  CommandBuffer,
-  CommandCallback,
-} from "@ohno-editor/core/system/history";
+import { Command, CommandCallback } from "@ohno-editor/core/system/history";
 import { Page } from "@ohno-editor/core/system/page";
 import {
   createRange,
@@ -17,7 +11,7 @@ import {
   setRange,
 } from "@ohno-editor/core/system/range";
 import { InlineSupport } from "../plugins";
-import { removeActivate, removeHover } from "../..";
+import { Interval, removeActivate, removeHover } from "../..";
 
 export interface IBlockRemovePayload {
   page: Page;
@@ -43,7 +37,7 @@ export class InlineSubmit extends Command<IBlockReplacePayload> {
     current: HTMLLabelElement;
     label: HTMLLabelElement;
     old: HTMLLabelElement;
-    offset: Offset;
+    offset: Interval;
   };
 
   onExecuteFn?: CommandCallback<IBlockReplacePayload> = ({ page }) => {
@@ -59,17 +53,6 @@ export class InlineSubmit extends Command<IBlockReplacePayload> {
   };
 
   onUndoFn: CommandCallback<IBlockReplacePayload> = ({ page }) => {
-    // const label = this.buffer.current;
-    // const plugin = page.getPlugin<InlineSupport>("inlinesupport");
-    // plugin.setHoveredInline("cursor", label);
-    // plugin.setActiveInline();
-    // const manager = plugin.getInlineManager(label);
-    // this.payload.page.setLocation([label, 0]);
-    // manager.hover(label, {
-    //   page: this.payload.page,
-    //   block: this.payload.block,
-    // });
-    // removeActivate(label);
     const label = this.buffer.current;
     const plugin = page.getPlugin<InlineSupport>("inlinesupport");
     const manager = plugin.getInlineManager(label);
@@ -98,7 +81,7 @@ export class InlineSubmit extends Command<IBlockReplacePayload> {
         label: label.cloneNode(true) as HTMLLabelElement,
       };
     } else {
-      const offset = elementOffset(block.root, label);
+      const offset = intervalOfElement(block.root, label);
       this.buffer = {
         ...this.buffer,
         current: label,

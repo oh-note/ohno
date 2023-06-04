@@ -1,46 +1,63 @@
+import { outerHTML } from "@ohno-editor/core/helper";
+import { ChildrenData, createElement } from "@ohno-editor/core/helper/document";
+
 import {
-  ChildrenPayload,
-  createElement,
-} from "@ohno-editor/core/helper/document";
-import { BlockSerializedData } from "@ohno-editor/core/system/base";
-import { Block, BlockInit } from "@ohno-editor/core/system/block";
+  BaseBlockSerializer,
+  Block,
+  BlockData,
+  BlockSerializedData,
+  BlockSerializer,
+} from "@ohno-editor/core/system/block";
 import { clipRange } from "@ohno-editor/core/system/range";
 
-export interface BlockQuoteInit extends BlockInit {
+export interface BlockQuoteData extends BlockData {
   type?: string;
   level?: number; // TODO 用 level 模拟 blockquote 深度
-  children?: ChildrenPayload;
+  children?: ChildrenData;
 }
 
-export class Blockquote extends Block<BlockQuoteInit> {
-  constructor(init?: BlockQuoteInit) {
-    init = init || {};
-    if (!init.el) {
-      init.el = createElement("blockquote", {
-        attributes: {},
-        children: init.children,
-      });
-    }
+export class Blockquote extends Block<BlockQuoteData> {
+  constructor(data?: BlockQuoteData) {
+    data = data || {};
 
-    super("blockquote", init);
+    const { type, level, children } = data;
+
+    const root = createElement("blockquote", {
+      attributes: {},
+      className: type,
+      children: children,
+    });
+
+    super("blockquote", root, { meta: data });
   }
 
   public get head(): string {
-    return ">".repeat(this.init.level || 1) + " ";
+    return ">".repeat(this.meta.level || 1) + " ";
+  }
+  static create(data: BlockQuoteData) {
+    return new Blockquote(data);
+  }
+}
+
+export class BlockquoteSerializer extends BaseBlockSerializer<Blockquote> {
+  toMarkdown(block: Blockquote): string {
+    return "> " + block.root.textContent + "\n";
+  }
+  toHTML(block: Blockquote): string {
+    return outerHTML(block.root);
+  }
+  toJson(block: Blockquote): BlockSerializedData<BlockQuoteData> {
+    return {
+      type: block.type,
+      data: {
+        children: block.getFirstEditable().innerHTML,
+        level: block.meta.level,
+        type: block.meta.type,
+      },
+    };
   }
 
-  toMarkdown(range?: Range | undefined): string {
-    if (!range || range.collapsed) {
-      return this.head + (this.inner.textContent || "");
-    }
-    const innerRange = clipRange(this.inner, range);
-    if (innerRange) {
-      return this.head + innerRange.cloneContents().textContent;
-    }
-    return "";
-  }
-
-  serialize(option?: any): BlockSerializedData<BlockQuoteInit> {
-    return [{ type: this.type, init: { children: this.root.innerHTML } }];
+  deserialize(data: BlockSerializedData<BlockQuoteData>): Blockquote {
+    return new Blockquote(data.data);
   }
 }

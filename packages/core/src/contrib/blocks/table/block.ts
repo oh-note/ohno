@@ -1,5 +1,5 @@
 import {
-  ChildrenPayload,
+  ChildrenData,
   createElement,
   getDefaultRange,
 } from "@ohno-editor/core/helper/document";
@@ -8,36 +8,37 @@ import {
   parentElementWithTag,
 } from "@ohno-editor/core/helper/element";
 import {
+  BaseBlockSerializer,
   BlockSerializedData,
   EditableFlag,
-} from "@ohno-editor/core/system/base";
-import { Block, BlockInit } from "@ohno-editor/core/system/block";
+} from "@ohno-editor/core/system";
+import { Block, BlockData } from "@ohno-editor/core/system/block";
 import "./style.css";
-export interface TableInit extends BlockInit {
+export interface TableData extends BlockData {
   row: number;
   col: number;
-  children?: ChildrenPayload[][];
+  children?: ChildrenData[][];
 }
 
-export class Table extends Block<TableInit> {
+export class Table extends Block<TableData> {
   isMultiEditable: boolean = true;
   mergeable: boolean = false;
   rows: HTMLTableRowElement[];
   table: HTMLTableElement;
   // thead: HTMLTableSectionElement;
   tbody: HTMLTableSectionElement;
-  constructor(init?: TableInit) {
-    init = init || { row: 3, col: 3 };
-    init.el = createElement("table", {
+  constructor(data?: TableData) {
+    data = data || { row: 3, col: 3 };
+    const root = createElement("table", {
       attributes: {},
     });
-    const { children } = init;
+    const { children } = data;
 
     const tableEl = createElement("table");
     // const thead = createElement("thead");
     const tbody = createElement("tbody");
 
-    const { row, col } = init;
+    const { row, col } = data;
     const table = Array(row)
       .fill(0)
       .map((_, rid) => {
@@ -56,7 +57,7 @@ export class Table extends Block<TableInit> {
 
     // 初始化
 
-    super("table", init);
+    super("table", root);
     this.root.appendChild(tableEl);
     tableEl.append(tbody);
     this.table = tableEl;
@@ -233,18 +234,6 @@ export class Table extends Block<TableInit> {
     return x * this.colNumber + y;
   }
 
-  serialize(option?: any): BlockSerializedData<TableInit> {
-    const init = {
-      col: this.colNumber,
-      row: this.rowNumber,
-      children: this.rows.map((item) => {
-        const cellEl = item.querySelectorAll("p");
-        return Array.from(cellEl).map((item) => item.innerHTML);
-      }),
-    } as TableInit;
-    return [{ type: this.type, init, unmergeable: true }];
-  }
-
   addRow(index: number) {
     const old = this.rows[index];
     const newRow = Array(this.colNumber)
@@ -288,5 +277,39 @@ export class Table extends Block<TableInit> {
     this.tbody.childNodes[index].remove();
     this.rows.splice(index, 1);
     return snap;
+  }
+
+  public get cells(): HTMLElement[][] {
+    return this.rows.map((item) => {
+      const old = Array.from(item.childNodes).map(
+        (item) => (item as HTMLElement).querySelector("p")!
+      );
+      return old;
+    });
+  }
+}
+
+export class TableSerializer extends BaseBlockSerializer<Table> {
+  toMarkdown(block: Table): string {
+    return "> " + block.root.textContent + "\n";
+  }
+  toHTML(block: Table): string {
+    return this.outerHTML(block.root);
+  }
+  toJson(block: Table): BlockSerializedData<TableData> {
+    return {
+      type: block.type,
+      data: {
+        row: block.rowNumber,
+        col: block.colNumber,
+        children: block.cells.map((row) => {
+          return row.map((col) => col.innerHTML);
+        }),
+      },
+    };
+  }
+
+  deserialize(data: BlockSerializedData<TableData>): Table {
+    return new Table(data.data);
   }
 }

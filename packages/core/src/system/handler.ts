@@ -5,6 +5,8 @@ import { Page } from "./page";
 import {
   BlockActiveEvent,
   BlockDeActiveEvent,
+  BlockInvalideLocationEvent,
+  BlockSelectChangeEvent,
   BlockUpdateEvent,
 } from "./pageevent";
 
@@ -33,7 +35,7 @@ export interface BlockEventContext {
   page: Page;
   block: AnyBlock;
   endBlock?: AnyBlock;
-  range?: Range;
+  range?: Range | null;
   isMultiBlock?: boolean;
 }
 
@@ -149,10 +151,16 @@ export interface ControlKeyEventHandleMethods<
   handlePageDownUp?(e: KeyboardEvent, context: T): void | boolean;
 }
 export interface BlockEventHandleMethods {
-  handleBlockUpdated?(e: BlockUpdateEvent, context: any): void | boolean;
-  handleBlockActivated?(e: BlockActiveEvent, context: any): void | boolean;
-  handleBlockDeActivated?(e: BlockDeActiveEvent, context: any): void | boolean;
+  handleBlockInvalideLocation?(
+    e: BlockInvalideLocationEvent,
+    context: BlockEventContext
+  ): boolean | void;
+  handleBlockUpdated?(e: BlockUpdateEvent, context: any): void;
+  handleBlockActivated?(e: BlockActiveEvent, context: any): void;
+  handleBlockDeActivated?(e: BlockDeActiveEvent, context: any): void;
+  handleBlockSelectChange?(e: BlockSelectChangeEvent, context: any): void;
 }
+
 export interface InlineEventHandleMethods {}
 
 export interface PagesHandleMethods

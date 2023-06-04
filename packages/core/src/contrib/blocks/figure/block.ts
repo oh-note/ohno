@@ -1,46 +1,77 @@
 import {
   createElement,
   getDefaultRange,
-  makeInlineBlock,
 } from "@ohno-editor/core/helper/document";
+import { parentElementWithTag } from "@ohno-editor/core/helper/element";
 import {
-  indexOfNode,
-  parentElementWithTag,
-} from "@ohno-editor/core/helper/element";
-import { Block, BlockInit } from "@ohno-editor/core/system/block";
-
-export interface FigureInit extends BlockInit {
+  BaseBlockSerializer,
+  Block,
+  BlockData,
+  BlockSerializedData,
+} from "@ohno-editor/core/system/block";
+import "./style.css";
+import { RefLocation } from "@ohno-editor/core/system";
+export interface FigureData extends BlockData {
   src: string;
 }
 
-export class Figure extends Block<FigureInit> {
+export class Figure extends Block<FigureData> {
   isMultiEditable: boolean = true;
   mergeable: boolean = false;
-  constructor(init?: FigureInit) {
+  img: HTMLElement;
+  constructor(init?: FigureData) {
     init = init || { src: "" };
-    if (!init.el) {
-      init.el = createElement("figure", {
-        attributes: {},
-      });
-    }
+    const root = createElement("figure", {
+      attributes: {},
+    });
+
+    super("figure", root, { meta: init });
     const img = createElement("img", { attributes: { src: init.src } });
-    const label = createElement("label", { children: [img] });
-    init.el.appendChild(label);
-    super("figure", init);
+    this.img = img;
+    root.appendChild(img);
+  }
+  public get inner(): HTMLElement {
+    return this.img;
+  }
+  public get src() {
+    return this.meta.src;
+  }
+  isLocationInFirstLine(loc: RefLocation): boolean {
+    return true;
+  }
+  isLocationInLastLine(loc: RefLocation): boolean {
+    return true;
+  }
+  getSoftLineHead(loc: RefLocation): RefLocation {
+    return [this.img, 0];
+  }
+  getSoftLineTail(loc: RefLocation): RefLocation {
+    return [this.img, 0];
+  }
+  getSoftLineBias(loc: RefLocation): number {
+    return 0;
+  }
+}
+
+export class FigureSerializer extends BaseBlockSerializer<Figure> {
+  toMarkdown(block: Figure): string {
+    return `\n![](${block.src})\n`;
   }
 
-  // 所有多 Container 下的 currentContainer 只考虑 range.startContainer 位置
-  currentContainer() {
-    const range = getDefaultRange();
-    const container = this.findContainer(range.commonAncestorContainer);
-    if (!container) {
-      throw new Error(
-        "Error when get currentContainer: focus are not in li element"
-      );
-    }
-    return container;
+  toHTML(block: Figure): string {
+    return this.outerHTML(block.root);
   }
-  findContainer(node: Node): HTMLElement | null {
-    return parentElementWithTag(node, "figure", this.root);
+
+  toJson(block: Figure): BlockSerializedData<FigureData> {
+    return {
+      type: block.type,
+      data: {
+        src: block.src,
+      },
+    };
+  }
+
+  deserialize(data: BlockSerializedData<FigureData>): Figure {
+    return new Figure(data.data);
   }
 }

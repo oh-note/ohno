@@ -6,11 +6,12 @@ import {
   InlineEventContext,
 } from "@ohno-editor/core/system/handler";
 import { KatexMath } from "./inline";
-import { getPrevLocation } from "@ohno-editor/core/system/range";
+
 import { NodeInsert } from "@ohno-editor/core/contrib/commands/html";
 import { ListCommandBuilder } from "@ohno-editor/core/contrib/commands/concat";
 import { InlineSupport } from "@ohno-editor/core/contrib/plugins/inlineSupport/plugin";
 import { TextDelete } from "@ohno-editor/core/contrib/commands";
+import { defaultSelection } from "@ohno-editor/core/system/selection";
 
 export class InlineMathHandler implements InlineHandler<KatexMath> {
   handleKeyboardActivated(
@@ -130,11 +131,6 @@ export class InlineMathHandler implements InlineHandler<KatexMath> {
       return;
     }
     if (e.inputType === "insertText" && e.data === "$") {
-      const prev = getPrevLocation(range.startContainer, range.startOffset);
-      if (!prev || !(prev[0] instanceof Text)) {
-        return;
-      }
-
       let matchIndex: number;
       if (
         (matchIndex = range.startContainer.textContent!.lastIndexOf(

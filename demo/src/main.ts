@@ -2,12 +2,12 @@ import { createDefaultPage } from "./basePage";
 
 import {
   BackLink,
-  BlockInit,
   InlineSupport,
   KatexMath,
   KeyLabel,
   Table,
   TodoItem,
+  createElement,
   createTextNode,
   createToolbar,
   outerHTML,
@@ -51,7 +51,7 @@ const data = [
   {
     name: "headings",
     init: {
-      innerHTML: "ohno... Another block-style, markdown suppoted, rich editor",
+      children: "ohno... Another block-style, markdown suppoted, rich editor",
       level: 1,
     },
   },
@@ -59,20 +59,25 @@ const data = [
     name: "paragraph",
     init: {
       children: [
-        `ohno is a rich text editor designed from the bottom up, aiming to achieve minimal bugs and maximum scalability with the simplest code possible, while providing a friendly and customizable user editing experience.`,
+        `ohno is a`,
+        createElement("a", {
+          attributes: { href: "http://www.github.com" },
+          children: "rich text",
+        }),
+        `editor designed from the bottom up, aiming to achieve minimal bugs and maximum scalability with the simplest code possible, while providing a friendly and customizable user editing experience.`,
       ],
     },
   },
 
   {
     name: "headings",
-    init: { innerHTML: "What functions ohno provided", level: 2 },
+    init: { children: "What functions ohno provided", level: 2 },
   },
   { name: "paragraph", init: { children: ["For users:"] } },
   {
     name: "list",
     init: {
-      innerHTMLs: [
+      children: [
         "Markdown-style editing experience",
         "Reliable editing results",
         "Optimized user experience",
@@ -83,7 +88,7 @@ const data = [
   {
     name: "list",
     init: {
-      innerHTMLs: [
+      children: [
         "Clear architectural design",
         "Near-linear scalability in complexity",
         "Rich component examples",
@@ -92,7 +97,7 @@ const data = [
   },
   {
     name: "headings",
-    init: { innerHTML: "Talk is cheap, show me your EDITOR", level: 2 },
+    init: { children: "Talk is cheap, show me your EDITOR", level: 2 },
   },
   {
     name: "paragraph",
@@ -100,16 +105,16 @@ const data = [
   },
   {
     name: "headings",
-    init: { innerHTML: "|<- type <code>#</code> and space here", level: 4 },
+    init: { children: "|<- type <code>#</code> and space here", level: 4 },
   },
   {
     name: "headings",
-    init: { innerHTML: "|<- type <code>Backspace</code> here", level: 1 },
+    init: { children: "|<- type <code>Backspace</code> here", level: 1 },
   },
   {
     name: "list",
     init: {
-      innerHTMLs: [
+      children: [
         "First line",
         "|<- type <code>Backspace x 2</code> here",
         "Last line",
@@ -118,7 +123,7 @@ const data = [
   },
   {
     name: "headings",
-    init: { innerHTML: "Abundant inline component support", level: 1 },
+    init: { children: "Abundant inline component support", level: 1 },
   },
   {
     name: "blockquote",
@@ -173,66 +178,64 @@ const data = [
 ];
 
 data.forEach(({ name, init }) => {
-  const block = page.createBlock(name, init as BlockInit);
+  const block = page.createBlock(name, init);
   page.appendBlock(block);
 });
 keylabelManager;
 page.appendBlock(
   new Table({
-    shape: {
-      row: 3,
-      col: 3,
-      innerHTMLs: [
-        [
-          outerHTML(
-            keylabelManager.create({
-              shiftKey: true,
-              metaKey: true,
-              code: "ArrowRight",
-            })
-          ),
-          undefined,
-          outerHTML(
-            keylabelManager.create({
-              shiftKey: true,
-              metaKey: true,
-              code: "ArrowDown",
-            })
-          ),
-        ],
-        [
-          "",
-          outerHTML(
-            keylabelManager.create({
-              metaKey: true,
-              code: "KeyC",
-            }),
-            keylabelManager.create({
-              metaKey: true,
-              code: "KeyV",
-            })
-          ),
-          "",
-        ],
-        [
-          outerHTML(
-            keylabelManager.create({
-              shiftKey: true,
-              metaKey: true,
-              code: "ArrowUp",
-            })
-          ),
-          undefined,
-          outerHTML(
-            keylabelManager.create({
-              shiftKey: true,
-              metaKey: true,
-              code: "ArrowLeft",
-            })
-          ),
-        ],
+    row: 3,
+    col: 3,
+    children: [
+      [
+        outerHTML(
+          keylabelManager.create({
+            shiftKey: true,
+            metaKey: true,
+            code: "ArrowRight",
+          })
+        ),
+        "",
+        outerHTML(
+          keylabelManager.create({
+            shiftKey: true,
+            metaKey: true,
+            code: "ArrowDown",
+          })
+        ),
       ],
-    },
+      [
+        "",
+        outerHTML(
+          keylabelManager.create({
+            metaKey: true,
+            code: "KeyC",
+          }),
+          keylabelManager.create({
+            metaKey: true,
+            code: "KeyV",
+          })
+        ),
+        "",
+      ],
+      [
+        outerHTML(
+          keylabelManager.create({
+            shiftKey: true,
+            metaKey: true,
+            code: "ArrowUp",
+          })
+        ),
+        "",
+        outerHTML(
+          keylabelManager.create({
+            shiftKey: true,
+            metaKey: true,
+            code: "ArrowLeft",
+          })
+        ),
+      ],
+    ],
   })
 );
 

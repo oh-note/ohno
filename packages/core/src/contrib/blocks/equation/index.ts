@@ -1,5 +1,5 @@
 import { BlockComponent, HandlerEntry } from "@ohno-editor/core/system/page";
-import { Equation } from "./block";
+import { Equation, EquationSerializer } from "./block";
 import { EquationHandler } from "./handler";
 
 export { Equation, EquationHandler };
@@ -10,5 +10,6 @@ export function EquationBlock(): BlockComponent {
     handlers: {
       blocks: { equation: new EquationHandler() },
     },
+    serializer: new EquationSerializer(),
   };
 }

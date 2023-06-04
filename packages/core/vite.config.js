@@ -8,10 +8,14 @@ export const isDev = process.env.__DEV__ === "true";
 
 export default defineConfig({
   plugins: [svgr({ svgrOptions: { icon: true } })],
-
+  // alias: {
+  //   "@": path.resolve(__dirname, "../packages/core/src/"),
+  //   "@ohno-editor/core": path.resolve(__dirname, "../packages/core/src/"),
+  // },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
+      "@ohno-editor/core": path.resolve(__dirname, "src"),
     },
   },
   test: {

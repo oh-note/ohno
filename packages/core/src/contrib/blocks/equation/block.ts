@@ -4,35 +4,35 @@ import {
 } from "@ohno-editor/core/helper/document";
 import {
   indexOfNode,
+  outerHTML,
   parentElementWithTag,
 } from "@ohno-editor/core/helper/element";
-import { Block, BlockInit } from "@ohno-editor/core/system/block";
+import { Block, BlockData } from "@ohno-editor/core/system/block";
 import katex from "katex";
 import { RefLocation } from "@ohno-editor/core/system/range";
 import {
+  BaseBlockSerializer,
   BlockSerializedData,
   EditableFlag,
-} from "@ohno-editor/core/system/base";
+} from "@ohno-editor/core/system";
 import "./style.css";
 import { computePosition } from "@floating-ui/dom";
 import { markPlain } from "@ohno-editor/core/helper";
-export interface EquationInit extends BlockInit {
+export interface EquationData extends BlockData {
   src: string;
 }
-export class Equation extends Block<EquationInit> {
+export class Equation extends Block<EquationData> {
   isMultiEditable: boolean = true;
   mergeable: boolean = false;
   component: {
     math: HTMLElement;
     input: HTMLParagraphElement;
   };
-  constructor(init?: EquationInit) {
-    init = init || { src: "" };
-    if (!init.el) {
-      init.el = createElement("pre", {
-        attributes: {},
-      });
-    }
+  constructor(data?: EquationData) {
+    data = data || { src: "" };
+    const root = createElement("pre", {
+      attributes: {},
+    });
 
     const math = createElement("math" as keyof HTMLElementTagNameMap, {
       style: {},
@@ -40,23 +40,28 @@ export class Equation extends Block<EquationInit> {
     math.contentEditable = "false";
     const input = createElement("p");
     markPlain(input);
-    init.el.appendChild(input);
-    init.el.appendChild(math);
-    super("equation", init);
+    root.appendChild(input);
+    root.appendChild(math);
+    super("equation", root);
 
     this.component = {
       math,
       input,
     };
-    this.input.textContent = init.src;
+    this.input.textContent = data.src;
     this.update();
   }
+
   public get inner(): HTMLElement {
     return this.component.input;
   }
 
   public get input(): HTMLParagraphElement {
     return this.component.input;
+  }
+
+  public get equation(): string {
+    return this.input.textContent || "";
   }
 
   getEditable(flag: EditableFlag): HTMLElement {
@@ -100,8 +105,29 @@ export class Equation extends Block<EquationInit> {
     this.component.math.innerHTML = html;
   }
 
-  serialize(option?: any): BlockSerializedData<EquationInit> {
-    const init = { src: this.input.textContent || "" };
-    return [{ type: this.type, init, unmergeable: false }];
+  // serialize(option?: any): BlockSerializedData<EquationData> {
+  //   const init = { src: this.input.textContent || "" };
+  //   return [{ type: this.type, init, unmergeable: false }];
+  // }
+}
+
+export class EquationSerializer extends BaseBlockSerializer<Equation> {
+  toMarkdown(block: Equation): string {
+    return "$$\n" + block.equation + "\n$$\n";
+  }
+  toHTML(block: Equation): string {
+    return outerHTML(block.component.math);
+  }
+  toJson(block: Equation): BlockSerializedData<EquationData> {
+    return {
+      type: block.type,
+      data: {
+        src: block.equation,
+      },
+    };
+  }
+
+  deserialize(data: BlockSerializedData<EquationData>): Equation {
+    return new Equation(data.data);
   }
 }

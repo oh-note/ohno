@@ -7,3 +7,4 @@ export * from "./table";
 export * from "./equation";
 export * from "./figure";
 export * from "./code";
+export * from "./divide";

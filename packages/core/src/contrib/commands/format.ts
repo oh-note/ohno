@@ -11,7 +11,7 @@ import {
 } from "@ohno-editor/core/helper/element";
 import { addMarkdownHint } from "@ohno-editor/core/helper/markdown";
 import {
-  elementOffset,
+  intervalOfElement,
   intervalToRange,
 } from "@ohno-editor/core/system/position";
 import { AnyBlock } from "@ohno-editor/core/system/block";
@@ -109,7 +109,7 @@ export class FormatRemove extends Command<FormatRemovePayload> {
     ) {
       // deformat
       related.forEach((item) => {
-        const itemOffset = elementOffset(editable, item);
+        const itemOffset = intervalOfElement(editable, item);
         this.buffer.offsets.push(itemOffset);
         const childs = validChildNodes(item);
         item.replaceWith(...childs);
@@ -117,7 +117,7 @@ export class FormatRemove extends Command<FormatRemovePayload> {
 
       fathers = fathers.flatMap((item) => {
         if (getTagName(item) === format) {
-          const itemOffset = elementOffset(editable, item);
+          const itemOffset = intervalOfElement(editable, item);
           this.buffer.offsets.push(itemOffset);
           const childs = validChildNodes(item);
           item.replaceWith(...childs);
@@ -144,7 +144,7 @@ export class FormatRemove extends Command<FormatRemovePayload> {
       // <b>te[x<i>te]xt</i>t</b>
       const childs = validChildNodes(fmt);
 
-      const itemOffset = elementOffset(editable, fmt);
+      const itemOffset = intervalOfElement(editable, fmt);
       this.buffer.offsets.push(itemOffset);
 
       fmt.replaceWith(...childs);

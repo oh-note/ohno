@@ -92,7 +92,7 @@ export function isEntityNode(el: Node) {
 }
 
 export function firstValidChild(
-  el: ValidNode,
+  el: Node,
   filter: ElementFilter = isValidNode
 ): ValidNode | null {
   let cur = el.firstChild as Node;
@@ -128,7 +128,7 @@ export function calcDepths(child: Node, parent: Node) {
 }
 
 export function lastValidChild(
-  el: ValidNode,
+  el: Node,
   filter: ElementFilter = isValidNode
 ): ValidNode | null {
   let cur = el.lastChild as Node;
@@ -256,14 +256,18 @@ export function containHTMLElement(root: HTMLElement): boolean {
 
 // export function outerHTML(...node:Node[])
 
-export function innerHTML(el: Node): string {
-  if (el instanceof Text) {
-    return el.textContent || "";
-  }
-  if (el instanceof HTMLElement) {
-    return el.innerHTML;
-  }
-  return "";
+export function innerHTML(...els: Node[]): string {
+  return els
+    .map((el) => {
+      if (el instanceof Text) {
+        return el.textContent || "";
+      }
+      if (el instanceof HTMLElement) {
+        return el.innerHTML;
+      }
+      return "";
+    })
+    .join("");
 }
 // 用于边界合并
 export function outerHTML(...node: Node[]): string {

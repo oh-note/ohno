@@ -7,9 +7,13 @@ import { LinkedDict } from "@ohno-editor/core/struct/linkeddict";
 import { Command, History } from "./history";
 import { RefLocation } from "./range";
 import { BlockEventContext } from "./handler";
-import { BlockInit } from "./block";
-import { InnerHTMLInit } from "./inline";
-import { ValidNode, getTagName } from "@ohno-editor/core/helper/element";
+
+import { InlineNodeInit, InlineSerializedData } from "./inline";
+import {
+  ValidNode,
+  getTagName,
+  innerHTML,
+} from "@ohno-editor/core/helper/element";
 import {
   addMarkdownHint,
   removeMarkdownHint,
@@ -18,8 +22,9 @@ import {
   HTMLElementTagName,
   createElement,
   createTextNode,
+  dechildren,
 } from "@ohno-editor/core/helper/document";
-import { Page } from ".";
+import { BlockSerializedData, Page } from ".";
 
 export interface IComponent {
   parent?: IComponent;
@@ -29,9 +34,6 @@ export interface IComponent {
   detach(): void;
   // deserialize(): IComponent;
   equals(component?: IComponent): boolean;
-
-  serialize(option?: any): any;
-  toMarkdown(range?: Range): string;
 }
 
 export interface IComponentManager {
@@ -86,7 +88,7 @@ export interface IBlock extends IContainer {
   isMultiEditable?: boolean;
   setOrder(order: Order): void;
   // index editable
-  getCurrentEditable(): Editable;
+
   getEditables(start?: number, end?: number): Editable[];
   getEditableIndex(editable: Editable): number;
   getEditable(flag: EditableFlag): Editable;
@@ -144,8 +146,6 @@ export interface IBlock extends IContainer {
   isLocationInRight(loc: RefLocation): boolean;
   isLocationInFirstLine(loc: RefLocation): boolean;
   isLocationInLastLine(loc: RefLocation): boolean;
-
-  serialize(option?: any): BlockSerializedData;
 
   clone(): IBlock;
 }
@@ -225,13 +225,6 @@ export interface IPage extends IBlockContainer {
   attach(ref: HTMLElement): void;
 }
 
-// // Card 可以作为浮动
-// export interface ICard extends IBlockContainer {
-//   hide(): void;
-//   open(): void;
-//   float(ref: HTMLElement, option?: any): void;
-// }
-
 export interface IPlugin extends IComponentManager {
   parent?: Page;
   destory(): void;
@@ -246,122 +239,82 @@ export interface IInline extends IComponentManager {
   hover(label: HTMLLabelElement, context: BlockEventContext): void;
   activate(label: HTMLLabelElement, context: BlockEventContext): void;
   exit(onExit?: () => void): void;
-  serialize(label: HTMLLabelElement): InlineSerializedData;
 }
-
-// 通用复制格式，一套处理流程
-// 单个Block完全复制
-// 多个Block完全复制
-// 单个 Block 内部复制
-// 单个 Block 多 Editable 内部复制
-// 多个 Block 头/尾 不换行复制
-
-/**
- * 
-
-{
-  head?: {}, // 指定信息后， blocks[0] 首先根据条件判断能否合并
-  tail?: {}, // 指定信息后，blocks[-1] 根据条件判断能否合并
-  blocks: init[]
-}
-
-一共四种情况
-
-te|xt
-te[----]xt
-
-te|xt
-te[--
---]xt
-
-te|xt
-te[--
---]
-xt
-
-te|xt
-te
-[--
---]
-xt
-
-
- */
-
-export type SerializedData<T> = {
-  type: string;
-  init?: T;
-  unmergeable?: boolean;
-}[];
-
-export type BlockSerializedData<T extends BlockInit = BlockInit> =
-  SerializedData<T>;
-
-export type InlineSerializedData<T extends InnerHTMLInit = InnerHTMLInit> =
-  SerializedData<T>;
 
 export interface OhNoClipboardData {
-  head?: { merge: boolean };
-  /** 在 */
-  inline: boolean;
-  tail?: { merge: boolean };
-  data: SerializedData<any>;
+  data: (InlineSerializedData | BlockSerializedData)[];
   context?: {
     dragFrom: Order;
   };
 }
 
 export class InlineSerializer {
-  serializeNode(node: Node): InnerHTMLInit {
+  serializeNode(node: Node): InlineNodeInit {
     const tagName = getTagName(node);
 
     if (tagName === "#text") {
-      return { tagName, innerHTMLs: [node.textContent || ""] };
-    } else if (tagName === "label") {
+      return { tagName, children: [node.textContent || ""] };
+    } else if (node instanceof HTMLElement) {
       // 所有特殊元素交给 inline serializer
-      return { tagName, innerHTMLs: [(node as HTMLElement).innerHTML] };
+      return {
+        tagName,
+        className: node.className,
+        dataset: node.dataset,
+        children: [node.innerHTML],
+      };
     } else {
-      const children = Array.from((node as HTMLElement).childNodes).map(
-        (item) => {
-          return this.serializeNode(item);
-        }
-      );
-      return { tagName, children };
+      return { tagName: "span", children: ["Unhandled type", node.nodeName] };
     }
   }
-  serialize(range: Range): InlineSerializedData<any> {
+  serialize(range: Range): InlineSerializedData {
     const frag = Array.from(range.cloneContents().childNodes);
     removeMarkdownHint(...frag);
 
-    return frag.flatMap((item) => {
-      return [{ type: "inline", init: this.serializeNode(item) }];
-    });
+    return {
+      type: "inline",
+      data: frag.flatMap((item) => {
+        return this.serializeNode(item);
+      }),
+    };
   }
 
-  deserializeNode(init: InnerHTMLInit): Node {
-    const { tagName, children, innerHTMLs } = init;
+  toMarkdown(range: Range): string {
+    // TODO markdown serializer
+    const frag = Array.from(range.cloneContents().childNodes);
+    removeMarkdownHint(...frag);
+    return innerHTML(...frag);
+  }
+  toHTML(range: Range): string {
+    const frag = Array.from(range.cloneContents().childNodes);
+    removeMarkdownHint(...frag);
+    return innerHTML(...frag);
+  }
+
+  deserializeNode(init: InlineNodeInit): Node {
+    const { tagName, children, dataset, className } = init;
+
     if (tagName === "#text") {
-      return createTextNode((innerHTMLs || []).join(""));
-    } else if (tagName === "label") {
-      return createElement("label", { innerHTML: innerHTMLs![0] });
+      return createTextNode(dechildren(children || []).join(""));
     } else {
-      const childrenEl = children!.map((item) => {
-        return this.deserializeNode(item);
-      });
       return createElement(tagName as HTMLElementTagName, {
-        children: childrenEl,
+        children,
+        dataset,
+        className,
       });
     }
   }
 
-  deserialize(data: InlineSerializedData<InnerHTMLInit>): ValidNode[] {
-    const nodes = data.map((item) => {
-      if (item.type != "inline" || !item.init) {
-        throw new Error("Sanity check");
-      }
-      return this.deserializeNode(item.init) as ValidNode;
+  deserialize(data: InlineSerializedData): ValidNode[] {
+    if (data.type != "inline") {
+      throw new Error("Sanity check");
+    }
+    const nodes = data.data.flatMap((item) => {
+      return this.deserializeNode(item) as ValidNode;
     });
-    addMarkdownHint(...nodes);
+
+    if (!data.plain) {
+      addMarkdownHint(...nodes);
+    }
     return nodes;
   }
 }

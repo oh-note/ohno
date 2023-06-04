@@ -8,9 +8,15 @@ import {
 import { Code } from "./block";
 import { AnyBlock } from "@ohno-editor/core/system/block";
 import {
+  defaultHandleBeforeInput,
+  defaultHandleBeforeInputOfPlainText,
   insertPlainText,
-} from "@ohno-editor/core/core/default/functions/beforeInput";
-import { BlockUpdateEvent } from "@ohno-editor/core/system/pageevent";
+} from "@ohno-editor/core/core/default/functional/beforeInput";
+import {
+  BlockInvalideLocationEvent,
+  BlockUpdateEvent,
+} from "@ohno-editor/core/system/pageevent";
+import { createRange } from "@ohno-editor/core/system";
 
 export interface DeleteContext extends BlockEventContext {
   nextBlock: AnyBlock;
@@ -19,7 +25,24 @@ export interface DeleteContext extends BlockEventContext {
 export class CodeHandler implements PagesHandleMethods {
   handleBlockUpdated(e: BlockUpdateEvent, context: any): void | boolean {
     console.log(e);
-    (e.block as Code).updateRender();
+    const { range, block, page } = e;
+    if (range) {
+      const startGlobalBias = block.getGlobalBiasPair([
+        range.startContainer,
+        range.startOffset,
+      ]);
+      const endGlobalBias = block.getGlobalBiasPair([
+        range.endContainer,
+        range.endOffset,
+      ]);
+      (block as Code).updateRender();
+      const startLoc = block.getLocation(...startGlobalBias)!;
+      const endLoc = block.getLocation(...endGlobalBias)!;
+      page.setRange(createRange(...startLoc, ...endLoc));
+    } else {
+      // debugger;
+      // (block as Code).updateRender();
+    }
   }
 
   handleKeyPress(
@@ -50,7 +73,8 @@ export class CodeHandler implements PagesHandleMethods {
     e: KeyboardEvent,
     context: RangedBlockEventContext
   ): boolean | void {
-    return insertPlainText(context, "\t");
+    insertPlainText(context, "    ");
+    return true;
   }
 
   handleEnterDown(
@@ -81,22 +105,36 @@ export class CodeHandler implements PagesHandleMethods {
     }
   }
 
-  // handleBeforeInput(
-  //   e: TypedInputEvent,
-  //   context: RangedEventContext
-  // ): boolean | void {
-  //   if (
-  //     e.inputType === "insertText" ||
-  //     // e.inputType === "insertFromPaste" ||
-  //     e.inputType === "insertFromDrop" ||
-  //     e.inputType === "deleteContentBackward" ||
-  //     e.inputType === "deleteWordBackward" ||
-  //     e.inputType === "deleteContentForward" ||
-  //     e.inputType === "deleteWordForward"
-  //   ) {
-  //     defaultHandleBeforeInputOfPlainText(this, e, context);
-  //     return true;
-  //   }
-  //   return true;
-  // }
+  handleBeforeInput(
+    e: TypedInputEvent,
+    context: RangedBlockEventContext
+  ): boolean | void {
+    if (
+      e.inputType === "insertText" ||
+      // e.inputType === "insertFromPaste" ||
+      e.inputType === "insertFromDrop" ||
+      e.inputType === "deleteContentBackward" ||
+      e.inputType === "deleteWordBackward" ||
+      e.inputType === "deleteContentForward" ||
+      e.inputType === "deleteWordForward"
+    ) {
+      // const { block, page, range } = context;
+      defaultHandleBeforeInputOfPlainText(this, e, context);
+
+      // const startGlobalBias = block.getGlobalBiasPair([
+      //   range.startContainer,
+      //   range.startOffset,
+      // ]);
+      // const endGlobalBias = block.getGlobalBiasPair([
+      //   range.endContainer,
+      //   range.endOffset,
+      // ]);
+      // (block as Code).updateRender();
+      // const startLoc = block.getLocation(...startGlobalBias)!;
+      // const endLoc = block.getLocation(...endGlobalBias)!;
+      // page.setRange(createRange(...startLoc, ...endLoc));
+      return true;
+    }
+    return true;
+  }
 }

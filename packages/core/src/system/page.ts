@@ -8,7 +8,7 @@ import {
 } from "./handler";
 import { createOrderString } from "@ohno-editor/core/helper/string";
 import { DictNode, LinkedDict } from "@ohno-editor/core/struct/linkeddict";
-import { AnyBlock, BlockInit } from "./block";
+import { AnyBlock, Block, BlockData, BlockSerializer } from "./block";
 import { ROOT_CLASS } from "./config";
 import {
   createElement,
@@ -24,24 +24,27 @@ import {
   IPage,
   IPlugin,
   InlineSerializer,
+  Order,
 } from "./base";
 import { History, Command } from "./history";
 import { Paragraph } from "@ohno-editor/core/contrib/blocks";
 import {
   BlockActiveEvent,
   BlockDeActiveEvent,
+  BlockInvalideLocationEvent,
+  BlockSelectChangeEvent,
   BlockUpdateEvent,
   PageEvent,
 } from "./pageevent";
 import {
   RefLocation,
+  createRange,
   getValidAdjacent,
   setLocation,
   setRange,
-  validateRange,
 } from "./range";
 import { throttle } from "@ohno-editor/core/helper/lodash";
-import { indexOfNode, isParent } from "../helper";
+import { isParent } from "../helper";
 import { IShortcut, ShortCutManager } from "./shortcut";
 import {
   isActivate,
@@ -202,8 +205,6 @@ export class PageHandler {
   }
 
   _checkRangeInsideBlock(range: Range) {
-    this.page.findBlock(range.startContainer);
-
     const neraestBlock = (
       container: Node,
       offset: number,
@@ -225,21 +226,26 @@ export class PageHandler {
         return this.page.getLastBlock();
       }
     };
+
     let block = this.page.findBlock(range.startContainer);
     if (!block) {
       const startBlock = neraestBlock(range.startContainer, range.startOffset);
-      range.setStart(...getValidAdjacent(startBlock.root, "afterbegin"));
+      range.setStart(
+        ...startBlock.selection.getValidAdjacent(startBlock.root, "afterbegin")
+      );
     }
 
     block = this.page.findBlock(range.endContainer);
     if (!block) {
-      const endBlock = neraestBlock(range.endContainer, range.endOffset);
-      range.setEnd(...getValidAdjacent(endBlock.root, "beforeend"));
+      const endBlock = neraestBlock(range.endContainer, range.endOffset, true);
+      range.setEnd(
+        ...endBlock.selection.getValidAdjacent(endBlock.root, "beforeend")
+      );
     }
   }
   getContextFromRange(
     range: Range
-  ): BlockEventContext | MultiBlockEventContext {
+  ): RangedBlockEventContext | MultiBlockEventContext {
     this._checkRangeInsideBlock(range);
     let blockContext = this.getContext(range.startContainer);
 
@@ -258,8 +264,10 @@ export class PageHandler {
     const endBlock = range.collapsed
       ? undefined
       : this.findBlock(range.endContainer)!;
+
     blockContext.endBlock = endBlock;
     blockContext.range = range;
+
     if (endBlock && endBlock !== blockContext.block) {
       blockContext.isMultiBlock = true;
       const blocks = [blockContext.block];
@@ -277,7 +285,7 @@ export class PageHandler {
       } as MultiBlockEventContext;
     }
 
-    return blockContext;
+    return blockContext as RangedBlockEventContext;
   }
 
   getContext(
@@ -324,10 +332,10 @@ export class PageHandler {
     context: BlockEventContext,
     e: K,
     eventName: keyof HandlerMethods
-  ) {
+  ): boolean {
     const { block, endBlock, range, isMultiBlock } = context;
     if (this._dispatchEvent(this.pluginHandlers, context, e, eventName)) {
-      return;
+      return true;
     }
 
     if (isMultiBlock) {
@@ -335,26 +343,28 @@ export class PageHandler {
         throw new Error("Saniti check");
       }
       this._dispatchEvent(this.multiBlockHandlers, context, e, eventName);
-      return;
+      return true;
     }
 
     // Composition Enter down 的事件需要由 global Composition 阻塞
     if (this._dispatchEvent(this.beforeBlockHandlers, context, e, eventName)) {
-      return;
+      return true;
     }
 
     // Table 需要更早一步的接受 Arrow 事件
     if (block) {
       const blockHandlers = this.blockHandlers[block.type] || [];
       if (this._dispatchEvent(blockHandlers, context, e, eventName)) {
-        return;
+        return true;
       }
     }
 
-    // Composition Enter down 的事件需要由 global Composition 阻塞
+    // beforeinput/copy 应该由 Block 优先，default / multiblock 兜底
     if (this._dispatchEvent(this.globalHandlers, context, e, eventName)) {
-      return;
+      return true;
     }
+
+    return false;
   }
 
   handleCopy(e: ClipboardEvent): void | boolean {
@@ -370,6 +380,7 @@ export class PageHandler {
     if (!blocks.block) {
       return;
     }
+
     this.dispatchEvent<ClipboardEvent>(blocks, e, "handlePaste");
   }
 
@@ -387,12 +398,40 @@ export class PageHandler {
     // Focus 事件中应该去掉和 range、block 相关的信息，只保留 page
     const sel = document.getSelection();
     if (sel && sel.rangeCount > 0 && sel.anchorNode) {
-      if (isParent(sel.anchorNode, this.page.blockRoot)) {
-        const context = this.getContext(sel.getRangeAt(0).startContainer);
-
-        if (!context) {
+      const range = sel.getRangeAt(0);
+      const retrieve = this.retriveBlockFromRange(range);
+      if (!retrieve) {
+        // set default location
+        return;
+      }
+      const context = this.getContextFromRange(range);
+      const { block, focusNode: node } = retrieve;
+      if (!block.findEditable(node)) {
+        if (
+          this.dispatchPageEvent(
+            new BlockInvalideLocationEvent({
+              page: this.page,
+              block,
+              range: context.range!,
+              from: "mouseUp",
+            }),
+            context
+          )
+        ) {
           return;
         }
+      }
+
+      this.dispatchPageEvent(
+        new BlockSelectChangeEvent({
+          page: this.page,
+          block,
+          range: context.range!,
+          from: "mouseUp",
+        })
+      );
+
+      if (context) {
         this.dispatchEvent<FocusEvent>(context, e, "handleFocus");
       }
     }
@@ -420,12 +459,17 @@ export class PageHandler {
     this.dispatchEvent<KeyboardEvent>(context, e, "handleKeyUp");
   }
   handleMouseDown(e: MouseEvent): void | boolean {
-    const context = this.getContext(
-      document.elementFromPoint(e.clientX, e.clientY)
-    );
-    if (!context) {
+    const retrieve = this.retriveBlockFromMouse(e);
+
+    if (!retrieve) {
       return;
     }
+    const context: BlockEventContext = {
+      block: retrieve.block,
+      page: this.page,
+      range: tryGetDefaultRange(),
+    };
+
     this.dispatchEvent<MouseEvent>(context, e, "handleMouseDown");
   }
   handleMouseEnter(e: MouseEvent): void | boolean {
@@ -436,6 +480,13 @@ export class PageHandler {
       return;
     }
     this.dispatchEvent<MouseEvent>(context, e, "handleMouseEnter");
+  }
+  handleMouseLeave(e: MouseEvent): void | boolean {
+    const context = this.getContext(e.target);
+    if (!context) {
+      return;
+    }
+    this.dispatchEvent<MouseEvent>(context, e, "handleMouseLeave");
   }
   handleMouseMove(e: MouseEvent): void | boolean {
     const context =
@@ -472,23 +523,105 @@ export class PageHandler {
       }
     }
   }
-  handleMouseLeave(e: MouseEvent): void | boolean {
-    const context = this.getContext(e.target);
-    if (!context) {
-      return;
-    }
-    this.dispatchEvent<MouseEvent>(context, e, "handleMouseLeave");
-  }
-  handleMouseUp(e: MouseEvent): void | boolean {
-    const range = getDefaultRange();
-    const context = this.findBlock(range.startContainer)
-      ? this.getContextFromRange(range)
-      : this.getContext(document.elementFromPoint(e.clientX, e.clientY));
 
-    if (!context) {
+  retriveBlockFromMouse(
+    e: MouseEvent
+  ): { block: Block; focusNode: Node } | null {
+    const middleX =
+      this.page.blockRoot.clientLeft + this.page.blockRoot.clientWidth / 2;
+    const node = document.elementFromPoint(middleX, e.clientY);
+    if (node) {
+      const block = this.findBlock(node);
+      if (block) {
+        return { block, focusNode: node };
+      }
+    }
+    return null;
+  }
+
+  retriveBlockFromRange(
+    range: Range
+  ): { block: Block; focusNode: Node } | null {
+    let block, node;
+
+    if ((block = this.findBlock(range.commonAncestorContainer))) {
+      node = range.commonAncestorContainer;
+    } else if ((block = this.findBlock(range.startContainer))) {
+      node = range.startContainer;
+    } else if (
+      (block = this.findBlock(
+        range.startContainer.childNodes[range.startOffset]
+      ))
+    ) {
+      node = range.startContainer.childNodes[range.startOffset];
+    } else if (
+      (block = this.findBlock(
+        range.startContainer.childNodes[range.startOffset - 1]
+      ))
+    ) {
+      node = range.startContainer.childNodes[range.startOffset - 1];
+    } else {
+      return null;
+    }
+    return { block, focusNode: node };
+  }
+
+  handleMouseUp(e: MouseEvent): void | boolean {
+    // MouseDown will ensure the activated block
+    // MouseUp should check range and send selectionChange/invalideLocation event
+
+    const range = tryGetDefaultRange();
+
+    let context;
+    let retrive;
+    // 如果是多选，就判断 multiblock
+    if ((retrive = this.retriveBlockFromMouse(e))) {
+      context = {
+        block: retrive.block,
+        page: this.page,
+        range,
+      } as BlockEventContext;
+    } else {
       return;
     }
+
+    if (!retrive) {
+      throw new Error("Sanity check");
+    }
+
     this.dispatchEvent<MouseEvent>(context, e, "handleMouseUp");
+
+    const block = retrive.block;
+    // find Block from range or e
+    // find editable, if can't, dispatch invalidLocation
+    // send selectionChange
+    // debugger;
+    if (range && range.collapsed) {
+      if (!block.findEditable(range.commonAncestorContainer)) {
+        if (
+          this.dispatchPageEvent(
+            new BlockInvalideLocationEvent({
+              page: this.page,
+              block,
+              range: context.range!,
+              from: "mouseUp",
+            }),
+            context
+          )
+        ) {
+          return;
+        }
+      }
+    }
+
+    this.dispatchPageEvent(
+      new BlockSelectChangeEvent({
+        page: this.page,
+        block,
+        range: context.range!,
+        from: "mouseUp",
+      })
+    );
   }
   handleClick(e: MouseEvent): void | boolean {
     const range = tryGetDefaultRange();
@@ -525,9 +658,6 @@ export class PageHandler {
   }
   handleDrop(e: DragEvent): void | boolean {
     console.log(e);
-    // debugger;
-    // e.preventDefault();
-    // e.stopPropagation();
   }
   handleSelectStart(e: Event): void | boolean {
     console.log(e);
@@ -585,7 +715,8 @@ export class PageHandler {
     this.dispatchEvent<CompositionEvent>(blocks, e, "handleCompositionUpdate");
   }
 
-  dispatchPageEvent(e: PageEvent) {
+  dispatchPageEvent(e: PageEvent, context?: any): boolean | void {
+    context = context || e;
     // 要解决一些问题
     // 1. pageevent 发给谁
     // 论证：如果 code 内的更改要通过 code handler 来 update 的话，
@@ -593,11 +724,35 @@ export class PageHandler {
     // 所以更改不能发生在自身的 handler ，要将该事件重新通知出去
     //
     if (e instanceof BlockUpdateEvent) {
-      this.dispatchEvent<BlockUpdateEvent>(e, e, "handleBlockUpdated");
+      return this.dispatchEvent<BlockUpdateEvent>(
+        e,
+        context,
+        "handleBlockUpdated"
+      );
     } else if (e instanceof BlockActiveEvent) {
-      this.dispatchEvent<BlockActiveEvent>(e, e, "handleBlockActivated");
+      return this.dispatchEvent<BlockActiveEvent>(
+        e,
+        context,
+        "handleBlockActivated"
+      );
     } else if (e instanceof BlockDeActiveEvent) {
-      this.dispatchEvent<BlockDeActiveEvent>(e, e, "handleBlockDeActivated");
+      return this.dispatchEvent<BlockDeActiveEvent>(
+        e,
+        context,
+        "handleBlockDeActivated"
+      );
+    } else if (e instanceof BlockSelectChangeEvent) {
+      return this.dispatchEvent<BlockSelectChangeEvent>(
+        e,
+        context,
+        "handleBlockSelectChange"
+      );
+    } else if (e instanceof BlockInvalideLocationEvent) {
+      return this.dispatchEvent<BlockInvalideLocationEvent>(
+        e,
+        context,
+        "handleBlockInvalideLocation"
+      );
     }
   }
 }
@@ -622,7 +777,8 @@ export interface Component {
 
 export interface BlockComponent extends Component {
   name: string;
-  blockType: new () => AnyBlock;
+  blockType: new (data?: any) => AnyBlock;
+  serializer: BlockSerializer<AnyBlock>;
   // Block Manager 负责创建、序列化、反序列化 Block
 }
 export interface PluginComponent extends Component {
@@ -661,7 +817,7 @@ export class Page implements IPage {
   pluginManagers: { [key: string]: IPlugin } = {};
   rangeDirection: "prev" | "next" | undefined;
   selectionMode: "block" | "text" = "text";
-  supportedBlocks: { [key: string]: new (init?: any) => AnyBlock } = {};
+  supportedBlocks: { [key: string]: BlockComponent } = {};
   pageHandler: PageHandler;
   history: History;
 
@@ -688,7 +844,8 @@ export class Page implements IPage {
         // blocks
         blocks.forEach((item) => {
           this.pageHandler.registerHandlers(item.handlers || {});
-          this.supportedBlocks[item.name] = item.blockType;
+          this.supportedBlocks[item.name] = item;
+
           item.onPageCreated && pageCreatedListener.push(item.onPageCreated);
         });
       }
@@ -864,11 +1021,17 @@ export class Page implements IPage {
     return res[0];
   }
 
-  createBlock<T = AnyBlock, I extends BlockInit = BlockInit>(
+  createBlock<T = AnyBlock, I extends BlockData = BlockData>(
     name: string,
-    init?: I
+    data?: I
   ): T {
-    return new this.supportedBlocks[name](init) as T;
+    return new this.supportedBlocks[name].blockType(data) as T;
+  }
+
+  getBlockSerializer<T extends Block = AnyBlock>(
+    name: string
+  ): BlockSerializer<T> {
+    return this.supportedBlocks[name].serializer as BlockSerializer<T>;
   }
 
   getPlugin<T = IPlugin>(name: string): T {
@@ -1050,27 +1213,47 @@ export class Page implements IPage {
         throw new Error("Can not set location out of block");
       }
     }
-    scrollIntoViewIfNeeded(loc[0].parentElement!, { block: "nearest" });
+    this.dispatchPageEvent(
+      new BlockSelectChangeEvent({
+        block,
+        page: this,
+        range: createRange(...loc),
+        from: "Page",
+      })
+    );
+    scrollIntoViewIfNeeded(loc[0], { block: "nearest" });
     this.setActivate(block);
   }
+
   setRange(range: Range, block?: AnyBlock) {
     setRange(range);
-    scrollIntoViewIfNeeded(range.commonAncestorContainer.parentElement!, {
+    scrollIntoViewIfNeeded(range.startContainer, {
       block: "nearest",
     });
-    if (!block) {
-      block = this.findBlock(range.commonAncestorContainer)!;
-    }
+    scrollIntoViewIfNeeded(range.endContainer, {
+      block: "nearest",
+    });
+    const context = this.pageHandler.getContextFromRange(range);
+    this.dispatchPageEvent(
+      new BlockSelectChangeEvent({ ...context, from: "Page" })
+    );
+    block = block || context.block;
     if (block) {
       this.setActivate(block);
     }
   }
 
+  retrieveBlock(order: Order): Block {
+    return this.chain.find(order)![0];
+  }
   findBlock(target: EventTarget | Node | null | undefined): AnyBlock | null {
     if (!target) {
       return null;
     }
     let el = target as HTMLElement;
+    if (!isParent(el, this.blockRoot)) {
+      return null;
+    }
     while (el && (el.nodeType != 1 || !el.classList.contains("oh-is-block"))) {
       el = el.parentElement!;
     }
@@ -1079,9 +1262,5 @@ export class Page implements IPage {
       return block;
     }
     return null;
-  }
-
-  toMarkdown(range?: Range): string {
-    return "";
   }
 }

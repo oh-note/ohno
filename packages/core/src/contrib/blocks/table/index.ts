@@ -1,5 +1,5 @@
 import { BlockComponent, HandlerEntry } from "@ohno-editor/core/system/page";
-import { Table } from "./block";
+import { Table, TableSerializer } from "./block";
 import { TableHandler } from "./handler";
 import { SHORCUTS } from "./consts";
 
@@ -18,5 +18,6 @@ export function TableBlock(): BlockComponent {
         page.shortcut.registKey(entry, st);
       });
     },
+    serializer: new TableSerializer(),
   };
 }

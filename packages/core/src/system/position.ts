@@ -25,46 +25,13 @@ import {
   outerHTML,
   prevValidSibling,
 } from "@ohno-editor/core/helper/element";
-import { getValidAdjacent, setRange, validateLocation } from "./range";
+import {
+  RefLocation,
+  getValidAdjacent,
+  setRange,
+  validateLocation,
+} from "./range";
 import { Interval } from "./base";
-
-export interface Offset {
-  index?: number;
-  endIndex?: number;
-  start: number;
-  end?: number;
-}
-
-// export interface AbsLocation {
-//   bias: number;
-//   index: number;
-//   order?: string;
-// }
-// export interface AbsRange {
-
-// }
-
-export const FIRST_POSITION: Offset = {
-  index: 0,
-  start: 0,
-};
-
-export const LAST_POSITION: Offset = {
-  index: -1,
-  start: -1,
-};
-
-export const FULL_SELECTION: Offset = {
-  start: 0,
-  end: -1,
-};
-
-export const FULL_BLOCK: Offset = {
-  index: 0,
-  endIndex: -1,
-  start: 0,
-  end: -1,
-};
 
 /**
  * 基于 Root，计算 container 和 container 的 offset 相对 root 的 token 数量
@@ -160,18 +127,6 @@ export function locationToBias(
     }
   }
   return size;
-}
-
-export function makeBiasPos(root: Node, bias?: number): number | undefined {
-  if (bias) {
-    if (bias < 0) {
-      bias += getTokenSize(root) + 1;
-      if (bias < 0) {
-        bias = 0;
-      }
-    }
-  }
-  return bias;
 }
 
 export function biasToLocation(
@@ -336,19 +291,7 @@ export function intervalToRange(
   return range;
 }
 
-export function reverseOffset(root: HTMLElement, offset: Offset): Offset {
-  const res = Object.assign({}, offset);
-  const size = getTokenSize(root);
-  if (offset.start) {
-    res["start"] = offset.start - size - 1;
-  }
-  if (offset.end) {
-    res["end"] = offset.end - size - 1;
-  }
-  return res;
-}
-
-export function elementOffset(
+export function intervalOfElement(
   root: HTMLElement,
   ...node: ValidNode[]
 ): Interval {
@@ -458,7 +401,7 @@ export function offsetAfter(
   container: Node,
   offset: number,
   bias: number
-): [Node, number] {
+): RefLocation {
   // <p>|<b>|</b></p> [p,0], 1
   if (bias === 0) {
     return validateLocation(container, offset);

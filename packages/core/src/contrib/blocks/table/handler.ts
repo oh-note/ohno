@@ -4,34 +4,18 @@ import {
   dispatchKeyEvent,
   PagesHandleMethods,
 } from "@ohno-editor/core/system/handler";
-import {
-  createRange,
-  setLocation,
-  setRange,
-} from "@ohno-editor/core/system/range";
+import { createRange, setLocation } from "@ohno-editor/core/system/range";
 import { Table } from "./block";
 import { TableChange, TableChangePayload } from "./command";
 import { ST_ADD_DOWN, ST_ADD_RIGHT, ST_ADD_UP } from "./consts";
 import { ST_ADD_LEFT } from "./consts";
+import { BlockInvalideLocationEvent } from "@ohno-editor/core/system";
 
 export class TableHandler implements PagesHandleMethods {
   handleKeyPress(
     e: KeyboardEvent,
     context: RangedBlockEventContext
   ): boolean | void {}
-
-  handleMouseUp(e: MouseEvent, context: BlockEventContext): boolean | void {
-    const { range, block, page } = context;
-    if (range) {
-      if (
-        range?.collapsed &&
-        !block.findEditable(range!.commonAncestorContainer)
-      ) {
-        const container = block.getFirstEditable();
-        page.setLocation(block.getLocation(0, container)!, block);
-      }
-    }
-  }
 
   handleContextMenu(e: MouseEvent, context: BlockEventContext): boolean | void {
     return true;
@@ -110,7 +94,7 @@ export class TableHandler implements PagesHandleMethods {
     e: KeyboardEvent,
     context: RangedBlockEventContext
   ): boolean | void {
-    const { block, range } = context;
+    const { page, block, range } = context;
     const container = block.findEditable(range.commonAncestorContainer);
     if (container) {
       const next = e.shiftKey
@@ -119,7 +103,7 @@ export class TableHandler implements PagesHandleMethods {
       if (next) {
         const start = block.getLocation(0, next)!;
         const end = block.getLocation(-1, next)!;
-        setRange(createRange(...start, ...end));
+        page.setRange(createRange(...start, ...end));
       }
     }
 
@@ -139,7 +123,7 @@ export class TableHandler implements PagesHandleMethods {
     e: KeyboardEvent,
     context: RangedBlockEventContext
   ): boolean | void {
-    const { block, range } = context;
+    const { page, block, range } = context;
     const container = block.findEditable(range.commonAncestorContainer);
     if (container) {
       const next = e.shiftKey
@@ -147,7 +131,7 @@ export class TableHandler implements PagesHandleMethods {
         : block.getNextEditable(container);
       if (next) {
         const res = block.getLocation(0, next)!;
-        setRange(createRange(...res));
+        page.setRange(createRange(...res));
       }
     } else {
       // 多选，清楚选中内容

@@ -1,64 +1,77 @@
 import { createElement } from "@ohno-editor/core/helper/document";
-import { BlockSerializedData } from "@ohno-editor/core/system/base";
-import { Block, BlockInit } from "@ohno-editor/core/system/block";
+import {
+  BaseBlockSerializer,
+  BlockSerializedData,
+} from "@ohno-editor/core/system";
+import { Block, BlockData } from "@ohno-editor/core/system/block";
 import { clipRange } from "@ohno-editor/core/system/range";
 import hljs from "highlight.js";
 import "highlight.js/styles/github.css";
 import "./style.css";
-import { markPlain } from "@ohno-editor/core/helper";
-export interface CodeInit extends BlockInit {
+import { markPlain, outerHTML } from "@ohno-editor/core/helper";
+import {
+  PlainSelection,
+  SelectionMethods,
+} from "@ohno-editor/core/system/selection";
+export interface CodeData extends BlockData {
   language?: string;
   code?: string;
 }
 
-export class Code extends Block<CodeInit> {
+export class Code extends Block<CodeData> {
   mergeable: boolean = false;
   plain: HTMLElement;
   lno: HTMLElement;
   render: HTMLElement;
-  constructor(init?: CodeInit) {
-    const init_ = Object.assign({}, { code: " " }, init);
-    if (!init_.el) {
-      const plain = createElement("p", { textContent: init_.code || " " });
-      markPlain(plain);
-      const render = createElement("code");
+  selection: SelectionMethods = new PlainSelection();
+  constructor(data?: CodeData) {
+    data = Object.assign({}, { code: " " }, data);
 
-      const head = createElement("div", {
-        className: "code-head",
-      });
-      const lno = createElement("div", {
-        className: "line-number",
-      });
+    const plain = createElement("p", { textContent: data.code || " " });
+    markPlain(plain);
+    const render = createElement("code");
 
-      const container = createElement("div", {
-        className: "container",
-        children: [render, plain],
-      });
-      const body = createElement("div", {
-        className: "code-body",
-        children: [lno, container],
-      });
-      const root = createElement("div", {
-        className: "root",
-        children: [head, body],
-      });
+    const head = createElement("div", {
+      className: "code-head",
+    });
+    const lno = createElement("div", {
+      className: "line-number",
+    });
 
-      init_.el = createElement("pre", {
-        attributes: {},
-        children: [root],
-      });
-      super("code", init_);
-      this.plain = plain;
-      this.render = render;
-      this.lno = lno;
-      this.updateRender();
-    } else {
-      throw new Error("Sanity Check");
-    }
+    const container = createElement("div", {
+      className: "container",
+      children: [plain],
+    });
+    const body = createElement("div", {
+      className: "code-body",
+      children: [lno, container],
+    });
+    const inner = createElement("div", {
+      className: "root",
+      children: [head, body],
+    });
+
+    const root = createElement("pre", {
+      attributes: {},
+      children: [inner],
+    });
+    super("code", root, { meta: data, plain: true });
+    this.plain = plain;
+    this.render = render;
+    this.lno = lno;
+    this.updateRender();
   }
 
   public get inner(): HTMLElement {
     return this.plain;
+  }
+
+  public get language(): string {
+    return this.meta.language || "";
+  }
+
+  public get code(): string {
+    return this.plain.textContent || "";
   }
 
   updateRender() {
@@ -67,7 +80,7 @@ export class Code extends Block<CodeInit> {
     }
     const code = this.plain.textContent || " ";
     const html = hljs.highlightAuto(code).value;
-    this.render.innerHTML = html;
+    this.plain.innerHTML = html;
     const lineNumber = code.split("\n").length;
     const offset = this.lno.childNodes.length;
     if (offset > lineNumber) {
@@ -85,35 +98,45 @@ export class Code extends Block<CodeInit> {
     }
   }
 
-  public get language(): string {
-    return this.init.language || "";
-  }
+  // toMarkdown(range?: Range | undefined): string {
+  //   if (!range || range.collapsed) {
+  //     return this.head + (this.inner.textContent || "") + this.tail;
+  //   }
+  //   const innerRange = clipRange(this.inner, range);
+  //   if (innerRange) {
+  //     return this.head + innerRange.cloneContents().textContent + this.tail;
+  //   }
+  //   return "";
+  // }
 
-  public get head(): string {
-    return "```" + this.language + "\n";
-  }
+  // serialize(option?: any): BlockSerializedData<CodeData> {
+  //   const init = {
+  //     code: this.plain.textContent || " ",
+  //     language: this.meta.language,
+  //   };
 
-  public get tail(): string {
-    return "\n```";
-  }
+  //   return [{ type: this.type, init, unmergeable: false }];
+  // }
+}
 
-  toMarkdown(range?: Range | undefined): string {
-    if (!range || range.collapsed) {
-      return this.head + (this.inner.textContent || "") + this.tail;
-    }
-    const innerRange = clipRange(this.inner, range);
-    if (innerRange) {
-      return this.head + innerRange.cloneContents().textContent + this.tail;
-    }
-    return "";
+export class CodeSerializer extends BaseBlockSerializer<Code> {
+  toMarkdown(block: Code): string {
+    return "```" + block.language + "\n" + block.code + "\n```\n";
   }
-
-  serialize(option?: any): BlockSerializedData<CodeInit> {
-    const init = {
-      code: this.plain.textContent || " ",
-      language: this.init.language,
+  toHTML(block: Code): string {
+    return outerHTML(block.root);
+  }
+  toJson(block: Code): BlockSerializedData<CodeData> {
+    return {
+      type: block.type,
+      data: {
+        code: block.code,
+        language: block.language,
+      },
     };
+  }
 
-    return [{ type: this.type, init, unmergeable: false }];
+  deserialize(data: BlockSerializedData<CodeData>): Code {
+    return new Code(data.data);
   }
 }

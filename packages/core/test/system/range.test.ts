@@ -8,13 +8,13 @@ import { getTagName, outerHTML } from "@ohno-editor/core/helper/element";
 import { addMarkdownHint } from "@ohno-editor/core/helper/markdown";
 import {
   createRange,
-  getNextLocation,
-  getNextRange,
-  getPrevLocation,
   setRange,
   tryGetBoundsRichNode,
 } from "@ohno-editor/core/system/range";
-import { intervalToRange, setOffset } from "@ohno-editor/core/system/position";
+import { setOffset } from "@ohno-editor/core/system/position";
+import { defaultSelection } from "@ohno-editor/core/system/selection";
+
+const { getNextLocation, getPrevLocation } = defaultSelection;
 
 describe("range.ts", () => {
   test("getNextOffset/getPrefOffset", () => {
@@ -26,8 +26,7 @@ describe("range.ts", () => {
     let init = createRange(p, 0);
     setRange(init);
     let [container, offset] = getNextLocation(
-      init.startContainer,
-      init.startOffset,
+      [init.startContainer, init.startOffset],
       p
     )!;
     expect(getTagName(container)).toBe("i");
@@ -35,10 +34,10 @@ describe("range.ts", () => {
 
     const init2 = createRange(p, 1);
 
-    [container, offset] = getPrevLocation(
+    [container, offset] = getPrevLocation([
       init2.startContainer,
-      init2.startOffset
-    )!;
+      init2.startOffset,
+    ])!;
     expect(getTagName(container)).toBe("i");
     expect(offset).toBe(1);
   });

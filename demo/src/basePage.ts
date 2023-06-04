@@ -1,8 +1,9 @@
 import "@ohno-editor/core/style.css";
 import {
-  Dragable,
+  FlagInline,
   KeyLabelInline,
   KeyVisPlugin,
+  LinkPlugin,
   Page,
   TodoItemInline,
 } from "@ohno-editor/core";
@@ -45,12 +46,14 @@ export function createDefaultPage() {
         CompositionHandlerEntry(),
       ],
       plugins: [
+        LinkPlugin(),
         InlineSupportPlugin(),
         DragablePlugin(),
         SlashMenuPlugin(),
         KeyVisPlugin(),
       ],
       inlines: [
+        FlagInline({}),
         KeyLabelInline(),
         TodoItemInline({}),
         KatexMathInline(),

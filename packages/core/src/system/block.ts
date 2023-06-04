@@ -1,25 +1,7 @@
 // 实现 block 的基本接口和默认行为
 import { addMarkdownHint } from "@ohno-editor/core/helper/markdown";
-import {
-  biasToLocation,
-  locationToBias,
-  offsetAfter,
-  tokenBetweenRange,
-} from "./position";
-import {
-  RefLocation,
-  createRange,
-  getNextWordLocation,
-  getNextWordRange,
-  getPrevLocation,
-  getPrevWordRange,
-  getSoftLineHead,
-  getSoftLineTail,
-  locationInFirstLine,
-  locationInLastLine,
-  normalizeRange,
-  validateLocation,
-} from "./range";
+import { biasToLocation } from "./position";
+import { RefLocation, createRange, validateLocation } from "./range";
 import { Page } from "./page";
 import { BLOCK_CLASS } from "./config";
 import {
@@ -28,10 +10,7 @@ import {
   isParent,
   outerHTML,
 } from "@ohno-editor/core/helper/element";
-import { getNextLocation } from "./range";
-import { getPrevWordLocation } from "./range";
 import {
-  BlockSerializedData,
   EditableFlag,
   EditableInterval,
   IBlock,
@@ -39,46 +18,84 @@ import {
   Interval,
   Order,
 } from "./base";
+import { RichSelection, SelectionMethods } from "./selection";
 
-export interface BlockInit {
-  order?: Order;
-  el?: HTMLElement;
-  raw?: boolean;
-}
+export interface BlockData {}
+
+export type BlockOption<T> = {
+  meta: T;
+  plain?: boolean;
+};
 
 /**
  * Block 会默认对所有 children 添加 markdown hint
  */
-export class Block<T extends BlockInit> implements IBlock {
+export class Block<T extends BlockData = BlockData> implements IBlock {
   root: HTMLElement;
   type: string = "";
-  init: T;
+  meta: T;
+
   page?: Page;
   isMultiEditable: boolean = false;
   mergeable: boolean = true; // 表格、图片、公式复杂组件等视为独立的 unmergeable，multiblock 下只删除内容，不删除 editable
   order: Order = "";
   parent?: Page | undefined;
 
-  constructor(type: string, init: T) {
-    const { el, order } = init as BlockInit;
-    if (!el) {
+  selection: SelectionMethods = new RichSelection();
+
+  constructor(type: string, root: HTMLElement, option?: BlockOption<T>) {
+    const { plain, meta } = option || {};
+    if (!root) {
       throw new Error("root el should be created befire constructor");
     }
 
     this.type = type;
-    this.root = el;
-    el.classList.add(BLOCK_CLASS);
-    el.classList.add(this.type);
-    el.dataset["type"] = this.type;
+    this.root = root;
+    root.classList.add(BLOCK_CLASS);
+    root.classList.add(this.type);
+    root.dataset["type"] = this.type;
 
-    if (order) {
-      this.order = order;
+    if (!plain) {
+      addMarkdownHint(root);
     }
+    this.meta = meta || ({} as T);
+  }
+  static create(meta: any): any {
+    throw new Error("create function not implemented");
+  }
 
-    this.init = init;
-    if (!init?.raw) {
-      addMarkdownHint(el);
+  setParent(parent?: Page): void {
+    this.parent = parent;
+  }
+  equals(component?: IComponent | undefined): boolean {
+    return component !== undefined && component.root === this.root;
+  }
+  clone(): IBlock {
+    throw new Error("Method not implemented.");
+  }
+  detach(): void {
+    this.root.remove();
+  }
+
+  setDataset(key: string, value?: string) {
+    this.root.dataset[key] = value;
+  }
+
+  setOrder(order: string): void {
+    if (order === "") {
+      this.order = "";
+      return;
     }
+    if (this.order) {
+      // if ((left && left > this.order) || (right && right > this.order)) {
+      //   throw new Error(
+      //     "old order not match" + `${this.order}, ${order} ${left} ${right}`
+      //   );
+      // }
+      return;
+    }
+    this.order = order;
+    this.setDataset("order", order);
   }
 
   getFirstEditable(): HTMLElement {
@@ -98,44 +115,6 @@ export class Block<T extends BlockInit> implements IBlock {
 
   public get inner(): HTMLElement {
     return this.root;
-  }
-  setParent(parent?: Page): void {
-    this.parent = parent;
-  }
-
-  serialize(option?: any): BlockSerializedData<T> {
-    return [{ type: this.type, init: this.init }];
-  }
-
-  equals(component?: IComponent | undefined): boolean {
-    return component !== undefined && component.root === this.root;
-  }
-  clone(): IBlock {
-    throw new Error("Method not implemented.");
-  }
-  detach(): void {
-    this.root.remove();
-  }
-
-  setOrder(order: string): void {
-    if (order === "") {
-      this.order = "";
-      return;
-    }
-    if (this.order) {
-      // if ((left && left > this.order) || (right && right > this.order)) {
-      //   throw new Error(
-      //     "old order not match" + `${this.order}, ${order} ${left} ${right}`
-      //   );
-      // }
-      return;
-    }
-    this.order = order;
-    this.root.dataset["order"] = order;
-  }
-
-  getCurrentEditable(): HTMLElement {
-    return this.inner;
   }
 
   getEditables(
@@ -214,8 +193,8 @@ export class Block<T extends BlockInit> implements IBlock {
     if (!editable) {
       throw new Error("editable not found.");
     }
-    const start = biasToLocation(editable, interval.start);
-    const end = biasToLocation(editable, interval.end);
+    const start = this.selection.biasToLocation(editable, interval.start);
+    const end = this.selection.biasToLocation(editable, interval.end);
     if (!start || !end) {
       return null;
     }
@@ -231,7 +210,11 @@ export class Block<T extends BlockInit> implements IBlock {
     if (!editable) {
       throw new Error("editable not found.");
     }
-    let result = biasToLocation(editable, bias, token_filter);
+
+    const old_filter = this.selection.token_filter;
+    this.selection.token_filter = token_filter || old_filter;
+    let result = this.selection.biasToLocation(editable, bias);
+    this.selection.token_filter = old_filter;
     if (!result) {
       return null;
     }
@@ -247,7 +230,11 @@ export class Block<T extends BlockInit> implements IBlock {
     if (!editable) {
       throw new Error("editable not found");
     }
-    return locationToBias(editable, ...loc, token_filter);
+    const old_filter = this.selection.token_filter;
+    this.selection.token_filter = token_filter || old_filter;
+    const bias = this.selection.locationToBias(editable, loc);
+    this.selection.token_filter = old_filter;
+    return bias;
   }
 
   getGlobalBiasPair(loc: RefLocation): [number, number] {
@@ -262,24 +249,23 @@ export class Block<T extends BlockInit> implements IBlock {
       throw new Error("editable not found");
     }
 
-    const [node, offset] = getSoftLineHead(...loc, editable)!;
-    const toHeadRange = createRange(node, offset, ...loc);
-    return tokenBetweenRange(toHeadRange);
+    const [node, offset] = this.getSoftLineHead(loc)!;
+    const toHeadRange = this.selection.createRange(node, offset, ...loc);
+    return this.selection.tokenBetweenRange(toHeadRange);
   }
   getSoftLineHead(loc: RefLocation): RefLocation {
     const editable = this.findEditable(loc[0])!;
     if (!editable) {
       throw new Error("editable not found");
     }
-
-    return getSoftLineHead(...loc, editable);
+    return this.selection.getSoftLineHeadLocation(loc, editable);
   }
   getSoftLineTail(loc: RefLocation): RefLocation {
     const editable = this.findEditable(loc[0])!;
     if (!editable) {
       throw new Error("editable not found");
     }
-    return getSoftLineTail(...loc, editable);
+    return this.selection.getSoftLineTailLocation(loc, editable);
   }
   getSoftLineLocation(loc: RefLocation, bias: number): RefLocation | null {
     const editable = this.findEditable(loc[0])!;
@@ -287,9 +273,13 @@ export class Block<T extends BlockInit> implements IBlock {
       throw new Error("editable not found");
     }
 
-    const [node, offset] = getSoftLineHead(...loc, editable)!;
+    const [node, offset] = this.getSoftLineHead(loc)!;
 
-    const [tgt, tgtOffset] = offsetAfter(node as ValidNode, offset, bias);
+    const [tgt, tgtOffset] = this.selection.offsetAfter(
+      node as ValidNode,
+      offset,
+      bias
+    );
     if (!isParent(tgt, editable)) {
       return null;
     }
@@ -303,7 +293,7 @@ export class Block<T extends BlockInit> implements IBlock {
       throw new Error("editable not found.");
     }
 
-    if (getPrevLocation(...loc, editable)) {
+    if (this.getPrevLocation(loc)) {
       return false;
     }
     return true;
@@ -314,7 +304,7 @@ export class Block<T extends BlockInit> implements IBlock {
     if (!editable) {
       throw new Error("editable not found.");
     }
-    if (getNextLocation(...loc, editable)) {
+    if (this.getNextLocation(loc)) {
       return false;
     }
     return true;
@@ -326,7 +316,7 @@ export class Block<T extends BlockInit> implements IBlock {
       throw new Error("editable not found.");
     }
 
-    return locationInFirstLine(editable, ...loc);
+    return this.selection.locationInFirstLine(loc, editable);
   }
   isLocationInLastLine(loc: RefLocation): boolean {
     const [cur, curOffset] = loc;
@@ -334,22 +324,7 @@ export class Block<T extends BlockInit> implements IBlock {
     if (!editable) {
       throw new Error("editable not found.");
     }
-    return locationInLastLine(editable, ...loc);
-  }
-
-  getPrevWordPosition(range: Range, editable?: HTMLElement): Range | null {
-    if (!editable) {
-      editable = this.getCurrentEditable();
-    }
-
-    return getPrevWordRange(range, editable);
-  }
-
-  getNextWordPosition(range: Range, editable?: HTMLElement): Range | null {
-    if (!editable) {
-      editable = this.getCurrentEditable();
-    }
-    return getNextWordRange(range, editable);
+    return this.selection.locationInLastLine(loc, editable);
   }
 
   getPrevLocation(ref: RefLocation): RefLocation | null {
@@ -358,7 +333,7 @@ export class Block<T extends BlockInit> implements IBlock {
     if (!editable) {
       throw new EditableNotFound(cur, this.order);
     }
-    return getPrevLocation(cur, curOffset, editable);
+    return this.selection.getPrevLocation(ref, editable);
   }
   getNextLocation(ref: RefLocation) {
     const [cur, curOffset] = ref;
@@ -366,7 +341,7 @@ export class Block<T extends BlockInit> implements IBlock {
     if (!editable) {
       throw new EditableNotFound(cur, this.order);
     }
-    return getNextLocation(cur, curOffset, editable);
+    return this.selection.getNextLocation([cur, curOffset], editable);
   }
 
   getPrevWordLocation(ref: RefLocation): RefLocation | null {
@@ -375,7 +350,7 @@ export class Block<T extends BlockInit> implements IBlock {
     if (!editable) {
       throw new EditableNotFound(cur, this.order);
     }
-    return getPrevWordLocation(cur, curOffset, editable);
+    return this.selection.getPrevWordLocation([cur, curOffset], editable);
   }
   getNextWordLocation(ref: RefLocation): RefLocation | null {
     const [cur, curOffset] = ref;
@@ -383,7 +358,7 @@ export class Block<T extends BlockInit> implements IBlock {
     if (!editable) {
       throw new EditableNotFound(cur, this.order);
     }
-    return getNextWordLocation(cur, curOffset, editable);
+    return this.selection.getNextWordLocation([cur, curOffset], editable);
   }
   toMarkdown(range?: Range | undefined): string {
     if (!range || range.collapsed) {
@@ -398,3 +373,47 @@ export class Block<T extends BlockInit> implements IBlock {
 }
 
 export type AnyBlock = Block<any>;
+
+export interface BlockSerializer<T extends Block> {
+  toMarkdown(block: T): string;
+  toHTML(block: T): string;
+  toJson(block: T): BlockSerializedData<T["meta"]>;
+  serialize(block: T, type: "markdown"): string;
+  serialize(block: T, type: "html"): string;
+  serialize(block: T, type: "json"): BlockSerializedData<T["meta"]>;
+
+  deserialize(data: BlockSerializedData<T["meta"]>): T;
+}
+
+export type BlockSerializedData<T extends BlockData = BlockData> = {
+  type: string;
+  data: T;
+  dataset?: { [key: string]: any; order?: never; type?: never };
+};
+
+export abstract class BaseBlockSerializer<T extends Block>
+  implements BlockSerializer<T>
+{
+  abstract toMarkdown(block: T): string;
+  abstract toHTML(block: T): string;
+  abstract toJson(block: T): BlockSerializedData<T["meta"]>;
+
+  outerHTML(...node: Node[]): string {
+    return outerHTML(...node);
+  }
+
+  serialize(block: T, type: "markdown"): string;
+  serialize(block: T, type: "html"): string;
+  serialize(block: T, type: "json"): BlockSerializedData<T["meta"]>;
+  serialize(block: T, type: "markdown" | "html" | "json"): any {
+    if (type === "markdown") {
+      return this.toMarkdown(block);
+    } else if (type === "html") {
+      return this.toHTML(block);
+    } else if (type === "json") {
+      return this.toJson(block);
+    }
+    throw new Error("not implemented");
+  }
+  abstract deserialize(data: BlockSerializedData<T["meta"]>): T;
+}

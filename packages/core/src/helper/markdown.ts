@@ -27,12 +27,14 @@ const tagToHint: { [key: string]: string } = {
   del: "~~",
   code: "`",
   em: " ",
-  // label: " ",
+  label: " ",
+  a: "[",
   q: "[[",
 };
 
 const tagToHintRight: { [key: string]: string } = {
   q: "]]",
+  a: "]",
 };
 
 export function removeMarkdownHint(...roots: Node[]) {

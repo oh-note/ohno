@@ -3,7 +3,6 @@ import {
   RangedBlockEventContext,
   InlineHandler,
   InlineEventContext,
-  BlockEventContext,
   dispatchKeyEvent,
 } from "@ohno-editor/core/system/handler";
 import { KeyLabel } from "./inline";
@@ -12,20 +11,8 @@ import { ListCommandBuilder } from "@ohno-editor/core/contrib/commands/concat";
 import { InlineSupport } from "@ohno-editor/core/contrib/plugins/inlineSupport/plugin";
 import { TextDelete } from "@ohno-editor/core/contrib/commands";
 import {
-  getNextLocation,
-  getPrevLocation,
   getValidAdjacent,
-  normalizeRange,
-  setLocation,
-  setRange,
 } from "@ohno-editor/core/system/range";
-import { biasToLocation } from "@ohno-editor/core/system/position";
-import { defaultHandleBeforeInput } from "@ohno-editor/core/core/default/functions/beforeInput";
-import {
-  isHintLeft,
-  parentElementWithTag,
-} from "@ohno-editor/core/helper/element";
-import { IInline } from "@ohno-editor/core/system";
 
 export class KeyLabelHandler implements InlineHandler<KeyLabel> {
   handleKeyboardActivated(

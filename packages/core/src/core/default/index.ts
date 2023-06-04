@@ -3,9 +3,9 @@ import { DefaultBlockHandler } from "./handler";
 import { SHORCUTS } from "./consts";
 
 export * from "./handler";
-export * from "./functions/beforeInput";
-export * from "./functions/arrowDown";
-export * from "./functions/paste";
+export * from "./functional/beforeInput";
+export * from "./functional/arrowDown";
+export * from "./functional/paste";
 
 export function DefaultBlockHandlerEntry(): HandlerEntry {
   return {

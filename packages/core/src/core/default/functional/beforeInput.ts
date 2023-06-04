@@ -7,16 +7,18 @@ import { FormatText } from "@ohno-editor/core/contrib/commands/format";
 import { HTMLElementTagName } from "@ohno-editor/core/helper/document";
 import {
   createRange,
-  setLocation,
-  setRange,
   tryGetBoundsRichNode,
   validateRange,
 } from "@ohno-editor/core/system/range";
-import { ElementFilter, getTagName } from "@ohno-editor/core/helper/element";
+import {
+  ElementFilter,
+  getTagName,
+  outerHTML,
+} from "@ohno-editor/core/helper/element";
 import { IBlockRemove } from "@ohno-editor/core/contrib/commands/inlineblock";
 
 import {
-  elementOffset,
+  intervalOfElement,
   tokenBetweenRange,
 } from "@ohno-editor/core/system/position";
 import { ListCommandBuilder } from "@ohno-editor/core/contrib/commands/concat";
@@ -25,28 +27,54 @@ import {
   TextDelete,
   TextInsert,
 } from "@ohno-editor/core/contrib/commands/text";
-import { OhNoClipboardData } from "@ohno-editor/core/system";
+import {
+  InlineSerializedData,
+  OhNoClipboardData,
+} from "@ohno-editor/core/system";
 import { BlockRemove, BlocksCreate } from "@ohno-editor/core/contrib";
+import { handleInsertFromDrop } from "./drop";
 
 export function insertPlainText(
   context: RangedBlockEventContext,
   text: string
 ) {
   const { page, block, range } = context;
-  const command = new TextInsert({
-    page,
-    block,
-    start: block.getBias([range.startContainer, range.startOffset]),
-    index: 0,
-    innerHTML: text,
-    plain: true,
-  })
-    .onExecute(({ block, start }) => {
-      page.setLocation(block.getLocation(start + 1, 0)!, block);
-    })
-    .onUndo(({ block, start }) => {
-      page.setLocation(block.getLocation(start, 0)!, block);
+  const builder = new ListCommandBuilder({ page, block, range });
+
+  const start = block.getBias([range.startContainer, range.startOffset]);
+  if (!range.collapsed) {
+    const token_number = block.selection.tokenBetweenRange(range);
+    builder.withLazyCommand(() => {
+      return new TextDelete({
+        page,
+        block,
+        start,
+        index: 0,
+        token_number,
+      }).onUndo(({ block, start, token_number }) => {
+        page.setRange(block.getRange({ start, end: start + token_number }, 0)!);
+      });
     });
+    // const command =
+  }
+  builder.withLazyCommand(() => {
+    return new TextInsert({
+      page,
+      block,
+      start: start,
+      index: 0,
+      innerHTML: text,
+      plain: true,
+    })
+      .onExecute(({ block, start }) => {
+        page.setLocation(block.getLocation(start + text.length, 0)!, block);
+      })
+      .onUndo(({ block, start }) => {
+        page.setLocation(block.getLocation(start, 0)!, block);
+      });
+  });
+
+  const command = builder.build();
   page.executeCommand(command);
   return true;
 }
@@ -63,7 +91,7 @@ export function defaultHandleBeforeInputOfPlainText(
   let command;
   const editable = block.findEditable(range.startContainer)!;
   const index = block.getEditableIndex(editable);
-  let start = block.getBias([range.startContainer, range.startOffset]);
+  const start = block.getBias([range.startContainer, range.startOffset]);
   if (e.inputType === "insertText") {
     return insertPlainText(context, e.data!);
   } else if (e.inputType === "insertFromPaste") {
@@ -80,43 +108,7 @@ export function defaultHandleBeforeInputOfPlainText(
       }
     }
   } else if (e.inputType === "insertFromDrop") {
-    if (e.dataTransfer) {
-      let content: string;
-      if ((content = e.dataTransfer.getData("text/ohno"))) {
-        const { data, head, tail, inline, context } = JSON.parse(
-          content
-        ) as OhNoClipboardData;
-
-        const newBlocks = data.map((item) => {
-          return page.createBlock(item.type as string, item.init);
-        });
-
-        command = new BlocksCreate({
-          page,
-          block,
-          newBlocks,
-          where: "after",
-        });
-
-        if (context && context.dragFrom) {
-          command = new ListCommandBuilder({
-            page,
-            block,
-            newBlocks,
-            drag: context.dragFrom,
-          })
-            .withCommand(command)
-            .withLazyCommand(({ drag, page, block }) => {
-              return new BlockRemove({ page, block: drag });
-            })
-            .build();
-        }
-      } else {
-        // eslint-disable-next-line no-debugger
-        debugger;
-        return true;
-      }
-    }
+    command = handleInsertFromDrop(handler, e, context);
   } else if (e.inputType === "insertCompositionText") {
     return true;
   } else if (
@@ -126,7 +118,7 @@ export function defaultHandleBeforeInputOfPlainText(
   ) {
     // 所有的 multi block 应该被 multiblock handler 接受
     // 所有的 multi container 应该被 block handler 接受
-    const token_number = tokenBetweenRange(range);
+    const token_number = block.selection.tokenBetweenRange(range);
 
     command = new TextDelete({
       page,
@@ -139,7 +131,7 @@ export function defaultHandleBeforeInputOfPlainText(
         page.setLocation(block.getLocation(start, 0)!, block);
       })
       .onUndo(({ block, start, token_number }) => {
-        setRange(block.getRange({ start, end: start + token_number }, 0)!);
+        page.setRange(block.getRange({ start, end: start + token_number }, 0)!);
       });
   } else if (
     e.inputType === "deleteContentBackward" ||
@@ -198,9 +190,11 @@ export function defaultHandleBeforeInputOfPlainText(
     command = new TextDelete({
       page,
       block,
-      start,
-      token_number,
+      start: start,
+      token_number: token_number,
       index,
+    }).onExecute(({ token_filter }) => {
+      page.setLocation(block.getLocation(start, index, token_filter)!, block);
     });
   }
   if (command) {
@@ -222,6 +216,7 @@ export function defaultHandleBeforeInput(
   let command;
   const editable = block.findEditable(range.startContainer)!;
   const index = block.getEditableIndex(editable);
+
   let start = block.getBias(
     [range.startContainer, range.startOffset],
     token_filter
@@ -269,43 +264,7 @@ export function defaultHandleBeforeInput(
   } else if (e.inputType === "insertCompositionText") {
     return false;
   } else if (e.inputType === "insertFromDrop") {
-    if (e.dataTransfer) {
-      let content: string;
-      if ((content = e.dataTransfer.getData("text/ohno"))) {
-        const { data, head, tail, inline, context } = JSON.parse(
-          content
-        ) as OhNoClipboardData;
-
-        const newBlocks = data.map((item) => {
-          return page.createBlock(item.type as string, item.init);
-        });
-
-        command = new BlocksCreate({
-          page,
-          block,
-          newBlocks,
-          where: "after",
-        });
-
-        if (context && context.dragFrom) {
-          command = new ListCommandBuilder({
-            page,
-            block,
-            newBlocks,
-            drag: context.dragFrom,
-          })
-            .withCommand(command)
-            .withLazyCommand(({ drag, page, block }) => {
-              return new BlockRemove({ page, block: drag });
-            })
-            .build();
-        }
-      } else {
-        // eslint-disable-next-line no-debugger
-        debugger;
-        return true;
-      }
-    }
+    command = handleInsertFromDrop(handler, e, context);
   } else if (e.inputType === "insertFromPaste") {
     // 由 handlePaste 处理
     return false;
@@ -339,7 +298,8 @@ export function defaultHandleBeforeInput(
     }
   } else if (
     e.inputType === "deleteContentBackward" ||
-    e.inputType === "deleteWordBackward"
+    e.inputType === "deleteWordBackward" ||
+    e.inputType === "deleteSoftLineBackward"
   ) {
     let hint;
     if (block.isLocationInLeft([range.startContainer, range.startOffset])) {
@@ -373,7 +333,7 @@ export function defaultHandleBeforeInput(
           page,
           format,
           interval: {
-            ...elementOffset(editable, hint),
+            ...intervalOfElement(editable, hint),
             index,
           },
         }).onUndo(({ block, interval }) => {
@@ -384,6 +344,17 @@ export function defaultHandleBeforeInput(
       let token_number = -1;
       if (e.inputType === "deleteWordBackward") {
         const prev = block.getPrevWordLocation([
+          range.startContainer,
+          range.startOffset,
+        ])!;
+        const prevRange = createRange(
+          ...prev,
+          range.startContainer,
+          range.startOffset
+        );
+        token_number = -tokenBetweenRange(prevRange);
+      } else if (e.inputType === "deleteSoftLineBackward") {
+        const prev = block.getSoftLineHead([
           range.startContainer,
           range.startOffset,
         ])!;
@@ -406,7 +377,8 @@ export function defaultHandleBeforeInput(
     }
   } else if (
     e.inputType === "deleteContentForward" ||
-    e.inputType === "deleteWordForward"
+    e.inputType === "deleteWordForward" ||
+    e.inputType === "deleteSoftLineForward"
   ) {
     // 判断是否是格式字符边界，两种情况：
     // ?|<b>asd</b>
@@ -438,7 +410,7 @@ export function defaultHandleBeforeInput(
           block,
           page,
           format,
-          interval: { ...elementOffset(editable, hint), index },
+          interval: { ...intervalOfElement(editable, hint), index },
         }).onUndo(({ block, interval }) => {
           page.setLocation(
             block.getLocation(interval.start, interval.index)!,
@@ -459,7 +431,19 @@ export function defaultHandleBeforeInput(
           ...next
         );
         token_number = tokenBetweenRange(nextRange);
+      } else if (e.inputType === "deleteSoftLineForward") {
+        const next = block.getSoftLineTail([
+          range.startContainer,
+          range.startOffset,
+        ])!;
+        const nextRange = createRange(
+          range.startContainer,
+          range.startOffset,
+          ...next
+        );
+        token_number = tokenBetweenRange(nextRange);
       }
+
       command = new TextDelete({
         page,
         block,
@@ -467,22 +451,13 @@ export function defaultHandleBeforeInput(
         token_number,
         index,
         token_filter,
+      }).onExecute(({ token_filter }) => {
+        page.setLocation(block.getLocation(start, index, token_filter)!, block);
       });
     }
-  } else if (e.inputType === "formatBold" || e.inputType === "formatItalic") {
-    const end = block.getBias([range.endContainer, range.endOffset]);
-    command = new FormatText({
-      page: page,
-      block: block,
-      format: e.inputType === "formatBold" ? "b" : "i",
-      interval: {
-        start,
-        end,
-        index,
-      },
-    });
+  } else if (e.inputType.startsWith("format")) {
+  } else {
   }
-
   if (command) {
     page.executeCommand(command);
     return true;

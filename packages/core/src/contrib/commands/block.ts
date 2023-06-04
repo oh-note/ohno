@@ -61,11 +61,19 @@ export class BlockReplace extends Command<BlockReplacePayload> {
 export class BlocksRemove extends Command<BlocksRemovePayload> {
   declare buffer: {
     // 待删除的最后一个 Block 的下一个 Block，可以为空
+    orders: Order[];
+    blocks: AnyBlock[];
     endBlock: AnyBlock | null;
   };
   execute(): void {
     const { page, blocks } = this.payload;
     this.buffer = {
+      blocks: blocks.slice().reverse(),
+      orders: blocks
+        .map((item) => {
+          return item.order;
+        })
+        .reverse(),
       endBlock: page.getNextBlock(blocks[blocks.length - 1]),
     };
     blocks.forEach((item) => {
@@ -73,19 +81,18 @@ export class BlocksRemove extends Command<BlocksRemovePayload> {
     });
   }
   undo(): void {
-    const { page, blocks } = this.payload;
+    const { page } = this.payload;
+    const { blocks, orders } = this.buffer;
     let cur = this.buffer.endBlock;
-    blocks
-      .slice()
-      .reverse()
-      .forEach((block) => {
-        if (cur) {
-          page.insertBlockAdjacent(block, "before", cur);
-        } else {
-          page.appendBlock(block);
-        }
-        cur = block;
-      });
+    blocks.forEach((block, index) => {
+      block.setOrder(this.buffer.orders[index]);
+      if (cur) {
+        page.insertBlockAdjacent(block, "before", cur);
+      } else {
+        page.appendBlock(block);
+      }
+      cur = block;
+    });
   }
 }
 
@@ -190,13 +197,15 @@ export class BlockMove extends Command<BlockMovePayload> {
     const { page, order, ref, where } = this.payload;
     const block = page.query(order)!;
     const next = page.getNextBlock(order);
-    page.removeBlock(block);
-    page.insertBlockAdjacent(block, where, ref);
     this.buffer = {
       nextRef: next?.order,
       order,
       newOrder: block.order,
     };
+
+    page.removeBlock(block);
+    block.setOrder(order);
+    page.insertBlockAdjacent(block, where, ref);
   }
   undo(): void {
     const { page } = this.payload;

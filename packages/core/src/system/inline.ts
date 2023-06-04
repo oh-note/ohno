@@ -1,7 +1,4 @@
-import {
-  ElementTagName,
-  createElement,
-} from "@ohno-editor/core/helper/document";
+import { ChildrenData, createElement } from "@ohno-editor/core/helper/document";
 import { BlockEventContext } from "./handler";
 import {
   ClientRectObject,
@@ -9,18 +6,8 @@ import {
   VirtualElement,
   computePosition,
 } from "@floating-ui/dom";
-import {
-  BlockSerializedData,
-  IComponent,
-  IContainer,
-  IInline,
-  IInlineManager,
-  InlineSerializedData,
-} from "./base";
-import { removeMarkdownHint } from "@ohno-editor/core/helper/markdown";
-import { getTagName } from "@ohno-editor/core/helper/element";
+import { IComponent, IContainer, IInline } from "./base";
 import { InlineSubmit, InlineSupport } from "../contrib";
-import { isActivate, isHover } from "../helper";
 import { makeRangeInNode, setRange } from "./range";
 
 export interface InlineInit {
@@ -185,9 +172,6 @@ export class InlineBase<T extends InlineInit = InlineInit> implements IInline {
     this.name = init.name;
   }
 
-  serialize(label: HTMLLabelElement): InlineSerializedData<InnerHTMLInit> {
-    return [];
-  }
   /**
    * Creates the HTMLLabelElement for the inline element.
    * @param payload - The payload data for creating the inline element.
@@ -231,8 +215,15 @@ export class RangeElement implements VirtualElement {
   contextElement?: Element | undefined;
 }
 
-export interface InnerHTMLInit {
-  children?: InnerHTMLInit[];
+export interface InlineNodeInit {
+  children?: ChildrenData;
+  dataset?: { [key: string]: any };
+  className?: string;
   tagName: string;
-  innerHTMLs?: string[];
+}
+
+export interface InlineSerializedData {
+  type: "inline";
+  data: InlineNodeInit[];
+  plain?: boolean;
 }
