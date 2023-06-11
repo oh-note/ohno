@@ -10,8 +10,8 @@ import {
   ValidNode,
   createElement,
   createTextNode,
-  findCharAfterPosition,
-  findCharBeforePosition,
+  findCharAfter,
+  findCharBefore,
   firstValidChild,
   indexOfNode,
   isEntityNode,
@@ -70,7 +70,7 @@ export interface RangeMethods {
     want: "left" | "right"
   ): boolean;
   makeRangeInNode(node: Node, range?: Range): Range;
-
+  isNodeInRange(node: Node, range: Range): boolean;
   createRange(
     startContainer?: Node,
     startOffset?: number,
@@ -448,7 +448,7 @@ export class RichSelection implements SelectionMethods {
     // let cur = container;
     let [cur, curOffset] = loc;
     while (isTextNode(cur) && curOffset > 0) {
-      const res = findCharBeforePosition(cur.textContent!, " ", curOffset);
+      const res = findCharBefore(cur.textContent!, " ", curOffset);
       if (res >= 0) {
         return this._checkLocation([cur, res], root);
       }
@@ -468,7 +468,7 @@ export class RichSelection implements SelectionMethods {
   getNextWordLocation(loc: RefLocation, root: HTMLElement): RefLocation | null {
     let [cur, curOffset] = loc;
     while (isTextNode(cur)) {
-      const res = findCharAfterPosition(cur.textContent!, " ", curOffset);
+      const res = findCharAfter(cur.textContent!, " ", curOffset);
       if (res >= 0) {
         return this._checkLocation([cur, res + curOffset + 1], root);
       }
@@ -654,6 +654,16 @@ export class RichSelection implements SelectionMethods {
       return 1;
     }
   }
+
+  isNodeInRange(node: Node, range: Range): boolean {
+    const tgtRange = this.createRange();
+    tgtRange.selectNodeContents(node);
+    return (
+      range.compareBoundaryPoints(Range.START_TO_START, tgtRange) <= 0 &&
+      range.compareBoundaryPoints(Range.END_TO_END, tgtRange) >= 0
+    );
+  }
+
   compareLocationV2(
     loca: RefLocation,
     locb: RefLocation,
@@ -1340,6 +1350,31 @@ export class PlainSelection extends RichSelection {
       return null;
     }
     return result;
+  }
+  getNextWordLocation(loc: RefLocation, root: HTMLElement): RefLocation | null {
+    let [cur, curOffset] = loc;
+    while (isTextNode(cur)) {
+      const res = findCharAfter(cur.textContent!, " ", curOffset);
+      if (res >= 0) {
+        return this._checkLocation([cur, res + curOffset + 1], root);
+      }
+
+      const next = nextValidSibling(cur, isEntityNode) as Node;
+      if (isTextNode(next)) {
+        curOffset = 0;
+        cur = next;
+      } else if (curOffset != cur.textContent?.length) {
+        /**
+         * 因为 while 循环的条件没有 offset，
+         * 所以需要额外判断当前的 offset 是否已经到了当前 textContent 的最右侧
+         * 如果没有，则置最右，否则按 nextRange 的逻辑走
+         */
+        return this._checkLocation([cur, cur.textContent!.length], root);
+      } else {
+        break;
+      }
+    }
+    return this._checkLocation(this._getNextLocation(cur, curOffset), root)!;
   }
 }
 

@@ -108,6 +108,16 @@ export class ABCList<T extends ListData = ListData> extends Block<T> {
     return parseInt(el.dataset["level"] || "0");
   }
 
+  setIndentLevel(el: HTMLLIElement, level: number): HTMLLIElement {
+    el.dataset["level"] = level + "";
+    const types = this.listStyleTypes;
+    Object.assign(el.style, {
+      marginLeft: `${level * 20}px`,
+      listStyleType: types[level % types.length],
+    });
+    return el;
+  }
+
   public get listStyleTypes(): string[] {
     return ["disc", "circle", "square"];
   }

@@ -89,6 +89,7 @@ export function dechildren(children: ChildrenData): (Node | string)[] {
     return [children];
   }
 }
+
 export function createElement<K extends HTMLElementTagName>(
   tagName: K,
   props?: {

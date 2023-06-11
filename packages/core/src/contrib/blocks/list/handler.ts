@@ -571,6 +571,9 @@ export class ListHandler implements PagesHandleMethods {
           const newLi = createElement("li", { children });
           // newLi.innerHTML = innerHTML;
           addMarkdownHint(newLi);
+          const typedBlock = block as List;
+          const oldLevel = typedBlock.getIndentLevel(editable);
+          typedBlock.setIndentLevel(newLi, oldLevel);
 
           return new ContainerInsert({
             block: block,

@@ -14,6 +14,7 @@ import { createRange, compareLocation } from "@ohno-editor/core/system/range";
 import {
   defaultHandleBeforeInput,
   defaultHandleBeforeInputOfPlainText,
+  prepareBeforeInputCommand,
 } from "./functional/beforeInput";
 import { parentElementWithFilter } from "@ohno-editor/core/helper/element";
 
@@ -34,8 +35,14 @@ import {
   ST_SELECT_SOFTLINE_FORWARD,
   ST_UNDO,
 } from "./consts";
-import { FormatText } from "@ohno-editor/core/contrib";
+import {
+  BlockRemove,
+  FormatText,
+  withNearestLocation,
+} from "@ohno-editor/core/contrib";
 import { BlockInvalideLocationEvent } from "../..";
+import { copyInBlock } from "./functional/copy";
+import { ContextMenu } from "@ohno-editor/core/contrib/plugins/contextmenu/plugin";
 
 export class DefaultBlockHandler implements PagesHandleMethods {
   handleBlockInvalideLocation(
@@ -70,10 +77,7 @@ export class DefaultBlockHandler implements PagesHandleMethods {
   ): boolean | void {
     page.setActivate(block);
   }
-  handleMouseUp(e: MouseEvent, context: BlockEventContext): boolean | void {
-    const { page, block } = context;
-    page.setActivate(block);
-  }
+  handleMouseUp(e: MouseEvent, context: BlockEventContext): boolean | void {}
 
   handleHomeDown(e: KeyboardEvent, context: BlockEventContext): boolean | void {
     this.moveToSoftlineBound(context, "left", e.shiftKey);
@@ -126,10 +130,13 @@ export class DefaultBlockHandler implements PagesHandleMethods {
     }
   }
 
-  handleContextMenu(
-    e: MouseEvent,
-    context: BlockEventContext
-  ): boolean | void {}
+  handleContextMenu(e: MouseEvent, context: BlockEventContext): boolean | void {
+    const { page, block } = context;
+    const plugin = page.getPlugin<ContextMenu>("contextmenu");
+    plugin.span(e, context);
+
+    return true;
+  }
   handleMouseLeave(e: MouseEvent, context: BlockEventContext): boolean | void {}
   handleMouseMove(e: MouseEvent, context: BlockEventContext): boolean | void {}
 
@@ -163,9 +170,9 @@ export class DefaultBlockHandler implements PagesHandleMethods {
     const res = st.find(e);
     let hit;
     if ((hit = res.has(ST_UNDO))) {
-      page.history.undo();
+      page.undoCommand();
     } else if ((hit = res.has(ST_REDO))) {
-      page.history.redo();
+      page.redoCommand();
     } else if ((hit = res.has(ST_MOVE_SOFT_HEAD))) {
       this.moveToSoftlineBound(context, "left", e.shiftKey);
     } else if ((hit = res.has(ST_MOVE_SOFT_END))) {
@@ -295,40 +302,40 @@ export class DefaultBlockHandler implements PagesHandleMethods {
     e: ClipboardEvent,
     context: RangedBlockEventContext
   ): boolean | void {
-    const { page, block, range } = context;
+    copyInBlock(e.clipboardData!, context);
+    return true;
+  }
+  handleCut(
+    e: ClipboardEvent,
+    context: RangedBlockEventContext
+  ): boolean | void {
+    const { range, block, page } = context;
 
-    // 处理不垮 Editable 的选中，可以是 collapsed 选中，也可以是 Editable 内部份选中
-    // 多 Editable 在 block 内部处理
-    // 多 block 由 multiblock 处理
+    copyInBlock(e.clipboardData!, context);
     const editable = block.findEditable(range.commonAncestorContainer);
     if (!editable) {
-      throw new Error(`Should be handled in block ${block.type}`);
+      // handled by multiblock handler or block handler
+      return;
     }
-    const ser = page.getBlockSerializer(block.type);
-
-    const text = ser.toMarkdown(block);
-    const html = ser.toHTML(block);
-    e.clipboardData!.setData("text/plain", text);
-    e.clipboardData!.setData("text/html", html);
-
     if (range.collapsed) {
-      // 非选中（collapsed）状态下，复制整个 block
-      const ohnoData: OhNoClipboardData = {
-        data: [ser.toJson(block)],
-      };
-      const json = JSON.stringify(ohnoData);
-      e.clipboardData!.setData("text/ohno", json);
-    } else {
-      const ohnoData: OhNoClipboardData = {
-        data: [page.inlineSerializer.serialize(range)],
-      };
-      // debugger;
-      const json = JSON.stringify(ohnoData);
-      e.clipboardData!.setData("text/ohno", json);
-      // 选中部分文本情况下，有 inline serializer 进行序列化
+      const command = withNearestLocation(new BlockRemove({ block, page }));
+      page.executeCommand(command);
+      return true;
     }
 
-    return true;
+    const inputEvent = new InputEvent("input", {
+      inputType: "deleteContentBackward",
+    }) as TypedInputEvent;
+
+    if (
+      isPlain(editable) ||
+      parentElementWithFilter(range.startContainer, editable, (el) => {
+        return el instanceof HTMLElement && isPlain(el);
+      })
+    ) {
+      return defaultHandleBeforeInputOfPlainText(this, inputEvent, context);
+    }
+    return defaultHandleBeforeInput(this, inputEvent, context);
   }
   handlePaste(
     e: ClipboardEvent,

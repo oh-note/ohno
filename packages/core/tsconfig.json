@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "jsx": "react",
     "noEmit": true,
     "target": "ESNext",
     "useDefineForClassFields": true,

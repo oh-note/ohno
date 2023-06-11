@@ -1,10 +1,20 @@
-import { createElement } from "@ohno-editor/core/helper/document";
+import {
+  createElement,
+  createTextNode,
+  innerHTMLToNodeList,
+} from "@ohno-editor/core/helper/document";
 import {
   BaseBlockSerializer,
   BlockSerializedData,
+  Page,
 } from "@ohno-editor/core/system";
 import { Block, BlockData } from "@ohno-editor/core/system/block";
-import { clipRange } from "@ohno-editor/core/system/range";
+import {
+  clipRange,
+  createRange,
+  getLineInfo,
+  getValidAdjacent,
+} from "@ohno-editor/core/system/range";
 import hljs from "highlight.js";
 import "highlight.js/styles/github.css";
 import "./style.css";
@@ -22,14 +32,13 @@ export class Code extends Block<CodeData> {
   mergeable: boolean = false;
   plain: HTMLElement;
   lno: HTMLElement;
-  render: HTMLElement;
+
   selection: SelectionMethods = new PlainSelection();
   constructor(data?: CodeData) {
     data = Object.assign({}, { code: " " }, data);
 
-    const plain = createElement("p", { textContent: data.code || " " });
-    markPlain(plain);
-    const render = createElement("code");
+    const editer = createElement("code", { textContent: data.code || " " });
+    markPlain(editer);
 
     const head = createElement("div", {
       className: "code-head",
@@ -40,7 +49,7 @@ export class Code extends Block<CodeData> {
 
     const container = createElement("div", {
       className: "container",
-      children: [plain],
+      children: [editer],
     });
     const body = createElement("div", {
       className: "code-body",
@@ -56,10 +65,9 @@ export class Code extends Block<CodeData> {
       children: [inner],
     });
     super("code", root, { meta: data, plain: true });
-    this.plain = plain;
-    this.render = render;
+    this.plain = editer;
+
     this.lno = lno;
-    this.updateRender();
   }
 
   public get inner(): HTMLElement {
@@ -74,49 +82,55 @@ export class Code extends Block<CodeData> {
     return this.plain.textContent || "";
   }
 
+  setParent(parent?: Page | undefined): void {
+    super.setParent(parent);
+    if (parent) {
+      this.updateRender();
+    }
+  }
+
   updateRender() {
     if (this.plain.textContent === "") {
       this.plain.textContent = " ";
     }
+
     const code = this.plain.textContent || " ";
     const html = hljs.highlightAuto(code).value;
-    this.plain.innerHTML = html;
-    const lineNumber = code.split("\n").length;
+    // debugger;
+    const lineNodes = html
+      .trimEnd()
+      .split("\n")
+      .flatMap((item) => {
+        return [
+          createElement("li", {
+            children: innerHTMLToNodeList(item),
+          }),
+          createTextNode("\n"),
+        ];
+      });
+    this.plain.replaceChildren(...lineNodes);
+
+    const lineNumber = lineNodes.length;
     const offset = this.lno.childNodes.length;
-    if (offset > lineNumber) {
-      while (this.lno.childNodes[lineNumber]) {
-        this.lno.childNodes[lineNumber].remove();
-      }
-    } else {
-      Array(lineNumber - offset)
-        .fill(0)
-        .forEach((item, index) => {
-          this.lno.appendChild(
-            createElement("div", { textContent: index + offset + "" })
-          );
-        });
-    }
+
+    // if (offset > lineNumber) {
+    //   while (this.lno.childNodes[lineNumber]) {
+    //     this.lno.childNodes[lineNumber].remove();
+    //   }
+    // } else {
+    //   Array(lineNumber - offset)
+    //     .fill(0)
+    //     .forEach((item, index) => {
+    //       const lineh = getComputedStyle(lineNodes[index + offset]).height;
+    //       this.lno.appendChild(
+    //         createElement("div", {
+    //           textContent: index + offset + "",
+    //           style: { height: lineh },
+    //         })
+    //       );
+    //     });
+    // }
   }
-
-  // toMarkdown(range?: Range | undefined): string {
-  //   if (!range || range.collapsed) {
-  //     return this.head + (this.inner.textContent || "") + this.tail;
-  //   }
-  //   const innerRange = clipRange(this.inner, range);
-  //   if (innerRange) {
-  //     return this.head + innerRange.cloneContents().textContent + this.tail;
-  //   }
-  //   return "";
-  // }
-
-  // serialize(option?: any): BlockSerializedData<CodeData> {
-  //   const init = {
-  //     code: this.plain.textContent || " ",
-  //     language: this.meta.language,
-  //   };
-
-  //   return [{ type: this.type, init, unmergeable: false }];
-  // }
 }
 
 export class CodeSerializer extends BaseBlockSerializer<Code> {

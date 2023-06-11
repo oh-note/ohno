@@ -18,10 +18,7 @@ import {
   parentElementWithTag,
   prevValidSibling,
 } from "@ohno-editor/core/helper/element";
-import {
-  findCharAfterPosition,
-  findCharBeforePosition,
-} from "@ohno-editor/core/helper/string";
+import { findCharAfter, findCharBefore } from "@ohno-editor/core/helper/string";
 import { addMarkdownHint } from "@ohno-editor/core/helper/markdown";
 import {
   createElement,
@@ -30,6 +27,48 @@ import {
 import { biasToLocation } from "./position";
 
 export type RefLocation = [Node, number];
+
+export interface LineInfo {
+  lineNumber: number;
+  lineHeight: number;
+  elHeight: number;
+}
+
+export function getLineInfo(root: HTMLElement): LineInfo {
+  if (root.childNodes.length === 0) {
+    return {
+      lineHeight: root.offsetHeight,
+      lineNumber: 1,
+      elHeight: root.offsetHeight,
+    };
+  }
+
+  const test = createElement("span", {
+    textContent: " ",
+  });
+  const newLine = createElement("br");
+
+  root.appendChild(test);
+  const lineA = test.getClientRects()[0];
+  root.insertBefore(newLine, root.firstChild);
+  const lineB = test.getClientRects()[0];
+
+  const first = newLine.getClientRects()[0];
+
+  const lineHeight = lineB.y - lineA.y;
+  const lastPadding = lineHeight - lineA.height;
+  const offsetHeight = lineB.bottom - first.top + lastPadding;
+
+  test.remove();
+  newLine.remove();
+
+  const lineNumber = Math.round(offsetHeight / lineHeight) - 1;
+  return {
+    lineNumber: lineNumber,
+    lineHeight,
+    elHeight: offsetHeight,
+  };
+}
 
 export function createRange(
   startContainer?: Node,

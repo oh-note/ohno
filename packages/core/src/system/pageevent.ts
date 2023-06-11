@@ -1,3 +1,4 @@
+import { Command } from ".";
 import { AnyBlock } from "./block";
 import { Page } from "./page";
 
@@ -113,8 +114,44 @@ export class BlockInvalideLocationEvent
   readonly range: Range;
   readonly from: string;
 
-  constructor(init: BlockSelectChangeInit) {
+  constructor(init: BlockInvalideLocationInit) {
     super("BlockInvalideLocation", init);
+    this.block = init.block;
+    this.range = init.range;
+    this.from = init.from;
+  }
+}
+
+export interface PageCommandInit extends PageEventInit {
+  command: Command<any>;
+  range?: Range | null;
+  block: AnyBlock;
+}
+
+export class PageUndoEvent extends PageEvent implements PageCommandInit {
+  readonly range?: Range | null;
+  readonly from: string;
+  readonly block: AnyBlock;
+  command: Command<any>;
+
+  constructor(init: PageCommandInit) {
+    super("BlockInvalideLocation", init);
+    this.command = init.command;
+    this.block = init.block;
+    this.range = init.range;
+    this.from = init.from;
+  }
+}
+
+export class PageRedoEvent extends PageEvent implements PageCommandInit {
+  readonly command: Command<any>;
+  readonly range?: Range | null;
+  readonly from: string;
+  readonly block: AnyBlock;
+
+  constructor(init: PageCommandInit) {
+    super("BlockInvalideLocation", init);
+    this.command = init.command;
     this.block = init.block;
     this.range = init.range;
     this.from = init.from;

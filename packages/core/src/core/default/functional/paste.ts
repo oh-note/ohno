@@ -1,9 +1,13 @@
+import { PasteAll } from "@ohno-editor/core/contrib";
 import {
   ListCommandBuilder,
   RichTextDelete,
   TextInsert,
 } from "@ohno-editor/core/contrib/commands";
-import { BlocksCreate } from "@ohno-editor/core/contrib/commands/block";
+import {
+  BlockCreate,
+  BlocksCreate,
+} from "@ohno-editor/core/contrib/commands/block";
 import { outerHTML } from "@ohno-editor/core/helper/element";
 import {
   InlineSerializedData,
@@ -28,60 +32,75 @@ export function defaultHandlePaste(
   }
 
   const jsonStr = clipboardData.getData("text/ohno") as any;
+  let ohnoData: OhNoClipboardData;
   if (jsonStr) {
     // 是自家数据
-    const { data } = JSON.parse(jsonStr) as OhNoClipboardData;
-    const builder = new ListCommandBuilder({
-      page,
-      block,
-    });
-
-    const index = block.findEditableIndex(range.startContainer);
-    const start = block.getBias([range.startContainer, range.startOffset]);
-    builder.withLazyCommand(() => {
-      if (range.collapsed) {
-        return;
-      }
-      const token_number = tokenBetweenRange(range);
-      return new RichTextDelete({
-        page,
-        block,
-        index,
-        start,
-        token_number,
-      });
-    });
-
-    data.forEach((item) => {
-      if (item.type === "inline") {
-        builder.withLazyCommand(() => {
-          const nodes = page.inlineSerializer.deserialize(
-            item as InlineSerializedData
-          );
-          const innerHTML = outerHTML(...nodes);
-
-          return new TextInsert({ page, block, innerHTML, start, index });
-        });
-      } else {
-        builder.withLazyCommand((_, extra) => {
-          const newBlock = page.getBlockSerializer(item.type).deserialize(item);
-          extra["block"] = newBlock;
-          return new BlocksCreate({
-            page,
-            block,
-            newBlocks: [newBlock],
-            where: "after",
-          });
-        });
-      }
-    });
-
-    const command = builder.build();
-
-    page.executeCommand(command);
+    ohnoData = JSON.parse(jsonStr) as OhNoClipboardData;
   } else {
     // 是别家数据
+    const plugin = page.getPlugin<PasteAll>("pasteall");
+    ohnoData = plugin.parse(clipboardData, context);
   }
+  const { data } = ohnoData;
+
+  const builder = new ListCommandBuilder({
+    page,
+    block,
+  });
+
+  const index = block.findEditableIndex(range.startContainer);
+  const start = block.getBias([range.startContainer, range.startOffset]);
+  builder.withLazyCommand(() => {
+    if (range.collapsed) {
+      return;
+    }
+    const token_number = tokenBetweenRange(range);
+    return new RichTextDelete({
+      page,
+      block,
+      index,
+      start,
+      token_number,
+    });
+  });
+
+  data.forEach((item, index) => {
+    if (item.type === "inline") {
+      builder.withLazyCommand(() => {
+        const nodes = page.inlineSerializer.deserialize(
+          item as InlineSerializedData
+        );
+        const innerHTML = outerHTML(...nodes);
+
+        return new TextInsert({ page, block, innerHTML, start, index });
+      });
+    } else {
+      builder.withLazyCommand((_, extra) => {
+        const newBlock = page.getBlockSerializer(item.type).deserialize(item);
+        // console.log(newBlock);
+
+        const refBlock = extra["block"] || block;
+        extra["block"] = newBlock;
+
+        const command = new BlockCreate({
+          page,
+          block: refBlock,
+          newBlock,
+          where: "after",
+        });
+        if (index === data.length - 1) {
+          command.onExecute(({ page, newBlock }) => {
+            page.setLocation(newBlock.getLocation(-1, -1)!);
+          });
+        }
+        return command;
+      });
+    }
+  });
+
+  const command = builder.build();
+
+  page.executeCommand(command);
 
   return true;
 }

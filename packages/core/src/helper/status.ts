@@ -30,3 +30,16 @@ export const removeActivate = (node: HTMLElement) => removeMark(node, "active");
 export const markSelect = (node: HTMLElement) => addMark(node, "select");
 export const isSelect = (node: HTMLElement) => hasMark(node, "select");
 export const removeSelect = (node: HTMLElement) => removeMark(node, "select");
+
+export const markHide = (node: HTMLElement) => {
+  node.style.display = "none";
+};
+export const isHide = (node: HTMLElement) => {
+  return node.style.display === "none";
+};
+export const markShow = (node: HTMLElement) => {
+  node.style.removeProperty("display");
+};
+export const isShow = (node: HTMLElement) => {
+  return node.style.display !== "none";
+};

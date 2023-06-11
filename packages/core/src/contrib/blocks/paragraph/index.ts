@@ -3,7 +3,7 @@ import { ParagraphHandler } from "./handler";
 import { Paragraph, ParagraphSerializer } from "./block";
 import { SlashMenu } from "@ohno-editor/core/contrib/plugins/slashmenu/plugin";
 import { BlockCreate } from "@ohno-editor/core/contrib/commands/block";
-import { setupSlashMenu } from "./setup";
+import { setupPasteAll, setupSlashMenu } from "./setup";
 export { prepareDeleteCommand, prepareEnterCommand } from "./handler";
 export { Paragraph, ParagraphHandler };
 export function ParagraphBlock(): BlockComponent {
@@ -15,6 +15,7 @@ export function ParagraphBlock(): BlockComponent {
     },
     onPageCreated: (page) => {
       setupSlashMenu(page);
+      setupPasteAll(page);
     },
     serializer: new ParagraphSerializer(),
   };

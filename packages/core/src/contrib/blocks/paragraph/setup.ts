@@ -1,4 +1,9 @@
-import { BlockCreate, Paragraph, SlashMenu } from "@ohno-editor/core/index";
+import {
+  BlockCreate,
+  Paragraph,
+  PasteAll,
+  SlashMenu,
+} from "@ohno-editor/core/index";
 import { Page } from "@ohno-editor/core/system";
 
 export function setupSlashMenu(page: Page) {
@@ -20,6 +25,24 @@ export function setupSlashMenu(page: Page) {
         });
         return command;
       },
+    });
+  }
+}
+
+export function setupPasteAll(page: Page) {
+  const pasteall = page.getPlugin<PasteAll>("pasteall");
+  if (pasteall) {
+    pasteall.registerNodeParser("p", (p: Node) => {
+      return {
+        data: [
+          {
+            type: "paragraph",
+            data: {
+              children: (p as HTMLElement).innerHTML,
+            },
+          },
+        ],
+      };
     });
   }
 }

@@ -39,15 +39,10 @@ export class ListDentCommand extends Command<DentPayload> {
 
     editables.map((editable, index) => {
       const level = levels[index] + bias;
-      editable.dataset["level"] = level + "";
-      const types = block.listStyleTypes;
-      Object.assign(editable.style, {
-        marginLeft: `${level * 20}px`,
-        listStyleType: types[level % types.length],
-      });
+      block.setIndentLevel(editable as HTMLLIElement, level);
       return level;
     });
-    this.buffer;
+
     block.updateValue();
   }
   undo(): void {
@@ -62,12 +57,7 @@ export class ListDentCommand extends Command<DentPayload> {
     });
     editables.map((editable, index) => {
       const level = levels[index];
-      editable.dataset["level"] = level + "";
-      const types = block.listStyleTypes;
-      Object.assign(editable.style, {
-        marginLeft: `${level * 20}px`,
-        listStyleType: types[level % types.length],
-      });
+      block.setIndentLevel(editable as HTMLLIElement, level);
       return level;
     });
 

@@ -6,15 +6,10 @@ import {
   PagesHandleMethods,
 } from "@ohno-editor/core/system/handler";
 import { Dragable } from "./plugin";
-import {
-  BlockMove,
-  BlocksCreate,
-  BlocksMove,
-} from "@ohno-editor/core/contrib/commands/block";
-import { createRange, setRange } from "@ohno-editor/core/system/range";
+import { BlocksMove } from "@ohno-editor/core/contrib/commands/block";
+import { createRange } from "@ohno-editor/core/system/range";
 import {
   BlockActiveEvent,
-  BlockSelectChangeEvent,
   BlockUpdateEvent,
 } from "@ohno-editor/core/system/pageevent";
 

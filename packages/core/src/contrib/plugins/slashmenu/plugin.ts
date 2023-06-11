@@ -2,14 +2,13 @@ import { TextDelete } from "@ohno-editor/core/contrib/commands";
 import { ListCommandBuilder } from "@ohno-editor/core/contrib/commands/concat";
 import { createElement } from "@ohno-editor/core/helper/document";
 import { parentElementWithFilter } from "@ohno-editor/core/helper/element";
-import { IComponent, IContainer, IPlugin } from "@ohno-editor/core/system/base";
-import { AnyBlock } from "@ohno-editor/core/system/block";
+import { IComponent, IPlugin } from "@ohno-editor/core/system/base";
 import { RangedBlockEventContext } from "@ohno-editor/core/system/handler";
 import { Command } from "@ohno-editor/core/system/history";
 import { Page } from "@ohno-editor/core/system/page";
 import { computePosition } from "@floating-ui/dom";
 import "./style.css";
-import { RangeElement } from "@ohno-editor/core/system/inline";
+import { RangeElement } from "@ohno-editor/core/system/floating";
 
 const CLASS_OPTION = "oh-is-option";
 const CLASS_PLUGIN = "oh-is-slashmenu";

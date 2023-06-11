@@ -1,10 +1,14 @@
 import "@ohno-editor/core/style.css";
 import {
+  ContextMenuPlugin,
+  DivideBlock,
+  FigureBlock,
   FlagInline,
   KeyLabelInline,
   KeyVisPlugin,
   LinkPlugin,
   Page,
+  PasteAllPlugin,
   TodoItemInline,
 } from "@ohno-editor/core";
 import { ListBlock } from "@ohno-editor/core/contrib/blocks/list";
@@ -33,11 +37,13 @@ export function createDefaultPage() {
       blocks: [
         ParagraphBlock(),
         HeadingsBlock(),
+        DivideBlock(),
         BlockQuoteBlock(),
         ListBlock(),
         OrderedListBlock(),
         CodeBlock(),
         TableBlock(),
+        FigureBlock(),
         EquationBlock(),
       ],
       extraHandlers: [
@@ -51,6 +57,8 @@ export function createDefaultPage() {
         DragablePlugin(),
         SlashMenuPlugin(),
         KeyVisPlugin(),
+        PasteAllPlugin(),
+        ContextMenuPlugin(),
       ],
       inlines: [
         FlagInline({}),

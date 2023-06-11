@@ -72,14 +72,11 @@ export class InlineSupport implements IPlugin, IInlineManager {
     }
     if (this.activeInline) {
       removeActivate(this.activeInline);
-      console.log("DeActivate", this.activeInline);
       res.unset = this.activeInline;
     }
     if (inline) {
       markActivate(inline);
       res.set = inline;
-      console.log("Activate", inline);
-      this.parent!.setLocation([inline, 0]);
     }
     this.activeInline = inline;
     return res;

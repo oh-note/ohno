@@ -6,3 +6,5 @@ export * from "./slashmenu";
 export * from "./toolbar";
 export * from "./keyvis";
 export * from "./link";
+export * from "./pasteAll";
+export * from "./contextmenu";

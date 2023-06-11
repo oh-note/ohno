@@ -11,6 +11,7 @@ import {
   defaultHandleBeforeInput,
   defaultHandleBeforeInputOfPlainText,
   insertPlainText,
+  prepareInsertPlainTextCommand,
 } from "@ohno-editor/core/core/default/functional/beforeInput";
 import {
   BlockInvalideLocationEvent,

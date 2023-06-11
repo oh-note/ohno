@@ -86,6 +86,10 @@ const data = [
   },
   { name: "paragraph", init: { children: ["For developers:"] } },
   {
+    name: "figure",
+    init: { src: "https://picsum.photos/500/300", caption: "This is caption" },
+  },
+  {
     name: "list",
     init: {
       children: [
@@ -99,6 +103,12 @@ const data = [
     name: "headings",
     init: { children: "Talk is cheap, show me your EDITOR", level: 2 },
   },
+  { name: "figure", init: { src: "https://picsum.photos/500/300" } },
+  {
+    name: "paragraph",
+    init: { children: ["Please follow each step below:"] },
+  },
+  { name: "divide" },
   {
     name: "paragraph",
     init: { children: ["Please follow each step below:"] },
@@ -125,6 +135,7 @@ const data = [
     name: "headings",
     init: { children: "Abundant inline component support", level: 1 },
   },
+
   {
     name: "blockquote",
     init: {
@@ -175,69 +186,70 @@ const data = [
     name: "code",
     init: { code: "Type <b>ctrl+z</b> to undo all your operations." },
   },
+  { name: "figure", init: { src: "https://picsum.photos/500/300" } },
+  {
+    name: "table",
+    init: {
+      row: 3,
+      col: 3,
+      children: [
+        [
+          outerHTML(
+            keylabelManager.create({
+              shiftKey: true,
+              metaKey: true,
+              code: "ArrowRight",
+            })
+          ),
+          "",
+          outerHTML(
+            keylabelManager.create({
+              shiftKey: true,
+              metaKey: true,
+              code: "ArrowDown",
+            })
+          ),
+        ],
+        [
+          "",
+          outerHTML(
+            keylabelManager.create({
+              metaKey: true,
+              code: "KeyC",
+            }),
+            keylabelManager.create({
+              metaKey: true,
+              code: "KeyV",
+            })
+          ),
+          "",
+        ],
+        [
+          outerHTML(
+            keylabelManager.create({
+              shiftKey: true,
+              metaKey: true,
+              code: "ArrowUp",
+            })
+          ),
+          "",
+          outerHTML(
+            keylabelManager.create({
+              shiftKey: true,
+              metaKey: true,
+              code: "ArrowLeft",
+            })
+          ),
+        ],
+      ],
+    },
+  },
 ];
 
 data.forEach(({ name, init }) => {
   const block = page.createBlock(name, init);
   page.appendBlock(block);
 });
-keylabelManager;
-page.appendBlock(
-  new Table({
-    row: 3,
-    col: 3,
-    children: [
-      [
-        outerHTML(
-          keylabelManager.create({
-            shiftKey: true,
-            metaKey: true,
-            code: "ArrowRight",
-          })
-        ),
-        "",
-        outerHTML(
-          keylabelManager.create({
-            shiftKey: true,
-            metaKey: true,
-            code: "ArrowDown",
-          })
-        ),
-      ],
-      [
-        "",
-        outerHTML(
-          keylabelManager.create({
-            metaKey: true,
-            code: "KeyC",
-          }),
-          keylabelManager.create({
-            metaKey: true,
-            code: "KeyV",
-          })
-        ),
-        "",
-      ],
-      [
-        outerHTML(
-          keylabelManager.create({
-            shiftKey: true,
-            metaKey: true,
-            code: "ArrowUp",
-          })
-        ),
-        "",
-        outerHTML(
-          keylabelManager.create({
-            shiftKey: true,
-            metaKey: true,
-            code: "ArrowLeft",
-          })
-        ),
-      ],
-    ],
-  })
-);
 
 page.reverseRender((root) => {
   el.appendChild(root);

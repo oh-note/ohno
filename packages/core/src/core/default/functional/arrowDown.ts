@@ -1,4 +1,4 @@
-import { Page } from "@ohno-editor/core/system";
+import { BlockInvalideLocationEvent, Page } from "@ohno-editor/core/system";
 import {
   PagesHandleMethods,
   RangedBlockEventContext,
@@ -122,7 +122,12 @@ export function defaultHandleArrowDown(
 
   const editable = anchorBlock.findEditable(anchor);
   if (!editable) {
-    throw new EditableNotFound(anchor, anchorBlock.order);
+    handler.handleBlockInvalideLocation?.(
+      new BlockInvalideLocationEvent({ block, page, from: "ArrowDown", range }),
+      context
+    );
+    return true;
+    // throw new EditableNotFound(anchor, anchorBlock.order);
   }
   if (e.key === "ArrowUp") {
     if (anchorBlock.isLocationInFirstLine(anchorLoc)) {

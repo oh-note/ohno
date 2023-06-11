@@ -28,16 +28,153 @@ import {
   TextInsert,
 } from "@ohno-editor/core/contrib/commands/text";
 import {
+  Command,
   InlineSerializedData,
   OhNoClipboardData,
 } from "@ohno-editor/core/system";
-import { BlockRemove, BlocksCreate } from "@ohno-editor/core/contrib";
+import {
+  BlockRemove,
+  BlocksCreate,
+  Empty,
+  None,
+} from "@ohno-editor/core/contrib";
 import { handleInsertFromDrop } from "./drop";
+import { copyInBlock } from "./copy";
+
+export function prepareBeforeInputCommand(
+  handler: HandlerMethods,
+  e: TypedInputEvent,
+  context: RangedBlockEventContext
+): Command<any> | undefined {
+  const { page, block, range } = context;
+  let command;
+  const editable = block.findEditable(range.startContainer)!;
+  const index = block.getEditableIndex(editable);
+  const start = block.getBias([range.startContainer, range.startOffset]);
+  if (e.inputType === "insertText") {
+    command = prepareInsertPlainTextCommand(context, e.data!);
+  } else if (e.inputType === "insertFromPaste") {
+    if (e.dataTransfer) {
+      let content: string;
+      if ((content = e.dataTransfer.getData("text/html"))) {
+        command = prepareInsertPlainTextCommand(context, content);
+      } else if ((content = e.dataTransfer.getData("text/plain"))) {
+        command = prepareInsertPlainTextCommand(context, content);
+      } else {
+        // eslint-disable-next-line no-debugger
+        debugger;
+        return new None({});
+      }
+    }
+  } else if (e.inputType === "insertFromDrop") {
+    command = handleInsertFromDrop(handler, e, context);
+  } else if (e.inputType === "insertCompositionText") {
+    return new None({});
+  } else if (
+    !range.collapsed &&
+    (e.inputType === "deleteContentBackward" ||
+      e.inputType === "deleteContentForward")
+  ) {
+    // 所有的 multi block 应该被 multiblock handler 接受
+    // 所有的 multi container 应该被 block handler 接受
+    const token_number = block.selection.tokenBetweenRange(range);
+
+    command = new TextDelete({
+      page,
+      block,
+      start,
+      index: 0,
+      token_number,
+    })
+      .onExecute(({ block, start }) => {
+        page.setLocation(block.getLocation(start, 0)!, block);
+      })
+      .onUndo(({ block, start, token_number }) => {
+        page.setRange(block.getRange({ start, end: start + token_number }, 0)!);
+      });
+  } else if (
+    e.inputType === "deleteContentBackward" ||
+    e.inputType === "deleteWordBackward"
+  ) {
+    if (block.isLocationInLeft([range.startContainer, range.startOffset])) {
+      return new None({});
+    }
+
+    // TODO 讨论在 label 边界出的删除行为应该是首次选中还是直接删除
+    let token_number = -1;
+    if (e.inputType === "deleteWordBackward") {
+      const prev = block.getPrevWordLocation([
+        range.startContainer,
+        range.startOffset,
+      ])!;
+      const prevRange = createRange(
+        ...prev,
+        range.startContainer,
+        range.startOffset
+      );
+      token_number = -tokenBetweenRange(prevRange);
+    }
+
+    command = new TextDelete({
+      block,
+      page,
+      start,
+      token_number,
+      index,
+    });
+  } else if (
+    e.inputType === "deleteContentForward" ||
+    e.inputType === "deleteWordForward"
+  ) {
+    // 判断是否是格式字符边界，两种情况：
+    // ?|<b>asd</b>
+    // <b>asd|</b>?
+    if (block.isLocationInRight([range.startContainer, range.startOffset])) {
+      return new None({});
+    }
+    let token_number = 1;
+    if (e.inputType === "deleteWordForward") {
+      const next = block.getNextWordLocation([
+        range.startContainer,
+        range.startOffset,
+      ])!;
+      const nextRange = createRange(
+        range.startContainer,
+        range.startOffset,
+        ...next
+      );
+      token_number = tokenBetweenRange(nextRange);
+    }
+    command = new TextDelete({
+      page,
+      block,
+      start: start,
+      token_number: token_number,
+      index,
+    }).onExecute(({ token_filter }) => {
+      page.setLocation(block.getLocation(start, index, token_filter)!, block);
+    });
+  }
+  return command;
+}
 
 export function insertPlainText(
   context: RangedBlockEventContext,
   text: string
-) {
+): boolean {
+  const { page } = context;
+  const command = prepareInsertPlainTextCommand(context, text);
+  if (command) {
+    page.executeCommand(command);
+    return true;
+  }
+  return false;
+}
+
+export function prepareInsertPlainTextCommand(
+  context: RangedBlockEventContext,
+  text: string
+): Command<any> {
   const { page, block, range } = context;
   const builder = new ListCommandBuilder({ page, block, range });
 
@@ -75,8 +212,9 @@ export function insertPlainText(
   });
 
   const command = builder.build();
-  page.executeCommand(command);
-  return true;
+  return command;
+  // page.executeCommand(command);
+  // return true;
 }
 
 export function defaultHandleBeforeInputOfPlainText(
@@ -88,115 +226,7 @@ export function defaultHandleBeforeInputOfPlainText(
   // multiblock 的情况不会到这里
   validateRange(range);
 
-  let command;
-  const editable = block.findEditable(range.startContainer)!;
-  const index = block.getEditableIndex(editable);
-  const start = block.getBias([range.startContainer, range.startOffset]);
-  if (e.inputType === "insertText") {
-    return insertPlainText(context, e.data!);
-  } else if (e.inputType === "insertFromPaste") {
-    if (e.dataTransfer) {
-      let content: string;
-      if ((content = e.dataTransfer.getData("text/html"))) {
-        insertPlainText(context, content);
-      } else if ((content = e.dataTransfer.getData("text/plain"))) {
-        insertPlainText(context, content);
-      } else {
-        // eslint-disable-next-line no-debugger
-        debugger;
-        return true;
-      }
-    }
-  } else if (e.inputType === "insertFromDrop") {
-    command = handleInsertFromDrop(handler, e, context);
-  } else if (e.inputType === "insertCompositionText") {
-    return true;
-  } else if (
-    !range.collapsed &&
-    (e.inputType === "deleteContentBackward" ||
-      e.inputType === "deleteContentForward")
-  ) {
-    // 所有的 multi block 应该被 multiblock handler 接受
-    // 所有的 multi container 应该被 block handler 接受
-    const token_number = block.selection.tokenBetweenRange(range);
-
-    command = new TextDelete({
-      page,
-      block,
-      start,
-      index: 0,
-      token_number,
-    })
-      .onExecute(({ block, start }) => {
-        page.setLocation(block.getLocation(start, 0)!, block);
-      })
-      .onUndo(({ block, start, token_number }) => {
-        page.setRange(block.getRange({ start, end: start + token_number }, 0)!);
-      });
-  } else if (
-    e.inputType === "deleteContentBackward" ||
-    e.inputType === "deleteWordBackward"
-  ) {
-    let hint;
-    if (block.isLocationInLeft([range.startContainer, range.startOffset])) {
-      return true;
-    }
-
-    // TODO 讨论在 label 边界出的删除行为应该是首次选中还是直接删除
-    let token_number = -1;
-    if (e.inputType === "deleteWordBackward") {
-      const prev = block.getPrevWordLocation([
-        range.startContainer,
-        range.startOffset,
-      ])!;
-      const prevRange = createRange(
-        ...prev,
-        range.startContainer,
-        range.startOffset
-      );
-      token_number = -tokenBetweenRange(prevRange);
-    }
-
-    command = new TextDelete({
-      block,
-      page,
-      start,
-      token_number,
-      index,
-    });
-  } else if (
-    e.inputType === "deleteContentForward" ||
-    e.inputType === "deleteWordForward"
-  ) {
-    // 判断是否是格式字符边界，两种情况：
-    // ?|<b>asd</b>
-    // <b>asd|</b>?
-    if (block.isLocationInRight([range.startContainer, range.startOffset])) {
-      return true;
-    }
-    let token_number = 1;
-    if (e.inputType === "deleteWordForward") {
-      const next = block.getNextWordLocation([
-        range.startContainer,
-        range.startOffset,
-      ])!;
-      const nextRange = createRange(
-        range.startContainer,
-        range.startOffset,
-        ...next
-      );
-      token_number = tokenBetweenRange(nextRange);
-    }
-    command = new TextDelete({
-      page,
-      block,
-      start: start,
-      token_number: token_number,
-      index,
-    }).onExecute(({ token_filter }) => {
-      page.setLocation(block.getLocation(start, index, token_filter)!, block);
-    });
-  }
+  const command = prepareBeforeInputCommand(handler, e, context);
   if (command) {
     page.executeCommand(command);
   }
@@ -456,7 +486,7 @@ export function defaultHandleBeforeInput(
       });
     }
   } else if (e.inputType.startsWith("format")) {
-  } else {
+  } else if (e.inputType === "deleteByCut") {
   }
   if (command) {
     page.executeCommand(command);

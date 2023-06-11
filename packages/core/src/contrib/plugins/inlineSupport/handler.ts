@@ -11,10 +11,97 @@ import {
 } from "@ohno-editor/core/system/handler";
 import { InlineSupport } from "./plugin";
 import { getTagName } from "@ohno-editor/core/helper/element";
-import { PagesHandleMethods, getValidAdjacent } from "@ohno-editor/core/system";
+import {
+  BlockSelectChangeEvent,
+  PageRedoEvent,
+  PageUndoEvent,
+  PagesHandleMethods,
+  getValidAdjacent,
+} from "@ohno-editor/core/system";
 import { isPlain, tryGetDefaultRange } from "@ohno-editor/core/helper";
 
 export class InlineSupportPluginHandler implements PagesHandleMethods {
+  handlePageUndo(e: PageUndoEvent, context: BlockEventContext): boolean | void {
+    const { page, range } = context;
+    if (!range) {
+      return;
+    }
+
+    const plugin = page.getPlugin<InlineSupport>("inlinesupport");
+    // TODO 将 page.setActivateInline 放到 InlineSupport 里
+    // debugger;
+    let label;
+    if ((label = plugin.findInline(range.commonAncestorContainer, context))) {
+      const handler = plugin.getInlineHandler(label);
+      const isActivated = plugin.activeInline === label;
+
+      if (isActivated) {
+        // 激活状态下转发
+        return;
+      }
+      plugin.setHoveredInline("cursor", label);
+      page.setLocation([label, 0]);
+    }
+  }
+  handlePageRedo(e: PageRedoEvent, context: BlockEventContext): boolean | void {
+    const { page, range } = context;
+    if (!range) {
+      return;
+    }
+
+    const plugin = page.getPlugin<InlineSupport>("inlinesupport");
+    // TODO 将 page.setActivateInline 放到 InlineSupport 里
+    // debugger;
+    let label;
+    if ((label = plugin.findInline(range.commonAncestorContainer, context))) {
+      const handler = plugin.getInlineHandler(label);
+      const isActivated = plugin.activeInline === label;
+
+      if (isActivated) {
+        // 激活状态下转发
+        return;
+      }
+      plugin.setHoveredInline("cursor", label);
+      page.setLocation([label, 0]);
+    }
+  }
+
+  // handleBlockSelectChange(e: BlockSelectChangeEvent, context: any): void {
+  //   const { range, page } = e;
+  //   const plugin = page.getPlugin<InlineSupport>("inlinesupport");
+  //   // TODO 将 page.setActivateInline 放到 InlineSupport 里
+  //   // debugger;
+  //   let label;
+  //   if ((label = plugin.findInline(range.commonAncestorContainer, context))) {
+  //     const handler = plugin.getInlineHandler(label);
+  //     const isActivated = plugin.activeInline === label;
+  //     if (isActivated) {
+  //       // 激活状态下转发
+  //       return;
+  //     }
+  //     const { unset } = plugin.setActiveInline(label);
+
+  //     if (unset) {
+  //       const unsetHandler = plugin.getInlineHandler(unset);
+  //       unsetHandler.handleDeActivated?.(
+  //         {
+  //           ...context,
+  //           inline: unset,
+  //           manager: plugin.getInlineManager(unset),
+  //         },
+  //         context
+  //       );
+  //     }
+  //     handler.handleActivated?.(
+  //       {
+  //         ...context,
+  //         inline: label,
+  //         manager: plugin.getInlineManager(label),
+  //       },
+  //       context
+  //     );
+  //   }
+  // }
   handleKeyDown(
     e: KeyboardEvent,
     context: RangedBlockEventContext
@@ -91,6 +178,7 @@ export class InlineSupportPluginHandler implements PagesHandleMethods {
     context: RangedBlockEventContext
   ): boolean | void {
     const { block, range, page } = context;
+
     if (range.collapsed) {
       let neighbor;
       if (

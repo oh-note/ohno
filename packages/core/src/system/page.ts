@@ -23,7 +23,6 @@ import {
   IInline,
   IPage,
   IPlugin,
-  InlineSerializer,
   Order,
 } from "./base";
 import { History, Command } from "./history";
@@ -35,6 +34,8 @@ import {
   BlockSelectChangeEvent,
   BlockUpdateEvent,
   PageEvent,
+  PageRedoEvent,
+  PageUndoEvent,
 } from "./pageevent";
 import {
   RefLocation,
@@ -52,6 +53,7 @@ import {
   removeActivate,
   removeSelect,
 } from "../helper/status";
+import { InlineSerializer } from "./inline";
 
 export class PageHandler {
   pluginHandlers: PagesHandleMethods[] = [];
@@ -130,6 +132,7 @@ export class PageHandler {
 
   removeEventListener(el: HTMLElement) {
     el.removeEventListener("copy", this.handleCopy.bind(this));
+    el.removeEventListener("cut", this.handleCut.bind(this));
     el.removeEventListener("paste", this.handlePaste.bind(this));
     el.removeEventListener("blur", this.handleBlur.bind(this));
     el.removeEventListener("focus", this.handleFocus.bind(this));
@@ -167,6 +170,7 @@ export class PageHandler {
 
   bindEventListener(el: HTMLElement) {
     el.addEventListener("copy", this.handleCopy.bind(this));
+    el.addEventListener("cut", this.handleCut.bind(this));
     el.addEventListener("paste", this.handlePaste.bind(this));
     el.addEventListener("blur", this.handleBlur.bind(this));
     el.addEventListener("focus", this.handleFocus.bind(this));
@@ -374,6 +378,13 @@ export class PageHandler {
     }
     this.dispatchEvent<ClipboardEvent>(blocks, e, "handleCopy");
   }
+  handleCut(e: ClipboardEvent): void | boolean {
+    const blocks = this.getContextFromRange(getDefaultRange());
+    if (!blocks.block) {
+      return;
+    }
+    this.dispatchEvent<ClipboardEvent>(blocks, e, "handleCut");
+  }
 
   handlePaste(e: ClipboardEvent): void | boolean {
     const blocks = this.getContextFromRange(getDefaultRange());
@@ -442,6 +453,25 @@ export class PageHandler {
     if (!context.block) {
       return;
     }
+    const { range, block } = context;
+    if (range && range.collapsed) {
+      if (!block.findEditable(range.commonAncestorContainer)) {
+        if (
+          this.dispatchPageEvent(
+            new BlockInvalideLocationEvent({
+              page: this.page,
+              block,
+              range: context.range!,
+              from: "KeyDown",
+            }),
+            context
+          )
+        ) {
+          return;
+        }
+      }
+    }
+
     this.dispatchEvent<KeyboardEvent>(context, e, "handleKeyDown");
   }
   handleKeyPress(e: KeyboardEvent): void | boolean {
@@ -753,6 +783,10 @@ export class PageHandler {
         context,
         "handleBlockInvalideLocation"
       );
+    } else if (e instanceof PageUndoEvent) {
+      return this.dispatchEvent<PageUndoEvent>(e, context, "handlePageUndo");
+    } else if (e instanceof PageRedoEvent) {
+      return this.dispatchEvent<PageRedoEvent>(e, context, "handlePageRedo");
     }
   }
 }
@@ -915,11 +949,37 @@ export class Page implements IPage {
   }
 
   undoCommand(): boolean {
-    return this.history.undo();
+    const res = this.history.undo();
+    if (res) {
+      const command = this.history.undo_commands.last!.value;
+      this.dispatchPageEvent(
+        new PageUndoEvent({
+          command,
+          page: this,
+          block: this.active!,
+          range: tryGetDefaultRange(),
+          from: "Page",
+        })
+      );
+    }
+    return res;
   }
 
   redoCommand(): boolean {
-    return this.history.redo();
+    const res = this.history.redo();
+    if (res) {
+      const command = this.history.commands.last!.value;
+      this.dispatchPageEvent(
+        new PageRedoEvent({
+          command,
+          page: this,
+          block: this.active!,
+          range: tryGetDefaultRange(),
+          from: "Page",
+        })
+      );
+    }
+    return res;
   }
 
   render(root: HTMLElement): void {
@@ -1105,18 +1165,18 @@ export class Page implements IPage {
           return this.appendBlock(newBlock);
         } else {
           newBlock.setOrder(createOrderString(target.order, next.order));
-          newBlock.setParent(this);
           target.root.insertAdjacentElement("afterend", newBlock.root);
           this.chain.insertAfter(target.order, newBlock.order, newBlock);
+          newBlock.setParent(this);
           return newBlock.order;
         }
       } else {
         const prev = this.getPrevBlock(target);
         const prevOrder = prev ? prev.order : "";
         newBlock.setOrder(createOrderString(prevOrder, target.order));
-        newBlock.setParent(this);
         target.root.insertAdjacentElement("beforebegin", newBlock.root);
         this.chain.insertBefore(target.order, newBlock.order, newBlock);
+        newBlock.setParent(this);
         return newBlock.order;
       }
     }

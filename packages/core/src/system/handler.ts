@@ -8,6 +8,8 @@ import {
   BlockInvalideLocationEvent,
   BlockSelectChangeEvent,
   BlockUpdateEvent,
+  PageRedoEvent,
+  PageUndoEvent,
 } from "./pageevent";
 
 export interface HandlerOption {
@@ -72,6 +74,7 @@ export interface ClipboardEventHandleMethods<
   T extends RangedBlockEventContext = RangedBlockEventContext
 > {
   handleCopy?(e: ClipboardEvent, context: T): void | boolean;
+  handleCut?(e: ClipboardEvent, context: T): void | boolean;
   handlePaste?(e: ClipboardEvent, context: T): void | boolean;
 }
 
@@ -151,6 +154,8 @@ export interface ControlKeyEventHandleMethods<
   handlePageDownUp?(e: KeyboardEvent, context: T): void | boolean;
 }
 export interface BlockEventHandleMethods {
+  handlePageUndo?(e: PageUndoEvent, context: BlockEventContext): boolean | void;
+  handlePageRedo?(e: PageRedoEvent, context: BlockEventContext): boolean | void;
   handleBlockInvalideLocation?(
     e: BlockInvalideLocationEvent,
     context: BlockEventContext
@@ -180,6 +185,8 @@ export interface InlineHandler<T = IInline>
     KeyboardEventHandleMethods<InlineRangedEventContext<T>>,
     MouseEventHandleMethods<InlineEventContext<T>>,
     InputEventHandleMethods<RangedBlockEventContext> {
+  handleActivated?(e: InlineEventContext<T>, context: any): void | boolean;
+  handleDeActivated?(e: InlineEventContext<T>, context: any): void | boolean;
   handleKeyboardEnter?(
     e: KeyboardEvent,
     context: InlineRangedEventContext<T>

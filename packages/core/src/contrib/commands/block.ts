@@ -7,6 +7,8 @@ import { Page } from "@ohno-editor/core/system/page";
 import { setLocation } from "@ohno-editor/core/system/range";
 import { AnyBlock } from "@ohno-editor/core/system/block";
 import { BlockQuery, Order } from "@ohno-editor/core/system/base";
+import { ListCommandBuilder } from "./concat";
+import { Paragraph } from "../blocks";
 
 export interface BlockCreatePayload {
   page: Page;
@@ -94,6 +96,38 @@ export class BlocksRemove extends Command<BlocksRemovePayload> {
       cur = block;
     });
   }
+}
+
+export function withNearestLocation(command: BlockRemove): Command<any> {
+  const { page, block } = command.payload;
+  const nextBlock = page.getNextBlock(block);
+  if (nextBlock) {
+    command.onExecute(() => {
+      page.setLocation(nextBlock.getLocation(0, 0)!);
+    });
+    return command;
+  }
+  const prevBlock = page.getPrevBlock(block);
+  if (prevBlock) {
+    command.onExecute(() => {
+      page.setLocation(prevBlock.getLocation(-1, -1)!);
+    });
+    return command;
+  }
+
+  const builder = new ListCommandBuilder({ page, block })
+    .withLazyCommand(() => {
+      const newBlock = new Paragraph();
+      return new BlockCreate({
+        block: page.query(block)!,
+        page,
+        newBlock,
+        where: "before",
+      });
+    })
+    .withCommand(command);
+
+  return builder.build();
 }
 
 export class BlockRemove extends Command<BlockRemovePayload> {

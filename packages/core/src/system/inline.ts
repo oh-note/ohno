@@ -1,4 +1,10 @@
-import { ChildrenData, createElement } from "@ohno-editor/core/helper/document";
+import {
+  ChildrenData,
+  HTMLElementTagName,
+  createElement,
+  createTextNode,
+  dechildren,
+} from "@ohno-editor/core/helper/document";
 import { BlockEventContext } from "./handler";
 import {
   ClientRectObject,
@@ -9,6 +15,13 @@ import {
 import { IComponent, IContainer, IInline } from "./base";
 import { InlineSubmit, InlineSupport } from "../contrib";
 import { makeRangeInNode, setRange } from "./range";
+import {
+  ValidNode,
+  addMarkdownHint,
+  getTagName,
+  innerHTML,
+  removeMarkdownHint,
+} from "../helper";
 
 export interface InlineInit {
   [key: string]: any;
@@ -190,31 +203,6 @@ export class InlineBase<T extends InlineInit = InlineInit> implements IInline {
   }
 }
 
-/**
- * 4 states of Inline:
- *  - unactive: The default state when the cursor is in other positions, displayed normally.
- *  - hover: When the mouse hovers over the inline element, indicated by CSS, with a light background color.
- *  - active: When exiting from edit mode or moving the cursor over it, the focus is still on the page, with a dark background color, registered on the page.
- *  - edit: When clicked by the mouse or pressing Enter in active state, the page may lose focus depending on whether there is an additional editing box, with a dark background color, registered on the page.
- */
-export class RangeElement implements VirtualElement {
-  range: Range;
-  constructor(range: Range) {
-    this.range = range;
-    this.contextElement = this.range.startContainer as Element;
-  }
-
-  /**
-   * Retrieves the bounding client rectangle of the range element.
-   * @returns The ClientRectObject representing the bounding client rectangle.
-   */
-  getBoundingClientRect(): ClientRectObject {
-    return this.range.getBoundingClientRect();
-  }
-
-  contextElement?: Element | undefined;
-}
-
 export interface InlineNodeInit {
   children?: ChildrenData;
   dataset?: { [key: string]: any };
@@ -226,4 +214,75 @@ export interface InlineSerializedData {
   type: "inline";
   data: InlineNodeInit[];
   plain?: boolean;
+}
+
+export class InlineSerializer {
+  serializeNode(node: Node): InlineNodeInit {
+    const tagName = getTagName(node);
+
+    if (tagName === "#text") {
+      return { tagName, children: [node.textContent || ""] };
+    } else if (node instanceof HTMLElement) {
+      // 所有特殊元素交给 inline serializer
+      return {
+        tagName,
+        className: node.className,
+        dataset: node.dataset,
+        children: [node.innerHTML],
+      };
+    } else {
+      return { tagName: "span", children: ["Unhandled type", node.nodeName] };
+    }
+  }
+  serialize(range: Range): InlineSerializedData {
+    const frag = Array.from(range.cloneContents().childNodes);
+    removeMarkdownHint(...frag);
+
+    return {
+      type: "inline",
+      data: frag.flatMap((item) => {
+        return this.serializeNode(item);
+      }),
+    };
+  }
+
+  toMarkdown(range: Range): string {
+    // TODO markdown serializer
+    const frag = Array.from(range.cloneContents().childNodes);
+    removeMarkdownHint(...frag);
+    return innerHTML(...frag);
+  }
+  toHTML(range: Range): string {
+    const frag = Array.from(range.cloneContents().childNodes);
+    removeMarkdownHint(...frag);
+    return innerHTML(...frag);
+  }
+
+  deserializeNode(init: InlineNodeInit): Node {
+    const { tagName, children, dataset, className } = init;
+
+    if (tagName === "#text") {
+      return createTextNode(dechildren(children || []).join(""));
+    } else {
+      return createElement(tagName as HTMLElementTagName, {
+        children,
+        dataset,
+        className,
+      });
+    }
+  }
+
+  deserialize(data: InlineSerializedData): ValidNode[] {
+    if (data.type != "inline") {
+      throw new Error("Sanity check");
+    }
+    const nodes = data.data.flatMap((item) => {
+      return this.deserializeNode(item) as ValidNode;
+    });
+
+    if (!data.plain) {
+      addMarkdownHint(...nodes);
+    }
+    return nodes;
+  }
 }

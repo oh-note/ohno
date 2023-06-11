@@ -8,22 +8,7 @@ import { Command, History } from "./history";
 import { RefLocation } from "./range";
 import { BlockEventContext } from "./handler";
 
-import { InlineNodeInit, InlineSerializedData } from "./inline";
-import {
-  ValidNode,
-  getTagName,
-  innerHTML,
-} from "@ohno-editor/core/helper/element";
-import {
-  addMarkdownHint,
-  removeMarkdownHint,
-} from "@ohno-editor/core/helper/markdown";
-import {
-  HTMLElementTagName,
-  createElement,
-  createTextNode,
-  dechildren,
-} from "@ohno-editor/core/helper/document";
+import { InlineSerializedData } from "./inline";
 import { BlockSerializedData, Page } from ".";
 
 export interface IComponent {
@@ -246,75 +231,4 @@ export interface OhNoClipboardData {
   context?: {
     dragFrom: Order;
   };
-}
-
-export class InlineSerializer {
-  serializeNode(node: Node): InlineNodeInit {
-    const tagName = getTagName(node);
-
-    if (tagName === "#text") {
-      return { tagName, children: [node.textContent || ""] };
-    } else if (node instanceof HTMLElement) {
-      // 所有特殊元素交给 inline serializer
-      return {
-        tagName,
-        className: node.className,
-        dataset: node.dataset,
-        children: [node.innerHTML],
-      };
-    } else {
-      return { tagName: "span", children: ["Unhandled type", node.nodeName] };
-    }
-  }
-  serialize(range: Range): InlineSerializedData {
-    const frag = Array.from(range.cloneContents().childNodes);
-    removeMarkdownHint(...frag);
-
-    return {
-      type: "inline",
-      data: frag.flatMap((item) => {
-        return this.serializeNode(item);
-      }),
-    };
-  }
-
-  toMarkdown(range: Range): string {
-    // TODO markdown serializer
-    const frag = Array.from(range.cloneContents().childNodes);
-    removeMarkdownHint(...frag);
-    return innerHTML(...frag);
-  }
-  toHTML(range: Range): string {
-    const frag = Array.from(range.cloneContents().childNodes);
-    removeMarkdownHint(...frag);
-    return innerHTML(...frag);
-  }
-
-  deserializeNode(init: InlineNodeInit): Node {
-    const { tagName, children, dataset, className } = init;
-
-    if (tagName === "#text") {
-      return createTextNode(dechildren(children || []).join(""));
-    } else {
-      return createElement(tagName as HTMLElementTagName, {
-        children,
-        dataset,
-        className,
-      });
-    }
-  }
-
-  deserialize(data: InlineSerializedData): ValidNode[] {
-    if (data.type != "inline") {
-      throw new Error("Sanity check");
-    }
-    const nodes = data.data.flatMap((item) => {
-      return this.deserializeNode(item) as ValidNode;
-    });
-
-    if (!data.plain) {
-      addMarkdownHint(...nodes);
-    }
-    return nodes;
-  }
 }
