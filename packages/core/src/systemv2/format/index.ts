@@ -4,7 +4,12 @@ import {
   HTMLElementTagName,
   createElement,
 } from "@ohno-editor/core/helper/document";
-import { intervalOfElement, intervalToRange } from "./position";
+import {
+  intervalOfElement,
+  intervalToRange,
+  nodesOfRange,
+  normalizeRange,
+} from "../selection/functional";
 import {
   ValidNode,
   getTagName,
@@ -12,9 +17,8 @@ import {
   parentElementWithTag,
   validChildNodes,
 } from "@ohno-editor/core/helper/element";
-import { nodesOfRange, normalizeRange } from "./range";
 import { addMarkdownHint } from "@ohno-editor/core/helper/markdown";
-import { Interval } from "./base";
+import { Interval } from "../types";
 
 export const formatTags: { [key in InputType]?: HTMLElementTagName } = {
   formatBold: "b",

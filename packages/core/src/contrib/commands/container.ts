@@ -1,5 +1,5 @@
 import { AnyBlock } from "@ohno-editor/core/system/block";
-import { Command, Payload } from "@ohno-editor/core/system/history";
+import { Command } from "@ohno-editor/core/system/history";
 import { Page } from "@ohno-editor/core/system/page";
 import { ValidNode } from "@ohno-editor/core/helper/element";
 import {
@@ -16,7 +16,7 @@ export interface ContainerInsertPayload {
   where: "above" | "below";
 }
 
-export interface ContainerRemovePayload extends Payload {
+export interface ContainerRemovePayload {
   page: Page;
   block: AnyBlock;
   // beforeOffset?: Offset;

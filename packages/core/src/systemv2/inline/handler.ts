@@ -8,17 +8,15 @@ import {
   BlockEventContext,
   RangedBlockEventContext,
   dispatchKeyEvent,
-} from "@ohno-editor/core/system/handler";
+} from "../types";
 import { InlineSupport } from "./plugin";
-import { getTagName } from "@ohno-editor/core/helper/element";
 import {
-  BlockSelectChangeEvent,
-  PageRedoEvent,
-  PageUndoEvent,
-  PagesHandleMethods,
-  getValidAdjacent,
-} from "@ohno-editor/core/system";
-import { isPlain, tryGetDefaultRange } from "@ohno-editor/core/helper";
+  getTagName,
+  isPlain,
+  tryGetDefaultRange,
+} from "@ohno-editor/core/helper";
+import { PageRedoEvent, PageUndoEvent, PagesHandleMethods } from "../types";
+import { getValidAdjacent } from "../selection";
 
 export class InlineSupportPluginHandler implements PagesHandleMethods {
   handlePageUndo(e: PageUndoEvent, context: BlockEventContext): boolean | void {

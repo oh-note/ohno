@@ -1,15 +1,15 @@
-import { createElement } from "@ohno-editor/core/helper/document";
-import { parentElementWithTag } from "@ohno-editor/core/helper/element";
-import {
-  IInline,
-  IInlineManager,
-  IPlugin,
-  InlineMutexResult,
-} from "@ohno-editor/core/system/base";
-import {
-  BlockEventContext,
-  InlineHandler,
-} from "@ohno-editor/core/system/handler";
+import { parentElementWithTag, createElement } from "@ohno-editor/core/helper";
+
+// import {
+//   IInline,
+//   IInlineManager,
+//   IPlugin,
+//   InlineMutexResult,
+// } from "@ohno-editor/core/system/base";
+// import {
+//   BlockEventContext,
+//   InlineHandler,
+// } from "@ohno-editor/core/system/handler";
 import "./style.css";
 import {
   isHover,
@@ -18,9 +18,20 @@ import {
   removeActivate,
   removeHover,
 } from "@ohno-editor/core/helper";
-import { Page } from "@ohno-editor/core/system";
+import {
+  Page,
+  InlineHandler,
+  IPlugin,
+  IInline,
+  BlockEventContext,
+} from "../types";
 
-export class InlineSupport implements IPlugin, IInlineManager {
+export interface InlineMutexResult {
+  set?: HTMLLabelElement;
+  unset?: HTMLLabelElement;
+}
+
+export class InlineSupport implements IPlugin {
   root: HTMLElement;
   name: string = "inlinesupport";
   parent?: Page;
