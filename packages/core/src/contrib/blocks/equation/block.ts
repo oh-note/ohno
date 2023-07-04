@@ -9,7 +9,6 @@ import {
 } from "@ohno-editor/core/helper/element";
 import { Block, BlockData } from "@ohno-editor/core/system/block";
 import katex from "katex";
-import { RefLocation } from "@ohno-editor/core/system/range";
 import {
   BaseBlockSerializer,
   BlockSerializedData,
@@ -24,12 +23,16 @@ export interface EquationData extends BlockData {
 export class Equation extends Block<EquationData> {
   isMultiEditable: boolean = true;
   mergeable: boolean = false;
-  component: {
+  component!: {
     math: HTMLElement;
     input: HTMLParagraphElement;
   };
   constructor(data?: EquationData) {
     data = data || { src: "" };
+
+    super("equation", data);
+  }
+  render(data: EquationData): HTMLElement {
     const root = createElement("pre", {
       attributes: {},
     });
@@ -42,16 +45,14 @@ export class Equation extends Block<EquationData> {
     markPlain(input);
     root.appendChild(input);
     root.appendChild(math);
-    super("equation", root);
-
     this.component = {
       math,
       input,
     };
     this.input.textContent = data.src;
     this.update();
+    return root;
   }
-
   public get inner(): HTMLElement {
     return this.component.input;
   }

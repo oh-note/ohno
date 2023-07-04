@@ -63,3 +63,7 @@
 .oh-is-page table img {
   background-color: transparent;
 }
+
+.oh-is-page table td.active {
+  background-color: aliceblue;
+}

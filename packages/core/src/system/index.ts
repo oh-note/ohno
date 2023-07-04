@@ -9,5 +9,6 @@ export * from "./page";
 export * from "./pageevent";
 export * from "./position";
 export * from "./range";
-export * from "./serializer";
 export * from "./shortcut";
+export * from "./floating";
+export * from "./selection";

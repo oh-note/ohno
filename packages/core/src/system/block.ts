@@ -1,7 +1,7 @@
 // 实现 block 的基本接口和默认行为
 import { addMarkdownHint } from "@ohno-editor/core/helper/markdown";
 import { biasToLocation } from "./position";
-import { RefLocation, createRange, validateLocation } from "./range";
+import { createRange, validateLocation } from "./range";
 import { Page } from "./page";
 import { BLOCK_CLASS } from "./config";
 import {
@@ -18,7 +18,9 @@ import {
   Interval,
   Order,
 } from "./base";
-import { RichSelection, SelectionMethods } from "./selection";
+import { RefLocation, RichSelection, SelectionMethods } from "./selection";
+import { ChildrenData } from "../helper/document";
+import { InlineData } from "./inline";
 
 export interface BlockData {}
 
@@ -30,12 +32,12 @@ export type BlockOption<T> = {
 /**
  * Block 会默认对所有 children 添加 markdown hint
  */
-export class Block<T extends BlockData = BlockData> implements IBlock {
-  root: HTMLElement;
+export abstract class Block<T extends BlockData = BlockData> implements IBlock {
+  root!: HTMLElement;
   type: string = "";
   meta: T;
 
-  page?: Page;
+  page!: Page;
   isMultiEditable: boolean = false;
   mergeable: boolean = true; // 表格、图片、公式复杂组件等视为独立的 unmergeable，multiblock 下只删除内容，不删除 editable
   order: Order = "";
@@ -43,13 +45,21 @@ export class Block<T extends BlockData = BlockData> implements IBlock {
 
   selection: SelectionMethods = new RichSelection();
 
-  constructor(type: string, root: HTMLElement, option?: BlockOption<T>) {
-    const { plain, meta } = option || {};
-    if (!root) {
-      throw new Error("root el should be created befire constructor");
-    }
+  status: { [key: string]: any } = {};
 
+  option?: BlockOption<T>;
+  data: T;
+  constructor(type: string, data: T, option?: BlockOption<T>) {
+    const { plain, meta } = option || {};
+    this.data = data;
     this.type = type;
+    this.option = option;
+    this.meta = meta || ({} as T);
+  }
+
+  initialize() {
+    const { plain } = this.option || {};
+    const root = this.render(this.data);
     this.root = root;
     root.classList.add(BLOCK_CLASS);
     root.classList.add(this.type);
@@ -58,14 +68,29 @@ export class Block<T extends BlockData = BlockData> implements IBlock {
     if (!plain) {
       addMarkdownHint(root);
     }
-    this.meta = meta || ({} as T);
+    this.lazy_render()
+      .then(() => {})
+      .catch(() => {})
+      .finally(() => {});
   }
-  static create(meta: any): any {
-    throw new Error("create function not implemented");
+
+  abstract render(data: T): HTMLElement;
+  async lazy_render(): Promise<void> {}
+
+  public get serializer(): BlockSerializer<Block<T>> {
+    return this.page.getBlockSerializer(this.type);
+  }
+
+  deserializeInline(data?: InlineData): ChildrenData {
+    if (!data) {
+      return [];
+    }
+    return this.page.inlineSerializerV2.deserialize(data);
   }
 
   setParent(parent?: Page): void {
     this.parent = parent;
+    this.page = parent!;
   }
   equals(component?: IComponent | undefined): boolean {
     return component !== undefined && component.root === this.root;
@@ -79,6 +104,16 @@ export class Block<T extends BlockData = BlockData> implements IBlock {
 
   setDataset(key: string, value?: string) {
     this.root.dataset[key] = value;
+  }
+
+  setStatus(key: string, value: any) {
+    this.status[key] = value;
+  }
+  getStatus<T>(key: string) {
+    return this.status[key] as T;
+  }
+  hasStatus(key: string) {
+    return key in this.status;
   }
 
   setOrder(order: string): void {
@@ -375,12 +410,20 @@ export class Block<T extends BlockData = BlockData> implements IBlock {
 export type AnyBlock = Block<any>;
 
 export interface BlockSerializer<T extends Block> {
+  setPage(page: Page): void;
   toMarkdown(block: T): string;
   toHTML(block: T): string;
   toJson(block: T): BlockSerializedData<T["meta"]>;
   serialize(block: T, type: "markdown"): string;
   serialize(block: T, type: "html"): string;
   serialize(block: T, type: "json"): BlockSerializedData<T["meta"]>;
+  serializePart(block: T, clipedRange: Range, type: "markdown"): string;
+  serializePart(block: T, clipedRange: Range, type: "html"): string;
+  serializePart(
+    block: T,
+    clipedRange: Range,
+    type: "json"
+  ): BlockSerializedData<T["meta"]>;
 
   deserialize(data: BlockSerializedData<T["meta"]>): T;
 }
@@ -391,15 +434,104 @@ export type BlockSerializedData<T extends BlockData = BlockData> = {
   dataset?: { [key: string]: any; order?: never; type?: never };
 };
 
+export type InRangeEditable = {
+  start?: Node[];
+  startEditable: HTMLElement;
+  full?: HTMLElement[];
+  end?: Node[];
+  endEditable: HTMLElement;
+};
 export abstract class BaseBlockSerializer<T extends Block>
   implements BlockSerializer<T>
 {
+  page!: Page;
+  setPage(page: Page) {
+    this.page = page;
+  }
+
   abstract toMarkdown(block: T): string;
-  abstract toHTML(block: T): string;
   abstract toJson(block: T): BlockSerializedData<T["meta"]>;
+
+  partToMarkdown(block: T, range: Range): string {
+    return this.toMarkdown(block);
+  }
+  partToJson(block: T, range: Range): BlockSerializedData<T["meta"]> {
+    return this.toJson(block);
+  }
+
+  rangedEditable(block: T, range: Range): InRangeEditable {
+    if (block.selection.isNodeInRange(block.root, range)) {
+      return {
+        full: block.getEditables(),
+        startEditable: block.getFirstEditable(),
+        endEditable: block.getLastEditable(),
+      };
+    }
+
+    let startEditable = block.findEditable(range.startContainer);
+    let endEditable = block.findEditable(range.endContainer);
+    const startFull = startEditable === null;
+    const endFull = endEditable === null;
+    if (!startEditable) {
+      startEditable = block.getFirstEditable();
+    }
+    if (!endEditable) {
+      endEditable = block.getLastEditable();
+    }
+    const res: InRangeEditable = { startEditable, endEditable };
+    let cur = startEditable;
+    const full = [];
+
+    if (startEditable === endEditable) {
+      if (startFull && endFull) {
+        full.push(startEditable);
+      } else if (startFull && !endFull) {
+        const clipedRange = block.selection.clipRange(startEditable, range)!;
+        res.end = Array.from(clipedRange.cloneContents().childNodes);
+      } else {
+        // !startFull && endFull
+        // !startFull && !endFull
+        const clipedRange = block.selection.clipRange(startEditable, range)!;
+        res.start = Array.from(clipedRange.cloneContents().childNodes);
+      }
+    } else {
+      if (startFull) {
+        full.push(startEditable);
+      } else {
+        const clipedRange = block.selection.clipRange(startEditable, range)!;
+        res.start = Array.from(clipedRange.cloneContents().childNodes);
+      }
+      while (cur && cur !== endEditable) {
+        cur = block.getNextEditable(cur)!;
+        if (cur && cur !== endEditable) {
+          full.push(cur);
+        }
+      }
+      if (endFull) {
+        full.push(endEditable);
+      } else {
+        const clipedRange = block.selection.clipRange(endEditable, range)!;
+        res.end = Array.from(clipedRange.cloneContents().childNodes);
+      }
+    }
+    if (full.length > 0) {
+      res.full = full;
+    }
+    return res;
+  }
+
+  toHTML(block: T): string {
+    return outerHTML(block.root);
+  }
 
   outerHTML(...node: Node[]): string {
     return outerHTML(...node);
+  }
+
+  public get serializeInline() {
+    return this.page.inlineSerializerV2.serialize.bind(
+      this.page.inlineSerializerV2
+    );
   }
 
   serialize(block: T, type: "markdown"): string;
@@ -415,5 +547,29 @@ export abstract class BaseBlockSerializer<T extends Block>
     }
     throw new Error("not implemented");
   }
+
+  serializePart(block: T, range: Range, type: "markdown"): string;
+  serializePart(block: T, range: Range, type: "html"): string;
+  serializePart(
+    block: T,
+    range: Range,
+    type: "json"
+  ): BlockSerializedData<T["meta"]>;
+
+  serializePart(
+    block: T,
+    range: Range,
+    type: "markdown" | "html" | "json"
+  ): any {
+    if (type === "markdown") {
+      return this.partToMarkdown(block, range);
+    } else if (type === "html") {
+      return this.outerHTML(...Array.from(range.cloneContents().childNodes));
+    } else if (type === "json") {
+      return this.partToJson(block, range);
+    }
+    throw new Error("not implemented");
+  }
+
   abstract deserialize(data: BlockSerializedData<T["meta"]>): T;
 }

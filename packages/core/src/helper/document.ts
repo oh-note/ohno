@@ -192,13 +192,13 @@ export function getDefaultRange(): Range {
   throw new NoRangeError();
 }
 
-export function tryGetDefaultRange(): Range | null {
+export function tryGetDefaultRange(): Range | undefined {
   const sel = document.getSelection();
   if (sel && sel.rangeCount > 0) {
     return sel.getRangeAt(0);
   }
 
-  return null;
+  return undefined;
 }
 
 // Check if the element is already visible

@@ -21,6 +21,7 @@ import "./style.css";
 import { markPlain, outerHTML } from "@ohno-editor/core/helper";
 import {
   PlainSelection,
+  RefLocation,
   SelectionMethods,
 } from "@ohno-editor/core/system/selection";
 export interface CodeData extends BlockData {
@@ -30,13 +31,16 @@ export interface CodeData extends BlockData {
 
 export class Code extends Block<CodeData> {
   mergeable: boolean = false;
-  plain: HTMLElement;
-  lno: HTMLElement;
+
+  plain!: HTMLElement;
+  lno!: HTMLElement;
 
   selection: SelectionMethods = new PlainSelection();
   constructor(data?: CodeData) {
     data = Object.assign({}, { code: " " }, data);
-
+    super("code", data, { meta: data, plain: true });
+  }
+  render(data: CodeData): HTMLElement {
     const editer = createElement("code", { textContent: data.code || " " });
     markPlain(editer);
 
@@ -64,10 +68,12 @@ export class Code extends Block<CodeData> {
       attributes: {},
       children: [inner],
     });
-    super("code", root, { meta: data, plain: true });
     this.plain = editer;
-
     this.lno = lno;
+    return root;
+  }
+  async lazy_render(): Promise<void> {
+    this.updateRender();
   }
 
   public get inner(): HTMLElement {
@@ -82,11 +88,14 @@ export class Code extends Block<CodeData> {
     return this.plain.textContent || "";
   }
 
-  setParent(parent?: Page | undefined): void {
-    super.setParent(parent);
-    if (parent) {
-      this.updateRender();
-    }
+  isLocationInLastLine(loc: RefLocation): boolean {
+    const range = this.selection.createRange();
+    range.selectNode(this.inner.lastChild as Node);
+    const [_, a] = this.selection.getRects(range);
+    range.setStart(...loc);
+    const [__, b] = this.selection.getRects(range);
+
+    return this.selection.inSameLine(a, b);
   }
 
   updateRender() {

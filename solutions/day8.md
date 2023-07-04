@@ -20,3 +20,26 @@ inline，包括链接（`[]()`）、双链（`[[]]`）、公式（$$）、Tag（
 
 对于触发，需要提供额外的 handler 或 page 的注册支持？
 先 commit 以下，然后开个 branch 实验
+
+# inline 的两个激活入口
+
+Hover 状态下 BackSpace 是跳到 afterend 处，第二下删除；Delete 相反
+
+基于鼠标 -> hover 和 click 两个状态
+MouseEnter 是 Hover，Click 是 Edit
+
+基于键盘 -> Arrow 进去两个状态
+Math Arrow 是 Hover，Enter 是 Edit
+Backlink Arrow 是 Hover，Enter 是 Edit，Arrow 两侧、Escape 是 Edit 到 Hover，BackSpace 是为空是删除，不为空是跳到 afterend 处（两次删除）
+At Arrow 是 Hover，Enter 是 Edit
+Datetime Arrow 是 Hover，Enter 是 Edit
+TODO Arrow 是 Hover，Space 是 extra，Enter 是 Edit
+Tag Arrow 是 Hover，Enter 是 Edit
+KeyLabel Arrow 是 Hover ，Enter 是 Edit
+
+inlineSupport 负责发送 handleMouseHover/handleKeyboardHover，在 KeyboardHover 即以上状态下，所有的键盘事件都会被分发到 inline handler 中；而 MouseHover 状态下，键盘事件还按原来光标走；在 MouseEdit 后，键盘事件随着 inline handler 走；
+
+基于事件 -> 一些还没有考虑好的事件
+
+handleMouseActivate 第一次（之前光标不在 label 上）时
+handleKeyboardActivate (第一次在 [label, 0] 位置时按 Enter/Space) 时调用

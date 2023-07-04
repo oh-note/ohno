@@ -52,6 +52,7 @@ const visMap: { [key in LinuxKeyCode | WinKeyCode | MacKeyCode]?: string } = {
   ArrowDown: "↓",
   Backspace: "⌫",
   Enter: "↩",
+  Delete: "Del",
   MetaLeft: "⌘",
   MetaRight: "⌘",
   ControlLeft: "^",
@@ -77,8 +78,35 @@ const visMap: { [key in LinuxKeyCode | WinKeyCode | MacKeyCode]?: string } = {
   Period: ".",
   Slash: "/",
   Backquote: "`",
-  Tab: "⇥",
+  Tab: "Tab",
 };
+
+export function visualKeyEvent(
+  e: Shortcut | KeyboardEvent,
+  useKey?: boolean
+): string {
+  const keys = [];
+  const { shiftKey, altKey, metaKey, ctrlKey, key, code } = e;
+  if (shiftKey) {
+    keys.push("⇧");
+  }
+  if (altKey) {
+    keys.push("⎇");
+  }
+  if (metaKey) {
+    keys.push("⌘");
+  }
+  if (ctrlKey) {
+    keys.push("^");
+  }
+  if (useKey && key) {
+    keys.push(key);
+  } else if (code) {
+    keys.push(visMap[code as LinuxKeyCode] || code);
+  }
+
+  return keys.join("+");
+}
 
 export class ShortCutManager implements IShortcut {
   // key -> alias[]
@@ -114,29 +142,7 @@ export class ShortCutManager implements IShortcut {
       this._registKey(entry, macos, this.macos);
     }
   }
-  visualKeyEvent(e: Shortcut, useKey?: boolean): string {
-    const keys = [];
-    const { shiftKey, altKey, metaKey, ctrlKey, key, code } = e;
-    if (shiftKey) {
-      keys.push("⇧");
-    }
-    if (altKey) {
-      keys.push("⎇");
-    }
-    if (metaKey) {
-      keys.push("⌘");
-    }
-    if (ctrlKey) {
-      keys.push("^");
-    }
-    if (useKey && key) {
-      keys.push(key);
-    } else if (code) {
-      keys.push(visMap[code as LinuxKeyCode] || code);
-    }
-
-    return keys.join("+");
-  }
+  visualKeyEvent = visualKeyEvent;
   serializeKeyEvent(e: KeyboardEvent | Shortcut, useKey?: boolean): string {
     const keys = [];
     const { shiftKey, altKey, metaKey, ctrlKey, key, code } = e;

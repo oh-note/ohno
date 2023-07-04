@@ -10,6 +10,10 @@ import { TableChange, TableChangePayload } from "./command";
 import { ST_ADD_DOWN, ST_ADD_RIGHT, ST_ADD_UP } from "./consts";
 import { ST_ADD_LEFT } from "./consts";
 import { BlockInvalideLocationEvent } from "@ohno-editor/core/system";
+import { BlockReplace } from "../../commands";
+import { Paragraph } from "../paragraph";
+import { isLeftButtonDown, markActivate } from "@ohno-editor/core/helper";
+import { copyInBlock } from "@ohno-editor/core/core/default/functional/copy";
 
 export class TableHandler implements PagesHandleMethods {
   handleKeyPress(
@@ -42,7 +46,7 @@ export class TableHandler implements PagesHandleMethods {
     }
 
     let axis, index;
-    const [x, y] = (block as Table).getXYOfContainer(editable);
+    const [x, y] = (block as Table).getXYOfEditable(editable);
     if (res.has(ST_ADD_UP) || res.has(ST_ADD_DOWN)) {
       axis = "row";
       index = x;
@@ -64,12 +68,12 @@ export class TableHandler implements PagesHandleMethods {
       .onExecute(({ axis, index, block }) => {
         const editable =
           axis === "row"
-            ? block.getContainerByXY(index, y)!
-            : block.getContainerByXY(x, index)!;
+            ? block.getEditableByXY(index, y)!
+            : block.getEditableByXY(x, index)!;
         setLocation(block.getLocation(0, editable)!);
       })
       .onUndo(({ axis, block }) => {
-        const editable = block.getContainerByXY(x, y)!;
+        const editable = block.getEditableByXY(x, y)!;
         setLocation(block.getLocation(0, editable)!);
       });
     page.executeCommand(command);
@@ -110,7 +114,52 @@ export class TableHandler implements PagesHandleMethods {
     return true;
   }
 
-  handleMouseMove(e: MouseEvent, context: BlockEventContext): boolean | void {}
+  handleMouseDown(e: MouseEvent, context: BlockEventContext): boolean | void {
+    const { block, range } = context;
+    const typedBlock = block as Table;
+    const node = document.elementFromPoint(e.clientX, e.clientY);
+    if (node) {
+      const editable = typedBlock.findTableCell(node)!;
+      block.setStatus("startTableCell", editable);
+      const startXY = typedBlock.getXYOfEditable(editable.querySelector("p")!);
+      typedBlock.select(startXY, startXY);
+    }
+
+    if (node) {
+      const end = typedBlock.findTableCell(node);
+      const start = block.getStatus<HTMLElement>("startTableCell");
+      if (start && end) {
+        const startXY = typedBlock.getXYOfEditable(start.querySelector("p")!);
+        const endXY = typedBlock.getXYOfEditable(end.querySelector("p")!);
+        typedBlock.select(startXY, endXY);
+      }
+    }
+  }
+  handleMouseMove(e: MouseEvent, context: BlockEventContext): boolean | void {
+    const { block, range } = context;
+    const typedBlock = block as Table;
+    if (!isLeftButtonDown(e)) {
+      return;
+    }
+    const node = document.elementFromPoint(e.clientX, e.clientY);
+
+    if (node) {
+      const end = typedBlock.findTableCell(node);
+      const start = block.getStatus<HTMLElement>("startTableCell");
+      if (start && end) {
+        const startXY = typedBlock.getXYOfEditable(start.querySelector("p")!);
+        const endXY = typedBlock.getXYOfEditable(end.querySelector("p")!);
+        typedBlock.select(startXY, endXY);
+      }
+    }
+  }
+
+  handleMouseLeave(e: MouseEvent, context: BlockEventContext): boolean | void {
+    const { block, range } = context;
+    const typedBlock = block as Table;
+    typedBlock.clearSelect();
+  }
+
   handleBackspaceDown(
     e: KeyboardEvent,
     context: RangedBlockEventContext
@@ -142,9 +191,21 @@ export class TableHandler implements PagesHandleMethods {
 
   handleBeforeInput(
     e: TypedInputEvent,
-    context: BlockEventContext
+    context: RangedBlockEventContext
   ): boolean | void {
-    // const { block, page, range } = context;
-    // return true;
+    const { block, range, page } = context;
+    const editable = block.findEditable(range.commonAncestorContainer);
+
+    if (editable) {
+      return;
+    }
+    // select multiple table cell
+  }
+
+  handleCopy(
+    e: ClipboardEvent,
+    context: RangedBlockEventContext
+  ): boolean | void {
+    copyInBlock;
   }
 }

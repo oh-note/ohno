@@ -5,7 +5,7 @@ import {
   getDefaultRange,
 } from "@ohno-editor/core/helper/document";
 
-import { TextDeleteSelection } from "@ohno-editor/core/contrib/commands/text";
+// import { TextDeleteSelection } from "@ohno-editor/core/contrib/commands/text";
 import { Page } from "@ohno-editor/core/system/page";
 import { addMarkdownHint } from "@ohno-editor/core/helper/markdown";
 import {
@@ -13,7 +13,7 @@ import {
   rangeToInterval,
 } from "@ohno-editor/core/system/position";
 import { setRange } from "@ohno-editor/core/system/range";
-import { TextInsert } from "@ohno-editor/core/contrib/commands";
+import { RichTextDelete, TextInsert } from "@ohno-editor/core/contrib/commands";
 
 function makeFakePage() {
   const page = new Page();
@@ -39,13 +39,14 @@ describe("test command", () => {
   test("TextInsert", () => {
     const page = makeFakePage();
 
-    let block = page.findBlock("n")!;
+    const block = page.query("n")!;
     expect(block.root.textContent).toBe("012");
-    block.setOffset({ start: -1 });
+    page.setLocation(block.getLocation(-1, 0)!);
 
     let command = new TextInsert({
       block: block,
-      insertOffset: { start: 0 },
+      index: 0,
+      start: 0,
       page: page,
       innerHTML: "O",
     });
@@ -56,7 +57,8 @@ describe("test command", () => {
 
     command = new TextInsert({
       block: block,
-      insertOffset: { start: 0 },
+      index: 0,
+      start: 0,
       page: page,
       innerHTML: "<i>content</i>",
     });
@@ -69,15 +71,17 @@ describe("test command", () => {
 
   test("delete selection", () => {
     const page = makeFakeHTMLPage();
-    let block = page.findBlock("n")!;
+    const block = page.query("n")!;
     expect(block.root.textContent).toBe("012**456**89");
     // "012<b>4[56</b>8]9" -> "012[<b>4[56</b>]8]9" -> "012[<b>4|</b>8]9";
     const range = intervalToRange(block.root, { start: 5, end: 9 })!;
     setRange(range);
-    let del = new TextDeleteSelection({
+    let del = new RichTextDelete({
       page: page,
       block: block,
-      delOffset: { start: 5, end: 9 },
+      start: 5,
+      token_number: 4,
+      index: 0,
     });
 
     page.executeCommand(del);

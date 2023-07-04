@@ -5,10 +5,6 @@ import {
   PagesHandleMethods,
 } from "@ohno-editor/core/system/handler";
 import {
-  getTokenSize,
-  tokenBetweenRange,
-} from "@ohno-editor/core/system/position";
-import {
   BlockCreate,
   BlockRemove,
   BlockReplace,
@@ -24,10 +20,11 @@ import { List } from "../list";
 import { RichTextDelete, TextInsert } from "@ohno-editor/core/contrib/commands";
 import { Empty } from "@ohno-editor/core/contrib/commands/select";
 import { ContainerRemove } from "@ohno-editor/core/contrib/commands/container";
-import { OrderedList } from "../orderedList";
+
 import { createRange } from "@ohno-editor/core/system/range";
 import { Code } from "../code";
 import { Divide } from "../divide";
+import { OrderedList } from "../orderedList";
 
 export interface DeleteContext extends BlockEventContext {
   nextBlock: AnyBlock;
@@ -42,7 +39,7 @@ export function prepareDeleteCommand({
     .withLazyCommand(({ page, block, nextBlock }, extra, status) => {
       //
       if (nextBlock.inner.innerHTML.length > 0) {
-        const token_number = getTokenSize(block.inner);
+        const token_number = block.selection.getTokenSize(block.inner);
         const offset = { index: -1, start: token_number };
         return new TextInsert({
           page: page,
@@ -68,14 +65,14 @@ export function prepareEnterCommand({ page, block, range }: BlockEventContext) {
     throw new NoRangeError();
   }
   const builder = new ListCommandBuilder({ page, block, range })
-    .withLazyCommand(({ block, page, range }, _, status) => {
+    .withLazyCommand(({ block, page, range }) => {
       // 1. 如果存在选中文本，则删除。
       if (range.collapsed) {
         // 没有选中文本，不需要删除
         return;
       }
       const start = block.getBias([range.startContainer, range.startOffset]);
-      const token_number = tokenBetweenRange(range);
+      const token_number = block.selection.tokenBetweenRange(range);
       return new RichTextDelete({
         page,
         block,
@@ -104,7 +101,7 @@ export function prepareEnterCommand({ page, block, range }: BlockEventContext) {
       // 2. 否则，将右侧内容放到下一行
 
       // 需要获取光标到右侧的文本，删除并将其作为新建 Block 的初始文本（下一条命令）
-      const full_token_number = getTokenSize(block.inner);
+      const full_token_number = block.selection.getTokenSize(block.inner);
       const tailSelectedRange = block.getRange(
         {
           start,
@@ -119,8 +116,8 @@ export function prepareEnterCommand({ page, block, range }: BlockEventContext) {
         page,
         block,
         index: 0,
-        start,
-        token_number: full_token_number - start,
+        start: full_token_number,
+        token_number: start - full_token_number,
       }).onUndo(({ block, start }) => {
         page.setLocation(block.getLocation(start, 0)!, block);
       });
@@ -184,7 +181,7 @@ export class ParagraphHandler implements PagesHandleMethods {
         .withLazyCommand(({ block, page }, { innerHTML }) => {
           // const insertOffset = block.getOffset();
           // 将删除的 Editable 的内容插入到该 block
-          const start = getTokenSize(block.getEditable(0));
+          const start = block.selection.getTokenSize(block.getEditable(0));
           return new TextInsert({
             page,
             block,
@@ -246,7 +243,9 @@ export class ParagraphHandler implements PagesHandleMethods {
         });
       })
       .withLazyCommand(({ page, block, prevBlock }, extra, status) => {
-        const token_number = getTokenSize(prevBlock.getLastEditable());
+        const token_number = block.selection.getTokenSize(
+          prevBlock.getLastEditable()
+        );
         if (block.root.innerHTML.length > 0) {
           // 2/1. 将当前 block 的内容添加到上一个 block的 lastBlock 中
           return new TextInsert({

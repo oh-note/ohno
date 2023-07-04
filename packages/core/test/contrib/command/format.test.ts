@@ -23,25 +23,26 @@ function makeFakePage() {
   const root = createElement("div");
   document.body.appendChild(root);
   page.render(root);
-  page.blockChain.first!.value.root.innerHTML = "Ohno World!";
+  page.chain.first!.value.root.innerHTML = "Ohno World!";
   return page;
 }
 
 describe("FormatText", () => {
   test("<i>te|xt</i>", () => {
     const page = makeFakePage();
-    let block = page.findBlock("n")!;
+    let block = page.query("n")!;
     block.root.innerHTML = "<i>1234</i>";
     addMarkdownHint(block.root);
     expect(block.root.textContent).toBe("*1234*");
-    block.setOffset({ start: 3 });
+    page.setLocation(block.getLocation(3, 0)!);
+
     // "<i>12|34</i>";
 
     const command = new FormatText({
       block,
       page,
       format: "b",
-      offset: { start: 3 },
+      interval: { start: 3, end: 3, index: 0 },
     });
     page.executeCommand(command);
     console.log(block.root.innerHTML);
@@ -53,7 +54,7 @@ describe("FormatText", () => {
 
   test("*[*text*]*", () => {
     const page = makeFakePage();
-    let block = page.findBlock("n")!;
+    let block = page.query("n")!;
     block.root.innerHTML = "<b>1234</b>";
     addMarkdownHint(block.root);
     expect(block.root.textContent).toBe("**1234**");
@@ -76,12 +77,12 @@ describe("FormatText", () => {
 
   test("[<b>text</b>]", () => {
     const page = makeFakePage();
-    const block = page.findBlock("n")!;
+    const block = page.query("n")!;
     block.root.innerHTML = "<b>1234</b>";
 
     let command = new FormatText({
       block: block,
-      offset: { start: 0, end: 6 },
+      interval: { start: 0, end: 6, index: 0 },
       page: page,
       format: "b",
     });
@@ -95,11 +96,11 @@ describe("FormatText", () => {
   // remove
   test("<b>te|xt</b>", () => {
     const page = makeFakePage();
-    let block = page.findBlock("n")!;
+    let block = page.query("n")!;
     block.root.innerHTML = "<b>Ohno World!</b>";
     let command = new FormatText({
       block: block,
-      offset: { start: 1 },
+      interval: { start: 1, end: 1, index: 0 },
       page: page,
       format: "b",
     });
@@ -113,11 +114,11 @@ describe("FormatText", () => {
 
   test("pl|ain", () => {
     const page = makeFakePage();
-    let block = page.findBlock("n")!;
+    let block = page.query("n")!;
     expect(block.root.textContent).toBe("Ohno World!");
     let command = new FormatText({
       block: block,
-      offset: { start: 0 },
+      interval: { start: 0, end: 0, index: 0 },
       page: page,
       format: "b",
     });
@@ -131,14 +132,14 @@ describe("FormatText", () => {
 
   test("|", () => {
     const page = makeFakePage();
-    let block = page.findBlock("n")!;
+    let block = page.query("n")!;
     block.root.childNodes.forEach((item) => {
       item.remove();
     });
     expect(block.root.textContent).toBe("");
     let command = new FormatText({
       block: block,
-      offset: { start: 0 },
+      interval: { start: 0, end: 0, index: 0 },
       page: page,
       format: "b",
     });
@@ -152,11 +153,11 @@ describe("FormatText", () => {
 
   test("<i>01[2</i>3]45", () => {
     const page = makeFakePage();
-    let block = page.findBlock("n")!;
+    let block = page.query("n")!;
     block.root.innerHTML = "<i>012</i>345";
     let command = new FormatText({
       block: block,
-      offset: { start: 3, end: 6 },
+      interval: { start: 3, end: 6, index: 0 },
       page: page,
       format: "b",
     });

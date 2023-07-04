@@ -1,4 +1,4 @@
-import { PasteAll } from "@ohno-editor/core/contrib";
+import { Paragraph, PasteAll } from "@ohno-editor/core/contrib";
 import {
   ListCommandBuilder,
   RichTextDelete,
@@ -9,10 +9,7 @@ import {
   BlocksCreate,
 } from "@ohno-editor/core/contrib/commands/block";
 import { outerHTML } from "@ohno-editor/core/helper/element";
-import {
-  InlineSerializedData,
-  tokenBetweenRange,
-} from "@ohno-editor/core/system";
+import { tokenBetweenRange } from "@ohno-editor/core/system";
 import { OhNoClipboardData } from "@ohno-editor/core/system/base";
 import {
   PagesHandleMethods,
@@ -63,17 +60,49 @@ export function defaultHandlePaste(
       token_number,
     });
   });
-
+  // TODO 更改 inline 的序列化行为，通过 serializer part 来将局部内容也保存为 block 的，最多再加一个特殊格式
   data.forEach((item, index) => {
     if (item.type === "inline") {
-      builder.withLazyCommand(() => {
-        const nodes = page.inlineSerializer.deserialize(
-          item as InlineSerializedData
-        );
-        const innerHTML = outerHTML(...nodes);
-
-        return new TextInsert({ page, block, innerHTML, start, index });
-      });
+      builder
+        .withLazyCommand((_, extra) => {
+          if (index === 0) {
+            extra["block"] = block;
+            return;
+          }
+          const newBlock = new Paragraph();
+          const refBlock = extra["block"] || block;
+          extra["block"] = newBlock;
+          return new BlockCreate({
+            page,
+            newBlock,
+            block: refBlock,
+            where: "after",
+          });
+        })
+        .withLazyCommand((_, extra) => {
+          const nodes = page.inlineSerializerV2.deserialize(item);
+          const innerHTML = outerHTML(...nodes);
+          return new TextInsert({
+            page,
+            block: extra["block"],
+            innerHTML,
+            start: -1,
+            index: -1,
+          });
+          // if (index === 0) {
+          // } else {
+          //   return new TextInsert({
+          //     page,
+          //     block: extra["block"],
+          //     innerHTML,
+          //     start: 0,
+          //     index: 0,
+          //   });
+          // }
+        })
+        .withLazyCommand(() => {
+          // split if caret is not last
+        });
     } else {
       builder.withLazyCommand((_, extra) => {
         const newBlock = page.getBlockSerializer(item.type).deserialize(item);

@@ -10,11 +10,7 @@ import {
   tryGetBoundsRichNode,
   validateRange,
 } from "@ohno-editor/core/system/range";
-import {
-  ElementFilter,
-  getTagName,
-  outerHTML,
-} from "@ohno-editor/core/helper/element";
+import { ElementFilter, getTagName } from "@ohno-editor/core/helper/element";
 import { IBlockRemove } from "@ohno-editor/core/contrib/commands/inlineblock";
 
 import {
@@ -27,19 +23,9 @@ import {
   TextDelete,
   TextInsert,
 } from "@ohno-editor/core/contrib/commands/text";
-import {
-  Command,
-  InlineSerializedData,
-  OhNoClipboardData,
-} from "@ohno-editor/core/system";
-import {
-  BlockRemove,
-  BlocksCreate,
-  Empty,
-  None,
-} from "@ohno-editor/core/contrib";
+import { Command } from "@ohno-editor/core/system";
+import { None } from "@ohno-editor/core/contrib";
 import { handleInsertFromDrop } from "./drop";
-import { copyInBlock } from "./copy";
 
 export function prepareBeforeInputCommand(
   handler: HandlerMethods,
@@ -108,7 +94,8 @@ export function prepareBeforeInputCommand(
         range.startOffset,
       ])!;
       const prevRange = createRange(
-        ...prev,
+        prev[0],
+        prev[1],
         range.startContainer,
         range.startOffset
       );
@@ -331,6 +318,7 @@ export function defaultHandleBeforeInput(
     e.inputType === "deleteWordBackward" ||
     e.inputType === "deleteSoftLineBackward"
   ) {
+    // debugger;
     let hint;
     if (block.isLocationInLeft([range.startContainer, range.startOffset])) {
       return true;
@@ -378,7 +366,8 @@ export function defaultHandleBeforeInput(
           range.startOffset,
         ])!;
         const prevRange = createRange(
-          ...prev,
+          prev[0],
+          prev[1],
           range.startContainer,
           range.startOffset
         );
@@ -389,14 +378,16 @@ export function defaultHandleBeforeInput(
           range.startOffset,
         ])!;
         const prevRange = createRange(
-          ...prev,
+          prev[0],
+          prev[1],
           range.startContainer,
           range.startOffset
         );
         token_number = -tokenBetweenRange(prevRange);
       }
-
-      command = new TextDelete({
+      const commandCls =
+        e.inputType === "deleteSoftLineBackward" ? RichTextDelete : TextDelete;
+      command = new commandCls({
         block,
         page,
         start,

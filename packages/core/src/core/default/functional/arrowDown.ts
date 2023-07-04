@@ -1,4 +1,9 @@
-import { BlockInvalideLocationEvent, Page } from "@ohno-editor/core/system";
+import {
+  AnyBlock,
+  BlockEventContext,
+  BlockInvalideLocationEvent,
+  Page,
+} from "@ohno-editor/core/system";
 import {
   PagesHandleMethods,
   RangedBlockEventContext,
@@ -8,7 +13,18 @@ import {
   compareLocation,
   createRange,
   getValidAdjacent,
-} from "@ohno-editor/core/system/range";
+} from "@ohno-editor/core/system";
+import { BlockCreate, Paragraph } from "@ohno-editor/core/contrib";
+
+export function ensureLast(context: BlockEventContext) {
+  const { page, block } = context;
+  if (block instanceof Paragraph) {
+    return;
+  }
+  const newBlock = new Paragraph();
+  const command = new BlockCreate({ page, block, newBlock, where: "after" });
+  page.executeCommand(command);
+}
 
 export function setAnchor(
   tgt: Node,
@@ -211,6 +227,8 @@ export function defaultHandleArrowDown(
       }
       if (next) {
         setAnchor(...next, range, e.shiftKey, direction, page);
+      } else {
+        ensureLast(context);
       }
 
       return true;
@@ -285,6 +303,8 @@ export function defaultHandleArrowDown(
     }
     if (next) {
       setAnchor(...next, range, e.shiftKey, direction, page);
+    } else {
+      ensureLast(context);
     }
 
     return true;

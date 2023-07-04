@@ -27,12 +27,10 @@ import {
   parentElementWithFilter,
   prevValidSibling,
 } from "../helper";
+import { Interval } from "./base";
 
 export type RefLocation = [Node, number];
-export interface Interval {
-  start: number;
-  end: number;
-}
+
 export type WHERE = "afterbegin" | "afterend" | "beforebegin" | "beforeend";
 export interface PositionMethods {
   locationToBias(root: Node, loc: RefLocation): number;
@@ -133,6 +131,7 @@ export class RichSelection implements SelectionMethods {
     }
     const [container, offset] = loc;
     const range = this.createRange(container, offset);
+    
     const test = createElement("span", {
       textContent: "|",
     });
@@ -244,10 +243,7 @@ export class RichSelection implements SelectionMethods {
 
     throw new Error("Not parent");
   }
-  protected _getPrevLocation(
-    container: Node,
-    offset: number
-  ): RefLocation | null {
+  _getPrevLocation(container: Node, offset: number): RefLocation | null {
     // 三个位置：
     // 当前文本没结束 -> 下一个文本
     // 当前文本已结束 -> 和临界的夹缝（邻居是 HTMLElement）
@@ -343,10 +339,7 @@ export class RichSelection implements SelectionMethods {
     return result;
   }
 
-  protected _getNextLocation(
-    container: Node,
-    offset: number
-  ): RefLocation | null {
+  _getNextLocation(container: Node, offset: number): RefLocation | null {
     if (container instanceof Text && offset < container.length) {
       // tex|t
       return [container, offset + 1];

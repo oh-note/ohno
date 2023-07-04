@@ -283,22 +283,9 @@ export class MultiBlockHandler implements PagesHandleMethods {
         html = blockser.serialize(curBlock, "html");
         json = blockser.serialize(curBlock, "json");
       } else {
-        const editable = curBlock.findEditable(
-          index === 0 ? range.startContainer : range.endContainer
-        );
-        let inlineRange;
-        if (
-          editable &&
-          (inlineRange = block.selection.clipRange(editable, range))
-        ) {
-          json = page.inlineSerializer.serialize(inlineRange);
-          html = page.inlineSerializer.toHTML(inlineRange);
-          text = page.inlineSerializer.toMarkdown(inlineRange);
-        } else {
-          text = blockser.serialize(curBlock, "markdown");
-          html = blockser.serialize(curBlock, "html");
-          json = blockser.serialize(curBlock, "json");
-        }
+        text = blockser.serializePart(curBlock, range, "markdown");
+        html = blockser.serializePart(curBlock, range, "html");
+        json = blockser.serializePart(curBlock, range, "json");
       }
 
       return { text: text, html: html, json: json };

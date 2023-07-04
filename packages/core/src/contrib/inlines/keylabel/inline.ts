@@ -9,8 +9,15 @@ import {
   Shortcut,
   makeRangeInNode,
   setRange,
+  visualKeyEvent,
 } from "@ohno-editor/core/system";
 import "./style.css";
+import {
+  InlineData,
+  InlineSerializer,
+  LabelData,
+  LabelSerializer,
+} from "@ohno-editor/core/system/inline";
 
 export class KeyLabel extends InlineBase {
   // options: BackLinkOption[];
@@ -22,42 +29,53 @@ export class KeyLabel extends InlineBase {
   }
 
   create(option: Shortcut): HTMLLabelElement {
-    const shortcut = !this.parent
-      ? new ShortCutManager()
-      : (this.parent as Page).shortcut;
-
-    const res = shortcut.find(option);
-    const keystr = shortcut.visualKeyEvent(option);
-    // const hits = Array.from(res).join(", ");
-
+    const keystr = visualKeyEvent(option);
     const q = createElement("data");
     q.textContent = keystr;
     const ks = keystr.split("+").map((item) => {
       return createElement("kbd", { textContent: item });
     });
     q.replaceChildren(...ks);
-    const root = createInline(this.name, [q]);
-
+    const root = createInline(this.name, [q], option);
     root.appendChild(q);
-    addMarkdownHint(root);
     return root;
   }
 
   update(e: KeyboardEvent, context: InlineRangedEventContext) {
-    const { inline, page } = context;
+    const { inline } = context;
     const q = inline.querySelector("data")!;
-    // const hits = Array.from(page.shortcut.find(e)).join(", ");
-    const keystr = page.shortcut.visualKeyEvent(e);
+
+    const keystr = visualKeyEvent(e);
     const ks = keystr.split("+").map((item) => {
       return createElement("kbd", { textContent: item });
     });
     q.replaceChildren(...ks);
-    addMarkdownHint(q);
     this.latest = false;
   }
 
   activate_subclass(label: HTMLLabelElement, context: BlockEventContext): void {
     const q = label.querySelector("data")!;
     setRange(makeRangeInNode(q, context.range));
+  }
+}
+
+export class KeyLabelSerializer extends LabelSerializer<KeyLabel> {
+  toMarkdown(node: HTMLLabelElement, parent: InlineSerializer): string {
+    const text = node.querySelector("kbd")!.textContent;
+    return ` [${text}](ohno://label?name=keylabel) `;
+  }
+
+  toJson(node: HTMLLabelElement, parent: InlineSerializer): InlineData {
+    return [
+      {
+        type: "label",
+        label_type: "keylabel",
+        data: { ...node.dataset },
+      } as LabelData,
+    ];
+  }
+  deserialize({ data }: LabelData, parent: InlineSerializer): Node[] {
+    const { shiftKey, altKey, metaKey, ctrlKey, key, code } = data;
+    return [this.manager.create({ shiftKey, ctrlKey, altKey, metaKey, code })];
   }
 }

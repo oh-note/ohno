@@ -4,16 +4,13 @@ import {
   innerHTMLToNodeList,
 } from "@ohno-editor/core/helper/document";
 import {
-  AnyBlock,
   BlockSerializedData,
-  InlineSerializedData,
   OhNoClipboardData,
   Page,
   RangedBlockEventContext,
 } from "@ohno-editor/core/system";
-import { IComponent, IContainer, IPlugin } from "@ohno-editor/core/system/base";
+import { IPlugin } from "@ohno-editor/core/system/base";
 import sanitizeHtml from "sanitize-html";
-import { Code } from "../../blocks";
 import { CodeData } from "../../blocks/code/block";
 
 export type ParserResult = {
@@ -92,12 +89,12 @@ export class PasteAll implements IPlugin {
         const result = this.nodeParser[tagName](item, clipboardData);
         ohnoClipboardData.push(...result.data);
       } else if (tagName === "span") {
-        ohnoClipboardData.push({
-          type: "inline",
-          data: [
-            { tagName: "#text", children: (item as HTMLElement).innerHTML },
-          ],
-        } as InlineSerializedData);
+        // ohnoClipboardData.push({
+        //   type: "inline",
+        //   data: [
+        //     { tagName: "#text", children: (item as HTMLElement).innerHTML },
+        //   ],
+        // } as InlineSerializedData);
       } else {
         ohnoClipboardData.push({
           data: {

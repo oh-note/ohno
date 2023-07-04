@@ -12,12 +12,14 @@ export class Divide extends Block<DivideData> {
   isMultiEditable: boolean = true;
   mergeable: boolean = false;
 
-  constructor(init?: DivideData) {
+  constructor(data?: DivideData) {
+    super("divide", data || {});
+  }
+  render(data: DivideData): HTMLElement {
     const root = createElement("div", {
       attributes: {},
     });
-
-    super("divide", root);
+    return root;
   }
 }
 

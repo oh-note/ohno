@@ -37,13 +37,7 @@ import {
   PageRedoEvent,
   PageUndoEvent,
 } from "./pageevent";
-import {
-  RefLocation,
-  createRange,
-  getValidAdjacent,
-  setLocation,
-  setRange,
-} from "./range";
+import { createRange, getValidAdjacent, setLocation, setRange } from "./range";
 import { throttle } from "@ohno-editor/core/helper/lodash";
 import { isParent } from "../helper";
 import { IShortcut, ShortCutManager } from "./shortcut";
@@ -53,7 +47,9 @@ import {
   removeActivate,
   removeSelect,
 } from "../helper/status";
-import { InlineSerializer } from "./inline";
+
+import { RefLocation } from "./selection";
+import { InlineSerializer, LabelSerializer } from "./inline";
 
 export class PageHandler {
   pluginHandlers: PagesHandleMethods[] = [];
@@ -69,7 +65,7 @@ export class PageHandler {
   page: Page;
   constructor(page: Page) {
     this.page = page;
-    this.handleMouseMove = throttle(this.handleMouseMove, 100).bind(this);
+    this.handleMouseMove = throttle(this.handleMouseMove, 10).bind(this);
   }
 
   private deflag(entry: HandlerFlag): PagesHandleMethods[] {
@@ -557,8 +553,9 @@ export class PageHandler {
   retriveBlockFromMouse(
     e: MouseEvent
   ): { block: Block; focusNode: Node } | null {
-    const middleX =
-      this.page.blockRoot.clientLeft + this.page.blockRoot.clientWidth / 2;
+    const rect = this.page.blockRoot.getBoundingClientRect();
+
+    const middleX = rect.x + rect.width / 2;
     const node = document.elementFromPoint(middleX, e.clientY);
     if (node) {
       const block = this.findBlock(node);
@@ -784,9 +781,9 @@ export class PageHandler {
         "handleBlockInvalideLocation"
       );
     } else if (e instanceof PageUndoEvent) {
-      return this.dispatchEvent<PageUndoEvent>(e, context, "handlePageUndo");
+      return this.dispatchEvent<PageUndoEvent>(context, e, "handlePageUndo");
     } else if (e instanceof PageRedoEvent) {
-      return this.dispatchEvent<PageRedoEvent>(e, context, "handlePageRedo");
+      return this.dispatchEvent<PageRedoEvent>(context, e, "handlePageRedo");
     }
   }
 }
@@ -796,7 +793,7 @@ export type HandlerFlag = PagesHandleMethods[] | PagesHandleMethods | undefined;
 export interface HandlerEntry {
   plugins?: HandlerFlag;
   multiblock?: HandlerFlag;
-  // 只需要 global / blocks 两种，在前面都没有通过的情况下，下面两种情况二选一 consume
+
   beforeBlock?: HandlerFlag;
   global?: HandlerFlag;
   blocks?: { [key: string]: HandlerFlag };
@@ -822,7 +819,9 @@ export interface PluginComponent extends Component {
 
 export interface InlineComponent extends Component {
   // 负责维护一个可选的 HTMLElement，用于在 inline 被激活时提供必要的操作
+  name: string;
   manager: IInline;
+  serializer: LabelSerializer<any>;
 }
 
 export type ComponentEntryFn = (init: any) => Component;
@@ -852,11 +851,13 @@ export class Page implements IPage {
   rangeDirection: "prev" | "next" | undefined;
   selectionMode: "block" | "text" = "text";
   supportedBlocks: { [key: string]: BlockComponent } = {};
+  supportedInlines: { [key: string]: InlineComponent } = {};
   pageHandler: PageHandler;
   history: History;
 
   shortcut: IShortcut;
-  inlineSerializer: InlineSerializer;
+
+  inlineSerializerV2: InlineSerializer;
 
   constructor(init?: PageInit) {
     this.selected = new Set();
@@ -870,7 +871,8 @@ export class Page implements IPage {
     this.pageHandler.bindEventListener(this.inner);
     const { components, blocks } = init || {};
     this.history = new History(this, { max_history: 200 });
-    this.inlineSerializer = new InlineSerializer();
+
+    this.inlineSerializerV2 = new InlineSerializer();
     const pageCreatedListener: Component["onPageCreated"][] = [];
     if (components) {
       const { blocks, plugins, inlines, extraHandlers } = components;
@@ -879,6 +881,7 @@ export class Page implements IPage {
         blocks.forEach((item) => {
           this.pageHandler.registerHandlers(item.handlers || {});
           this.supportedBlocks[item.name] = item;
+          item.serializer.setPage(this);
 
           item.onPageCreated && pageCreatedListener.push(item.onPageCreated);
         });
@@ -895,6 +898,11 @@ export class Page implements IPage {
       if (inlines) {
         inlines.forEach((item) => {
           this.pageHandler.registerHandlers(item.handlers || {});
+          this.supportedInlines[item.name] = item;
+          this.inlineSerializerV2.registerLabelSerializer(
+            item.name,
+            item.serializer
+          );
           item.onPageCreated && pageCreatedListener.push(item.onPageCreated);
         });
       }
@@ -1082,15 +1090,16 @@ export class Page implements IPage {
   }
 
   createBlock<T = AnyBlock, I extends BlockData = BlockData>(
-    name: string,
+    type: string,
     data?: I
   ): T {
-    return new this.supportedBlocks[name].blockType(data) as T;
+    return new this.supportedBlocks[type].blockType(data) as T;
   }
 
   getBlockSerializer<T extends Block = AnyBlock>(
     name: string
   ): BlockSerializer<T> {
+    this.supportedBlocks[name].serializer;
     return this.supportedBlocks[name].serializer as BlockSerializer<T>;
   }
 
@@ -1125,8 +1134,17 @@ export class Page implements IPage {
     removeActivate(block.root);
     removeSelect(block.root);
   }
-  appendBlock(newBlock: AnyBlock): string {
+
+  _initBlock(newBlock: AnyBlock) {
+    newBlock.setParent(this);
+    if (!newBlock.root) {
+      newBlock.initialize();
+    }
     this.removeBlockStatus(newBlock);
+  }
+
+  appendBlock(newBlock: AnyBlock): string {
+    this._initBlock(newBlock);
     const oldLast = this.getLastBlock();
     if (oldLast) {
       newBlock.setOrder(createOrderString(oldLast.order));
@@ -1135,7 +1153,6 @@ export class Page implements IPage {
     }
     this.chain.append(newBlock.order, newBlock);
     this.blockRoot.appendChild(newBlock.root);
-    newBlock.setParent(this);
     // newBlock
     return newBlock.order;
   }
@@ -1145,7 +1162,6 @@ export class Page implements IPage {
     where: "after" | "before",
     flag?: BlockQuery | undefined
   ): string {
-    this.removeBlockStatus(newBlock);
     let target;
     if (!flag) {
       if (where === "after") {
@@ -1164,19 +1180,19 @@ export class Page implements IPage {
         if (!next) {
           return this.appendBlock(newBlock);
         } else {
+          this._initBlock(newBlock);
           newBlock.setOrder(createOrderString(target.order, next.order));
           target.root.insertAdjacentElement("afterend", newBlock.root);
           this.chain.insertAfter(target.order, newBlock.order, newBlock);
-          newBlock.setParent(this);
           return newBlock.order;
         }
       } else {
         const prev = this.getPrevBlock(target);
         const prevOrder = prev ? prev.order : "";
+        this._initBlock(newBlock);
         newBlock.setOrder(createOrderString(prevOrder, target.order));
         target.root.insertAdjacentElement("beforebegin", newBlock.root);
         this.chain.insertBefore(target.order, newBlock.order, newBlock);
-        newBlock.setParent(this);
         return newBlock.order;
       }
     }
@@ -1205,13 +1221,13 @@ export class Page implements IPage {
     if (typeof flag !== "string") {
       flag = flag.order;
     }
-    this.removeBlockStatus(newBlock);
     const result = this.chain.find(flag);
     if (!result) {
       throw new Error("Block not found.");
     }
 
     const [tgt, node] = result;
+    this._initBlock(newBlock);
     newBlock.setOrder(tgt.order);
     tgt.setParent();
     tgt.root.insertAdjacentElement("afterend", newBlock.root);

@@ -6,7 +6,7 @@ import {
   OhNoClipboardData,
 } from "@ohno-editor/core/system/base";
 import { AnyBlock } from "@ohno-editor/core/system/block";
-import { computePosition } from "@floating-ui/dom";
+import { computePosition, autoUpdate } from "@floating-ui/dom";
 import "./style.css";
 import { Page } from "@ohno-editor/core/system";
 import { BlockRemove } from "../../commands";
@@ -17,6 +17,8 @@ export class Dragable implements IPlugin {
   parent!: Page;
   current?: AnyBlock;
   draged?: AnyBlock;
+
+  cleanUp?: () => void;
   constructor() {
     this.root = createElement("div", {
       className: "oh-is-dragable",
@@ -79,14 +81,34 @@ export class Dragable implements IPlugin {
     this.root.style.height = block.root.clientHeight + "px";
     // this.root.style.display = "block";
     if (this.current !== block || force) {
+      if (this.cleanUp) {
+        this.cleanUp();
+      }
       this.current = block;
-      computePosition(block.root, this.root, { placement: "left-start" }).then(
-        ({ x, y }) => {
-          Object.assign(this.root.style, {
-            left: `${x - 8}px`,
-            top: `${y}px`,
+      // computePosition(block.root, this.root, {
+      //   placement: "left-start",
+      //   middleware: [],
+      // }).then(({ x, y }) => {
+      //   Object.assign(this.root.style, {
+      //     left: `${x - 8}px`,
+      //     top: `${y}px`,
+      //   });
+      // });
+      this.cleanUp = autoUpdate(
+        block.root,
+        this.root,
+        () => {
+          computePosition(block.root, this.root, {
+            placement: "left-start",
+            middleware: [],
+          }).then(({ x, y }) => {
+            Object.assign(this.root.style, {
+              left: `${x - 8}px`,
+              top: `${y}px`,
+            });
           });
-        }
+        },
+        { ancestorScroll: true }
       );
     }
   }

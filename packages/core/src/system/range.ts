@@ -8,25 +8,19 @@ import {
   isHintHTMLElement,
   isHintRight,
   isParent,
-  isTextNode,
   isTokenHTMLElement,
-  isValidNode,
   lastValidChild,
   nextValidSibling,
-  outerHTML,
   parentElementWithFilter,
-  parentElementWithTag,
   prevValidSibling,
 } from "@ohno-editor/core/helper/element";
-import { findCharAfter, findCharBefore } from "@ohno-editor/core/helper/string";
-import { addMarkdownHint } from "@ohno-editor/core/helper/markdown";
 import {
   createElement,
   createTextNode,
 } from "@ohno-editor/core/helper/document";
 import { biasToLocation } from "./position";
 
-export type RefLocation = [Node, number];
+type RefLocation = [Node, number];
 
 export interface LineInfo {
   lineNumber: number;

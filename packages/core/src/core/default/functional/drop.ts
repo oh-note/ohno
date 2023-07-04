@@ -59,28 +59,16 @@ export function handleInsertFromDrop(
       });
 
       data.forEach((item) => {
-        if (item.type === "inline") {
-          builder.withLazyCommand(() => {
-            const nodes = page.inlineSerializer.deserialize(
-              item as InlineSerializedData
-            );
-            const html = outerHTML(...nodes);
-            // insert
+        builder.withLazyCommand((_, extra) => {
+          const newBlock = page.getBlockSerializer(item.type).deserialize(item);
+          extra["block"] = newBlock;
+          return new BlocksCreate({
+            page,
+            block,
+            newBlocks: [newBlock],
+            where: "after",
           });
-        } else {
-          builder.withLazyCommand((_, extra) => {
-            const newBlock = page
-              .getBlockSerializer(item.type)
-              .deserialize(item);
-            extra["block"] = newBlock;
-            return new BlocksCreate({
-              page,
-              block,
-              newBlocks: [newBlock],
-              where: "after",
-            });
-          });
-        }
+        });
       });
 
       return builder.build();

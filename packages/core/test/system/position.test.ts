@@ -24,8 +24,6 @@ import katex from "katex";
 import { createRange, setRange } from "@ohno-editor/core/system/range";
 import { defaultSelection } from "@ohno-editor/core/system/selection";
 
-const { getNextLocation, getPrevLocation } = defaultSelection;
-
 function tryThis(p: ValidNode) {
   let global: { [key: string]: any } = {};
   try {
@@ -108,10 +106,9 @@ describe("position", () => {
     p.innerHTML = "L<b>d<i>i<code>c</code></i></b>";
     addMarkdownHint(p);
     let init = intervalToRange(p, { start: 8, end: 9 })!;
-    expect(getPrevLocation([init.endContainer, init.endOffset])).toStrictEqual([
-      init.startContainer,
-      init.startOffset,
-    ]);
+    expect(
+      defaultSelection.getPrevLocation([init.endContainer, init.endOffset])
+    ).toStrictEqual([init.startContainer, init.startOffset]);
 
     setRange(init);
     const size = getTokenSize(p);
@@ -119,10 +116,13 @@ describe("position", () => {
       const offset = { start: i, end: i + 1 };
       init = intervalToRange(p, offset)!;
       expect(
-        getNextLocation([init.startContainer, init.startOffset], p)
+        defaultSelection.getNextLocation(
+          [init.startContainer, init.startOffset],
+          p
+        )
       ).toStrictEqual([init.endContainer, init.endOffset]);
       expect(
-        getPrevLocation([init.endContainer, init.endOffset])
+        defaultSelection.getPrevLocation([init.endContainer, init.endOffset])
       ).toStrictEqual([init.startContainer, init.startOffset]);
     }
   });

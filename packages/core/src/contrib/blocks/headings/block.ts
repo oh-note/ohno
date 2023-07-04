@@ -7,58 +7,93 @@ import { Block, BlockData } from "@ohno-editor/core/system/block";
 import { clipRange } from "@ohno-editor/core/system/range";
 import "./style.css";
 import { outerHTML } from "@ohno-editor/core/helper";
+import { InlineData } from "@ohno-editor/core/system/inline";
 export type HeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;
 
 export interface HeadingsData extends BlockData {
   level: HeadingLevel;
-  children?: ChildrenData;
+  children?: InlineData;
 }
 
 export class Headings extends Block<HeadingsData> {
   constructor(data?: HeadingsData) {
     data = data || { level: 2 };
-    const root = createElement(`h${data.level}`, {
-      attributes: {},
-      children: data.children,
-    });
 
-    super("headings", root, { meta: data });
+    super("headings", data, { meta: data });
   }
   public get level(): HeadingLevel {
     return this.meta.level;
   }
 
-  // toMarkdown(range?: Range | undefined): string {
-  //   if (!range || range.collapsed) {
-  //     return this.head + (this.inner.textContent || "");
-  //   }
-  //   const innerRange = clipRange(this.inner, range);
-  //   if (innerRange) {
-  //     return this.head + innerRange.cloneContents().textContent;
-  //   }
-  //   return "";
-  // }
+  public get levelStr(): string {
+    return "#".repeat(this.level) + " ";
+  }
 
-  // serialize(option?: any): BlockSerializedData<HeadingsData> {
-  //   const init = { level: this.meta.level, children: this.inner.innerHTML };
-  //   return [{ type: this.type, init }];
-  // }
+  render(data: HeadingsData): HTMLElement {
+    const root = createElement(`h${data.level}`, {
+      attributes: {},
+      children: this.deserializeInline(data.children),
+    });
+    return root;
+  }
 }
 
 export class HeadingsSerializer extends BaseBlockSerializer<Headings> {
-  toMarkdown(block: Headings): string {
-    return "#".repeat(block.level) + " " + block.root.textContent;
+  partToMarkdown(block: Headings, range: Range): string {
+    const res = this.rangedEditable(block, range);
+    // if(res.start){}
+    if (res.start) {
+      return (
+        block.levelStr + this.serializeInline(res.start, "markdown") + "\n"
+      );
+    } else if (res.full) {
+      return this.toMarkdown(block);
+    } else if (res.end) {
+      return block.levelStr + this.serializeInline(res.end, "markdown") + "\n";
+    }
+    return "";
+  }
+  partToJson(block: Headings, range: Range): BlockSerializedData<HeadingsData> {
+    const res = this.rangedEditable(block, range);
+    if (res.start) {
+      return {
+        type: block.type,
+        data: {
+          level: block.level,
+          children: this.serializeInline(res.start, "json"),
+        },
+      };
+    } else if (res.full) {
+      return this.toJson(block);
+    } else if (res.end) {
+      return {
+        type: block.type,
+        data: {
+          level: block.level,
+          children: this.serializeInline(res.end, "json"),
+        },
+      };
+    }
+    return { type: block.type, data: { level: block.level } };
   }
 
-  toHTML(block: Headings): string {
-    return this.outerHTML(block.root);
+  toMarkdown(block: Headings): string {
+    const childNodes = Array.from(block.root.childNodes);
+    return (
+      "#".repeat(block.level) +
+      " " +
+      this.serializeInline(childNodes, "markdown") +
+      "\n"
+    );
   }
+
   toJson(block: Headings): BlockSerializedData<HeadingsData> {
+    const childNodes = Array.from(block.root.childNodes);
     return {
       type: block.type,
       data: {
         level: block.level,
-        children: block.getFirstEditable().innerHTML,
+        children: this.serializeInline(childNodes, "json"),
       },
     };
   }

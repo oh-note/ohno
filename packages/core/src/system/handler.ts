@@ -37,7 +37,7 @@ export interface BlockEventContext {
   page: Page;
   block: AnyBlock;
   endBlock?: AnyBlock;
-  range?: Range | null;
+  range?: Range;
   isMultiBlock?: boolean;
 }
 

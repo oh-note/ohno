@@ -5,11 +5,9 @@
  */
 import { LinkedDict } from "@ohno-editor/core/struct/linkeddict";
 import { Command, History } from "./history";
-import { RefLocation } from "./range";
-import { BlockEventContext } from "./handler";
 
-import { InlineSerializedData } from "./inline";
-import { BlockSerializedData, Page } from ".";
+import { BlockEventContext } from "./handler";
+import { BlockSerializedData, Page, RefLocation } from ".";
 
 export interface IComponent {
   parent?: IComponent;
@@ -227,7 +225,7 @@ export interface IInline extends IComponentManager {
 }
 
 export interface OhNoClipboardData {
-  data: (InlineSerializedData | BlockSerializedData)[];
+  data: BlockSerializedData[];
   context?: {
     dragFrom: Order;
   };

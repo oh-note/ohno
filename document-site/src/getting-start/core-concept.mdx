@@ -1,0 +1,76 @@
+# Core Concept
+
+## Token
+
+在 JavaScript 中，Range 是一个引用对象，一个点由 `[Node, offset]` 描述，一个范围用 `[startContainer, endContainer]` 描述。
+
+当 Range 指向的 Node 存在修改时，该 Range 会不可控的被变更，这导致无法基于 Range 对内容的修改行为进行持久化的保存，从而没有办法实现命令模式的撤销和重做。即使使用快照模式实现历史记录功能，重做后的相同位置的节点也会因为不是原来的节点，导致无法通过原来的 Range 进行光标定位。
+
+为了解决这一问题，可以先只考虑一个根节点下的增删改操作，因为在根节点下的更改操作不会影响对根节点的引用。
+
+ohno 因此将原本的 HTML 进行了字符化（Tokenize）。字符有可视字符和不可视字符，如 `<b>text</b>` 中，text 是 可视字符，长度为 4，`<b>` 和 `</b>` 分别是不可视字符，长度各自为 1。
+
+因此，基于根节点的起始位置和字符化后可以被看成是普通文本的富文本，就可以确认编辑器中光标的绝对位置，如下：
+
+```
+ <div> <b> t e x t </b> </div>
+(root)↑   ↑ ↑ ↑ ↑ ↑    ↑
+      0   1 2 3 4 5    6
+```
+
+ohno 中定义 `type RefLocation = [Node, offset]`，并主要通过以下方法实现了大部分相关功能：
+
+```ts
+locationToBias(root: Node, loc: RefLocation): number;
+biasToLocation(root: Node, bias: number): RefLocation | null;
+rangeToInterval(root: Node, range: Range): Interval;
+intervalToRange(root: Node, offset: Interval): Range | null;
+intervalOfElement(root: HTMLElement, ...node: Node[]): Interval;
+getTokenSize(root: Node | Node[] | DocumentFragment): number;
+tokenBetweenRange(range: Range): number;
+```
+
+该模块为 ohno 中几乎所有操作的最底层依赖，因此基于 jsdom 进行了大量的测试，从而保证其正确性。
+
+## Reference
+
+之前提到过，Token 需要一个根节点来进行定位，ohno 实现了 Page -> Block -> Editable 的三级定位，保证了所有对结点的引用不会缺失。从而保证增删改查的正确性。
+
+### Page -> Block
+
+Page 自身维护整个编辑器的根节点，每个 Block 的根节点通过 data-\* 属性定义了 order，该 order 会作为键值，存储在 Page 维护的一个双向 LinkedDict 中，Page 提供了相应的增删改查操作，保证基于 Page 对 Block 的更改不会丢失 Page 对 Block 的引用。
+
+### Block -> Editable
+
+Editable 是 最小的可编辑元素，如列表中的一个项，或者表格中的一个 cell。和 Page 相似，Block 需要自行实现一系列类方法来保证对 Editable 的增删改查不出错误。
+
+### Command
+
+所有对编辑器内容的更改操作，都必须通过 Command 类来完成，Command 类定义了 `execute` 和 `undo` 操作，并由 `History` 的两个链表栈来维护命令的执行、撤销和重做。
+
+在语义上，Command 类的 `execute` 和 `undo` 只负责更改内容，在方法执行完后的回调中更行光标位置。对光标位置的更改必须通过 Page 来完成。从而保证光标更改事件会被正常分发。
+
+## Event System
+
+事件分两类，一类是 ohno 自定义的事件（如 BlockUpdate 等），另一类是浏览器产生的事件。这些事件都通过 PageHandler 进行监听，并向下发放。
+
+PageHandler 会在 Page 的根节点上注册所有的 dom 事件（编辑器的根节点元素是 contenteditable，这意味着所有事件只会分发到在根节点上注册的 listener 中。）在接收到事件后，会按照 Plugin -> multiblock -> beforeBlock -> block -> global 的分发到在 PageHandler 上注册的其他 Handler。先被分发的 Handler 可以通过返回 true 来阻拦该事件被继续下发。
+
+任何组件的 Handler 都需要通过下面的结构来定义，保证语义明确：
+
+```ts
+export interface HandlerEntry {
+  plugins?: HandlerFlag;
+  multiblock?: HandlerFlag;
+
+  beforeBlock?: HandlerFlag;
+  global?: HandlerFlag;
+  blocks?: { [key: string]: HandlerFlag };
+  inlines?: { [key: string]: HandlerFlag };
+  onPageCreated?(page: Page): void;
+}
+
+// type HandlerFlag = PagesHandleMethods[] | PagesHandleMethods | undefined;
+```
+
+定义后可以通过调用 `Page.registerHandlers` 来进行注册。

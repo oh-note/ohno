@@ -15,39 +15,53 @@ import {
 import "./style.css";
 import { EditableFlag, RefLocation } from "@ohno-editor/core/system";
 import { isHide, isShow, markHide, markShow } from "@ohno-editor/core/helper";
+import { InlineData } from "@ohno-editor/core/system/inline";
 export interface FigureData extends BlockData {
   src: string;
-  caption?: string;
+  caption?: InlineData;
 }
 
 export class Figure extends Block<FigureData> {
   isMultiEditable: boolean = true;
   mergeable: boolean = false;
-  img: HTMLImageElement;
-  figcaption: HTMLElement;
-  constructor(init?: FigureData) {
-    init = init || { src: "" };
-    const root = createElement("figure", {
-      attributes: {},
+
+  constructor(data?: FigureData) {
+    data = data || { src: "" };
+    super("figure", data, { meta: data });
+  }
+  render(data: FigureData): HTMLElement {
+    const img = createElement("img", { attributes: { src: data.src } });
+    const figcaption = createElement("figcaption", {
+      children: this.deserializeInline(data.caption),
     });
 
-    super("figure", root, { meta: init });
-    const img = createElement("img", { attributes: { src: init.src } });
-    const figcaption = createElement("figcaption", { innerHTML: init.caption });
-    this.img = img;
-    this.figcaption = figcaption;
-    if (!init.caption) {
+    const root = createElement("figure", {
+      attributes: {},
+      children: [img, figcaption],
+    });
+
+    if (!data.caption) {
       markHide(figcaption);
     }
-    root.appendChild(img);
-    root.appendChild(figcaption);
+
+    return root;
   }
+
   public get inner(): HTMLElement {
     return this.img;
   }
   public get hasCaption(): boolean {
     return isShow(this.figcaption);
   }
+
+  public get img(): HTMLImageElement {
+    return this.root.querySelector("img")!;
+  }
+
+  public get figcaption(): HTMLElement {
+    return this.root.querySelector("figcaption")!;
+  }
+
   public get src() {
     return this.img.src;
   }
@@ -184,19 +198,19 @@ export class Figure extends Block<FigureData> {
 
 export class FigureSerializer extends BaseBlockSerializer<Figure> {
   toMarkdown(block: Figure): string {
-    return `\n![](${block.src})\n`;
-  }
-
-  toHTML(block: Figure): string {
-    return this.outerHTML(block.root);
+    const childNodes = Array.from(block.figcaption.childNodes);
+    return `\n![${this.serializeInline(childNodes, "markdown")}](${
+      block.src
+    })\n`;
   }
 
   toJson(block: Figure): BlockSerializedData<FigureData> {
+    const childNodes = Array.from(block.figcaption.childNodes);
     return {
       type: block.type,
       data: {
         src: block.src,
-        caption: block.caption,
+        caption: this.serializeInline(childNodes, "json"),
       },
     };
   }

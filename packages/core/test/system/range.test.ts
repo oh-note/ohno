@@ -14,8 +14,6 @@ import {
 import { setOffset } from "@ohno-editor/core/system/position";
 import { defaultSelection } from "@ohno-editor/core/system/selection";
 
-const { getNextLocation, getPrevLocation } = defaultSelection;
-
 describe("range.ts", () => {
   test("getNextOffset/getPrefOffset", () => {
     const p = createElement("p");
@@ -25,7 +23,7 @@ describe("range.ts", () => {
     expect(p.textContent).toBe("**");
     let init = createRange(p, 0);
     setRange(init);
-    let [container, offset] = getNextLocation(
+    let [container, offset] = defaultSelection.getNextLocation(
       [init.startContainer, init.startOffset],
       p
     )!;
@@ -34,7 +32,7 @@ describe("range.ts", () => {
 
     const init2 = createRange(p, 1);
 
-    [container, offset] = getPrevLocation([
+    [container, offset] = defaultSelection.getPrevLocation([
       init2.startContainer,
       init2.startOffset,
     ])!;

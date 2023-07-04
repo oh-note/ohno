@@ -18,6 +18,8 @@ import {
   BlockUpdateEvent,
 } from "@ohno-editor/core/system/pageevent";
 import { createRange } from "@ohno-editor/core/system";
+import { BlockReplace } from "../../commands";
+import { Paragraph } from "../paragraph";
 
 export interface DeleteContext extends BlockEventContext {
   nextBlock: AnyBlock;
@@ -110,6 +112,21 @@ export class CodeHandler implements PagesHandleMethods {
     e: TypedInputEvent,
     context: RangedBlockEventContext
   ): boolean | void {
+    const { block, range, page } = context;
+    const editable = block.findEditable(range.commonAncestorContainer);
+
+    if (!editable) {
+      if (range.collapsed) {
+        page.setLocation(block.getLocation(0, 0)!);
+      } else {
+        const newBlock = new Paragraph();
+        const command = new BlockReplace({ page, block, newBlock });
+        page.executeCommand(command);
+        return true;
+      }
+      return;
+    }
+
     if (
       e.inputType === "insertText" ||
       // e.inputType === "insertFromPaste" ||

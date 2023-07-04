@@ -37,7 +37,9 @@ import {
 } from "./consts";
 import {
   BlockRemove,
+  BlockReplace,
   FormatText,
+  Paragraph,
   withNearestLocation,
 } from "@ohno-editor/core/contrib";
 import { BlockInvalideLocationEvent } from "../..";
@@ -75,6 +77,7 @@ export class DefaultBlockHandler implements PagesHandleMethods {
     e: MouseEvent,
     { block, page }: BlockEventContext
   ): boolean | void {
+    // debugger;
     page.setActivate(block);
   }
   handleMouseUp(e: MouseEvent, context: BlockEventContext): boolean | void {}
@@ -193,15 +196,16 @@ export class DefaultBlockHandler implements PagesHandleMethods {
         compareLocation(endLoc, [range.endContainer, range.endOffset]) === 0
       ) {
         if (block.isMultiEditable) {
-          startLoc = block.getLocation(0, 0)!;
-          endLoc = block.getLocation(-1, -1)!;
+          // select multiple editable
+          const tgtRange = block.selection.createRange();
+          tgtRange.selectNodeContents(block.root);
+          page.setRange(tgtRange);
         } else {
           return;
         }
-        // select multiple editable
-        // if(block.)
+      } else {
+        page.setRange(createRange(...startLoc, ...endLoc));
       }
-      page.setRange(createRange(...startLoc, ...endLoc));
     } else if (
       (hit = res.has(ST_FORMAT_BOLD)) ||
       (hit = res.has(ST_FORMAT_CODE)) ||
@@ -279,9 +283,18 @@ export class DefaultBlockHandler implements PagesHandleMethods {
     e: TypedInputEvent,
     context: RangedBlockEventContext
   ): boolean | void {
-    const { block, range } = context;
+    const { page, block, range } = context;
     const editable = block.findEditable(range.commonAncestorContainer);
+
     if (!editable) {
+      const startEditable = block.findEditable(range.startContainer);
+      const endEditable = block.findEditable(range.endContainer);
+      if (!startEditable && !endEditable) {
+        const newBlock = new Paragraph();
+        const command = new BlockReplace({ page, block, newBlock });
+        page.executeCommand(command);
+        return true;
+      }
       // handled by multiblock handler or block handler
       return;
     }

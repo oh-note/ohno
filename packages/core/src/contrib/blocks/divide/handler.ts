@@ -26,6 +26,13 @@ export class DivideHandler implements PagesHandleMethods {
     e: CompositionEvent,
     context: RangedBlockEventContext
   ): boolean | void {
+    const { page, range, block } = context;
+
+    range.setStart(range.startContainer, range.startOffset);
+    block.root.contentEditable = "false";
+    setTimeout(() => {
+      block.root.removeAttribute("contentEditable");
+    }, 100);
     return true;
   }
 

@@ -45,7 +45,7 @@ export interface TextDeletePayload {
   block: AnyBlock;
   index: number;
   start: number;
-  token_number: number;
+  token_number: number /** minus for backward, plus for forward */;
   token_filter?: ElementFilter;
 }
 
@@ -61,6 +61,7 @@ export class TextDelete extends Command<TextDeletePayload> {
     token_number,
     token_filter,
   }) => {
+    token_number = Math.min(token_number, 0);
     page.setLocation(
       block.getLocation(start + token_number, index, token_filter)!,
       block
@@ -178,19 +179,23 @@ export class RichTextDelete extends Command<TextDeletePayload> {
     index,
     start,
     token_number,
+    token_filter,
   }) => {
-    page.setLocation(block.getLocation(start, index)!, block);
+    token_number = Math.min(token_number, 0);
+    page.setLocation(
+      block.getLocation(start + token_number, index, token_filter)!,
+      block
+    );
   };
 
   onUndoFn?: CommandCallback<TextDeletePayload> = ({
     block,
     index,
     start,
-    token_number,
+    page,
+    token_filter,
   }) => {
-    const startLoc = block.getLocation(start, index)!;
-    const endLoc = block.getLocation(start + token_number, index)!;
-    setRange(createRange(...startLoc, ...endLoc));
+    page.setLocation(block.getLocation(start, index, token_filter)!, block);
   };
 
   execute(): void {

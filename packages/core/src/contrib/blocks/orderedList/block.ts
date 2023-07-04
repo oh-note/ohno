@@ -22,64 +22,127 @@ import {
   BlockSerializedData,
 } from "@ohno-editor/core/system/block";
 import { ABCList } from "../list";
+import { ListData } from "../list/block";
 
-export interface OrderedListData extends BlockData {
-  children?: ChildrenData[];
-}
-
-export class OrderedList extends ABCList<OrderedListData> {
-  isMultiEditable: boolean = true;
-  constructor(init?: OrderedListData) {
-    init = init || {};
-    const root = createElement("ol", {
-      attributes: {},
-    });
-
-    const { children } = init;
-
-    (children || [""]).forEach((item) => {
-      const child = createElement("li", {
-        children: item,
-      });
-      root.appendChild(child);
-    });
-
-    super("ordered_list", root);
+export class OrderedList extends ABCList {
+  constructor(data?: ListData) {
+    data = data || {};
+    super("ordered_list", data);
   }
-
+  public get listType(): "ul" | "ol" {
+    return "ol";
+  }
   public get listStyleTypes(): string[] {
     return ["decimal", "lower-alpha", "lower-roman"];
   }
 }
 
 export class OrderedListSerializer extends BaseBlockSerializer<OrderedList> {
+  partToMarkdown(block: OrderedList, range: Range): string {
+    const res = this.rangedEditable(block, range);
+    const { startEditable, endEditable } = res;
+    // if(res.start){}
+    let counter = 1;
+    const lines = [];
+    if (res.start) {
+      const level = block.getIndentLevel(startEditable);
+      lines.push(
+        "    ".repeat(level) +
+          ` ${counter++}. ` +
+          this.serializeInline(res.start, "markdown")
+      );
+    }
+    if (res.full) {
+      res.full.forEach((item) => {
+        const level = block.getIndentLevel(item);
+        const childNodes = Array.from(item.childNodes);
+        const line =
+          "    ".repeat(level) +
+          ` ${counter++}. ` +
+          this.serializeInline(childNodes, "markdown");
+        lines.push(line);
+      });
+    }
+
+    if (res.end) {
+      const level = block.getIndentLevel(endEditable);
+      lines.push(
+        "    ".repeat(level) +
+          ` ${counter++}. ` +
+          this.serializeInline(res.end, "markdown")
+      );
+    }
+
+    return lines.join("\n");
+  }
+
+  partToJson(block: OrderedList, range: Range): BlockSerializedData<ListData> {
+    const res = this.rangedEditable(block, range);
+    const custom = [];
+    if (res.start) {
+      custom.push(res.startEditable);
+    }
+    if (res.full) {
+      custom.push(...res.full);
+    }
+    if (res.end) {
+      custom.push(res.endEditable);
+    }
+    const listItems = custom.map((item) => {
+      let children;
+      if (item === res.startEditable && res.start) {
+        children = this.serializeInline(res.start, "json");
+      } else if (item === res.endEditable && res.end) {
+        children = this.serializeInline(res.end, "json");
+      } else {
+        const childNodes = Array.from(item.childNodes);
+        children = this.serializeInline(childNodes, "json");
+      }
+      const indent = block.getIndentLevel(item);
+      return { children, indent };
+    });
+
+    return {
+      type: block.type,
+      data: {
+        children: listItems.map((item) => item.children),
+        indent: listItems.map((item) => item.indent),
+      },
+    };
+  }
+
   toMarkdown(block: OrderedList): string {
     return (
       block
         .getEditables()
-        .map((item) => {
-          return " - " + item.textContent;
+        .map((item, index) => {
+          const childNodes = Array.from(item.childNodes);
+          const level = block.getIndentLevel(item);
+          return (
+            "    ".repeat(level) +
+            ` ${index + 1}. ` +
+            this.serializeInline(childNodes, "markdown")
+          );
         })
-        .join("/n") + "\n"
+        .join("\n") + "\n"
     );
   }
 
-  toHTML(block: OrderedList): string {
-    return this.outerHTML(block.root);
-  }
-
-  toJson(block: OrderedList): BlockSerializedData<OrderedListData> {
+  toJson(block: OrderedList): BlockSerializedData<ListData> {
     return {
       type: block.type,
       data: {
         children: block.getEditables().map((item) => {
           return item.innerHTML;
         }),
+        indent: block.getEditables().map((item) => {
+          return block.getIndentLevel(item);
+        }),
       },
     };
   }
 
-  deserialize(data: BlockSerializedData<OrderedListData>): OrderedList {
+  deserialize(data: BlockSerializedData<ListData>): OrderedList {
     return new OrderedList(data.data);
   }
 }

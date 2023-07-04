@@ -1,0 +1,20 @@
+# Integration
+
+## React
+
+```ts
+export default function () {
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const page = ...; // create Page
+    page.reverseRender((pageRoot) => {
+      if (root.current) {
+        root.current.appendChild(pageRoot);
+      }
+    });
+  });
+  return <div ref={root}></div>;
+}
+```
+
+## Vue

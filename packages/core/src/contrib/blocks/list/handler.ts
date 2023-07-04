@@ -742,12 +742,14 @@ export class ListHandler implements PagesHandleMethods {
       return;
     }
 
-    const startLi = parentElementWithTag(
-      range.startContainer,
-      "li",
-      block.root
-    )!;
-    const endLi = parentElementWithTag(range.endContainer, "li", block.root);
+    const startLi = block.findEditable(range.startContainer);
+    const endLi = block.findEditable(range.endContainer);
+    if (!startLi || !endLi) {
+      const newBlock = new Paragraph();
+      const command = new BlockReplace({ page, block, newBlock });
+      page.executeCommand(command);
+      return true;
+    }
 
     const offsets: EditableInterval[] = [];
 

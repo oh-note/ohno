@@ -8,6 +8,7 @@ export function KatexMathInline(): InlineComponent {
   const instance = new KatexMath();
   const handler = new InlineMathHandler();
   return {
+    name: "math",
     manager: instance,
     onPageCreated: (page) => {
       const inline = page.getPlugin<InlineSupport>("inlinesupport");
@@ -15,5 +16,6 @@ export function KatexMathInline(): InlineComponent {
         inline.registerHandler(handler, instance);
       }
     },
+    // serializer
   };
 }

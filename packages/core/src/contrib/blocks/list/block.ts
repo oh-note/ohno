@@ -15,11 +15,7 @@
  *  - 先降级，再退回 p，可能有分隔 li -> For
  *
  */
-import {
-  ChildrenData,
-  createElement,
-  getDefaultRange,
-} from "@ohno-editor/core/helper/document";
+import { ChildrenData, createElement } from "@ohno-editor/core/helper/document";
 import {
   indexOfNode,
   parentElementWithTag,
@@ -31,13 +27,34 @@ import {
   EditableFlag,
 } from "@ohno-editor/core/system";
 import { Block, BlockData } from "@ohno-editor/core/system/block";
+import { InlineData } from "@ohno-editor/core/system/inline";
 
 export interface ListData extends BlockData {
   indent?: number[];
-  children?: ChildrenData[];
+  children?: InlineData[];
 }
 
 export class ABCList<T extends ListData = ListData> extends Block<T> {
+  isMultiEditable: boolean = true;
+
+  render(data: ListData): HTMLElement {
+    const root = createElement(this.listType, {
+      attributes: {},
+    });
+
+    const { children, indent } = data;
+    (children || [""]).forEach((item, index) => {
+      const child = createElement("li", {
+        children: this.deserializeInline(item),
+      });
+      root.appendChild(child);
+      if (indent && indent[index]) {
+        this.setIndentLevel(child, indent[index]);
+      }
+    });
+    return root;
+  }
+
   getEditable(flag: EditableFlag): HTMLElement {
     if (typeof flag === "number") {
       if (flag < 0) {
@@ -118,6 +135,10 @@ export class ABCList<T extends ListData = ListData> extends Block<T> {
     return el;
   }
 
+  public get listType(): "ul" | "ol" {
+    return "ul";
+  }
+
   public get listStyleTypes(): string[] {
     return ["disc", "circle", "square"];
   }
@@ -140,46 +161,110 @@ export class ABCList<T extends ListData = ListData> extends Block<T> {
 }
 
 export class List extends ABCList {
-  isMultiEditable: boolean = true;
   constructor(data?: ListData) {
     data = data || {};
-    const root = createElement("ul", {
-      attributes: {},
-    });
-
-    const { children } = data;
-
-    (children || [""]).forEach((item) => {
-      const child = createElement("li", {
-        children: item,
-      });
-      root.appendChild(child);
-    });
-
-    super("list", root);
+    super("list", data);
   }
 }
 
 export class ListSerializer extends BaseBlockSerializer<List> {
+  partToMarkdown(block: List, range: Range): string {
+    const res = this.rangedEditable(block, range);
+    const { startEditable, endEditable } = res;
+    // if(res.start){}
+
+    const lines = [];
+    if (res.start) {
+      const level = block.getIndentLevel(startEditable);
+      lines.push(
+        "    ".repeat(level) +
+          " - " +
+          this.serializeInline(res.start, "markdown")
+      );
+    }
+    if (res.full) {
+      res.full.forEach((item) => {
+        const level = block.getIndentLevel(item);
+        const childNodes = Array.from(item.childNodes);
+        const line =
+          "    ".repeat(level) +
+          " - " +
+          this.serializeInline(childNodes, "markdown");
+        lines.push(line);
+      });
+    }
+    if (res.end) {
+      const level = block.getIndentLevel(endEditable);
+      lines.push(
+        "    ".repeat(level) + " - " + this.serializeInline(res.end, "markdown")
+      );
+    }
+
+    return lines.join("\n");
+  }
+
+  partToJson(block: List, range: Range): BlockSerializedData<ListData> {
+    const res = this.rangedEditable(block, range);
+    const custom = [];
+    if (res.start) {
+      custom.push(res.startEditable);
+    }
+    if (res.full) {
+      custom.push(...res.full);
+    }
+    if (res.end) {
+      custom.push(res.endEditable);
+    }
+    const listItems = custom.map((item) => {
+      let children;
+      if (item === res.startEditable && res.start) {
+        children = this.serializeInline(res.start, "json");
+      } else if (item === res.endEditable && res.end) {
+        children = this.serializeInline(res.end, "json");
+      } else {
+        const childNodes = Array.from(item.childNodes);
+        children = this.serializeInline(childNodes, "json");
+      }
+      const indent = block.getIndentLevel(item);
+      return { children, indent };
+    });
+
+    return {
+      type: block.type,
+      data: {
+        children: listItems.map((item) => item.children),
+        indent: listItems.map((item) => item.indent),
+      },
+    };
+  }
+
   toMarkdown(block: List): string {
     return (
       block
         .getEditables()
         .map((item) => {
-          return " - " + item.textContent;
+          const childNodes = Array.from(item.childNodes);
+          const level = block.getIndentLevel(item);
+          return (
+            "    ".repeat(level) +
+            " - " +
+            this.serializeInline(childNodes, "markdown")
+          );
         })
-        .join("/n") + "\n"
+        .join("\n") + "\n"
     );
   }
-  toHTML(block: List): string {
-    return this.outerHTML(block.root);
-  }
+
   toJson(block: List): BlockSerializedData<ListData> {
     return {
       type: block.type,
       data: {
         children: block.getEditables().map((item) => {
-          return item.innerHTML;
+          const childNodes = Array.from(item.childNodes);
+          return this.serializeInline(childNodes, "json");
+        }),
+        indent: block.getEditables().map((item) => {
+          return block.getIndentLevel(item);
         }),
       },
     };

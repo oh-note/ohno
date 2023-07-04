@@ -1,13 +1,15 @@
 import { createElement, createInline } from "@ohno-editor/core/helper/document";
 import {
   BlockEventContext,
+  RangedBlockEventContext,
   UIEventHandleMethods,
 } from "@ohno-editor/core/system/handler";
-import { InlineBase } from "@ohno-editor/core/system/inline";
+
 import { makeRangeInNode, setRange } from "@ohno-editor/core/system/range";
 import { addMarkdownHint } from "@ohno-editor/core/helper/markdown";
 import "./style.css";
 import { markPlain } from "@ohno-editor/core/helper";
+import { InlineBase } from "@ohno-editor/core/system";
 
 export interface BackLinkOption {
   cite?: string;
@@ -126,7 +128,10 @@ export class BackLink extends InlineBase implements UIEventHandleMethods {
       this.float(label, this.component.tips, { placement: "top-start" });
     }
   }
-  activate_subclass(label: HTMLLabelElement, context: BlockEventContext): void {
+  activate_subclass(
+    label: HTMLLabelElement,
+    context: RangedBlockEventContext
+  ): void {
     this.component.dropdown.textContent = "waiting for menu";
     this.float(label, this.component.dropdown, { placement: "bottom-start" });
     this.hover_subclass(label, context);

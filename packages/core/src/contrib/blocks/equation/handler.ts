@@ -11,6 +11,8 @@ import {
   BlockUpdateEvent,
 } from "@ohno-editor/core/system/pageevent";
 import { Equation } from "./block";
+import { Paragraph } from "../paragraph";
+import { BlockReplace } from "../../commands";
 
 export class EquationHandler implements PagesHandleMethods {
   handleBlockUpdated(e: BlockUpdateEvent, context: any): boolean | void {
@@ -36,13 +38,7 @@ export class EquationHandler implements PagesHandleMethods {
   ): boolean | void {
     return dispatchKeyEvent(this, e, context);
   }
-  // 在 CompositionStart 时处理选中内容
-  handleCompositionStart(
-    e: CompositionEvent,
-    context: RangedBlockEventContext
-  ): boolean | void {
-    return true;
-  }
+
   handleDeleteDown(
     e: KeyboardEvent,
     context: BlockEventContext
@@ -87,6 +83,25 @@ export class EquationHandler implements PagesHandleMethods {
     return true;
   }
 
+  handleBeforeInput(
+    e: TypedInputEvent,
+    context: RangedBlockEventContext
+  ): boolean | void {
+    const { range, page, block } = context;
+    const editable = block.findEditable(range.commonAncestorContainer);
+
+    if (!editable) {
+      if (range.collapsed) {
+        page.setLocation(block.getLocation(0, 0)!);
+      } else {
+        const newBlock = new Paragraph();
+        const command = new BlockReplace({ page, block, newBlock });
+        page.executeCommand(command);
+        return true;
+      }
+      return;
+    }
+  }
   // handleBeforeInput(
   //   e: TypedInputEvent,
   //   context: RangedEventContext

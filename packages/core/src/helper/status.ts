@@ -43,3 +43,11 @@ export const markShow = (node: HTMLElement) => {
 export const isShow = (node: HTMLElement) => {
   return node.style.display !== "none";
 };
+
+export const isLeftButtonDown = (e: MouseEvent) => {
+  return e.buttons === 1;
+};
+
+export const getLabelType = (e: HTMLLabelElement): string => {
+  return e.dataset["name"]!;
+};

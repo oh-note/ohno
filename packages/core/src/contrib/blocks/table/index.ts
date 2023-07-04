@@ -1,5 +1,5 @@
 import { BlockComponent, HandlerEntry } from "@ohno-editor/core/system/page";
-import { Table, TableSerializer } from "./block";
+import TableSerializer, { Table } from "./block";
 import { TableHandler } from "./handler";
 import { SHORCUTS } from "./consts";
 
