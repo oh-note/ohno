@@ -1,34 +1,30 @@
 import {
+  calcDepths,
+  mergeAroundLeft,
+  mergeAroundRight,
   createFlagNode,
   createTextNode,
   innerHTMLToNodeList,
   tryGetDefaultRange,
-} from "@ohno-editor/core/helper/document";
-import {
-  ElementFilter,
-  ValidNode,
-  calcDepths,
-  mergeAroundLeft,
-  mergeAroundRight,
-} from "@ohno-editor/core/helper/element";
-import { addMarkdownHint } from "@ohno-editor/core/helper/markdown";
-import { isPlain } from "@ohno-editor/core/helper/status";
-import { AnyBlock } from "@ohno-editor/core/system/block";
-import {
-  Command,
-  CommandCallback,
-  CommandCallbackWithBuffer,
-} from "@ohno-editor/core/system/history";
-import { Page } from "@ohno-editor/core/system/page";
-import { BlockUpdateEvent } from "@ohno-editor/core/system/pageevent";
-import { getTokenSize } from "@ohno-editor/core/system/position";
-import {
+  addMarkdownHint,
+  getTokenSize,
   createRange,
   getValidAdjacent,
   nodesOfRange,
-  setLocation,
-  setRange,
-} from "@ohno-editor/core/system/range";
+} from "@ohno-editor/core/system/functional";
+
+import { isPlain } from "@ohno-editor/core/system/status";
+
+import {
+  Page,
+  BlockUpdateEvent,
+  AnyBlock,
+  Command,
+  CommandCallback,
+  CommandCallbackWithBuffer,
+  ElementFilter,
+  ValidNode,
+} from "@ohno-editor/core/system/types";
 
 export interface TextInsertPayload {
   page: Page;

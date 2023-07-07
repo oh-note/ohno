@@ -1,4 +1,4 @@
-import { PluginComponent } from "@ohno-editor/core/system/page";
+import { PluginComponent } from "@ohno-editor/core/system/types";
 import { PasteAll } from "./plugin";
 import { PasteAllPluginHandler } from "./handler";
 

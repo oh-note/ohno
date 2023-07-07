@@ -1,29 +1,28 @@
 import {
   HandlerMethods,
   RangedBlockEventContext,
-} from "@ohno-editor/core/system/handler";
+  HTMLElementTagName,
+  ElementFilter,
+  Command,
+  ListCommandBuilder,
+} from "@ohno-editor/core/system/types";
 
 import { FormatText } from "@ohno-editor/core/contrib/commands/format";
-import { HTMLElementTagName } from "@ohno-editor/core/helper/document";
 import {
   createRange,
   tryGetBoundsRichNode,
   validateRange,
-} from "@ohno-editor/core/system/range";
-import { ElementFilter, getTagName } from "@ohno-editor/core/helper/element";
+  getIntervalOfNodes,
+  getTokenNumberInRange,
+  getTagName,
+} from "@ohno-editor/core/system/functional";
 import { IBlockRemove } from "@ohno-editor/core/contrib/commands/inlineblock";
 
-import {
-  intervalOfElement,
-  tokenBetweenRange,
-} from "@ohno-editor/core/system/position";
-import { ListCommandBuilder } from "@ohno-editor/core/contrib/commands/concat";
 import {
   RichTextDelete,
   TextDelete,
   TextInsert,
 } from "@ohno-editor/core/contrib/commands/text";
-import { Command } from "@ohno-editor/core/system";
 import { None } from "@ohno-editor/core/contrib";
 import { handleInsertFromDrop } from "./drop";
 
@@ -99,7 +98,7 @@ export function prepareBeforeInputCommand(
         range.startContainer,
         range.startOffset
       );
-      token_number = -tokenBetweenRange(prevRange);
+      token_number = -getTokenNumberInRange(prevRange);
     }
 
     command = new TextDelete({
@@ -130,7 +129,7 @@ export function prepareBeforeInputCommand(
         range.startOffset,
         ...next
       );
-      token_number = tokenBetweenRange(nextRange);
+      token_number = getTokenNumberInRange(nextRange);
     }
     command = new TextDelete({
       page,
@@ -168,7 +167,7 @@ export function prepareInsertPlainTextCommand(
   const start = block.getBias([range.startContainer, range.startOffset]);
   if (!range.collapsed) {
     const token_number = block.selection.tokenBetweenRange(range);
-    builder.withLazyCommand(() => {
+    builder.addLazyCommand(() => {
       return new TextDelete({
         page,
         block,
@@ -181,7 +180,7 @@ export function prepareInsertPlainTextCommand(
     });
     // const command =
   }
-  builder.withLazyCommand(() => {
+  builder.addLazyCommand(() => {
     return new TextInsert({
       page,
       block,
@@ -254,8 +253,8 @@ export function defaultHandleBeforeInput(
       });
     } else {
       command = new ListCommandBuilder(context)
-        .withLazyCommand(() => {
-          const token_number = tokenBetweenRange(range);
+        .addLazyCommand(() => {
+          const token_number = getTokenNumberInRange(range);
           return new RichTextDelete({
             page,
             block,
@@ -264,7 +263,7 @@ export function defaultHandleBeforeInput(
             token_number,
           });
         })
-        .withLazyCommand(() => {
+        .addLazyCommand(() => {
           return new TextInsert({
             page,
             block,
@@ -292,7 +291,7 @@ export function defaultHandleBeforeInput(
   ) {
     // 所有的 multi block 应该被 multiblock handler 接受
     // 所有的 multi container 应该被 block handler 接受
-    const token_number = tokenBetweenRange(range);
+    const token_number = getTokenNumberInRange(range);
     if (getTagName(range.commonAncestorContainer) === "#text") {
       command = new TextDelete({
         page,
@@ -351,7 +350,7 @@ export function defaultHandleBeforeInput(
           page,
           format,
           interval: {
-            ...intervalOfElement(editable, hint),
+            ...getIntervalOfNodes(editable, hint),
             index,
           },
         }).onUndo(({ block, interval }) => {
@@ -371,7 +370,7 @@ export function defaultHandleBeforeInput(
           range.startContainer,
           range.startOffset
         );
-        token_number = -tokenBetweenRange(prevRange);
+        token_number = -getTokenNumberInRange(prevRange);
       } else if (e.inputType === "deleteSoftLineBackward") {
         const prev = block.getSoftLineHead([
           range.startContainer,
@@ -383,7 +382,7 @@ export function defaultHandleBeforeInput(
           range.startContainer,
           range.startOffset
         );
-        token_number = -tokenBetweenRange(prevRange);
+        token_number = -getTokenNumberInRange(prevRange);
       }
       const commandCls =
         e.inputType === "deleteSoftLineBackward" ? RichTextDelete : TextDelete;
@@ -431,7 +430,7 @@ export function defaultHandleBeforeInput(
           block,
           page,
           format,
-          interval: { ...intervalOfElement(editable, hint), index },
+          interval: { ...getIntervalOfNodes(editable, hint), index },
         }).onUndo(({ block, interval }) => {
           page.setLocation(
             block.getLocation(interval.start, interval.index)!,
@@ -451,7 +450,7 @@ export function defaultHandleBeforeInput(
           range.startOffset,
           ...next
         );
-        token_number = tokenBetweenRange(nextRange);
+        token_number = getTokenNumberInRange(nextRange);
       } else if (e.inputType === "deleteSoftLineForward") {
         const next = block.getSoftLineTail([
           range.startContainer,
@@ -462,7 +461,7 @@ export function defaultHandleBeforeInput(
           range.startOffset,
           ...next
         );
-        token_number = tokenBetweenRange(nextRange);
+        token_number = getTokenNumberInRange(nextRange);
       }
 
       command = new TextDelete({

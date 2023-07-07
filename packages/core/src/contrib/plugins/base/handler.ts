@@ -1,9 +1,9 @@
+import { dispatchKeyEvent } from "@ohno-editor/core/system/functional";
 import {
   BlockEventContext,
   RangedBlockEventContext,
-  dispatchKeyEvent,
   PagesHandleMethods,
-} from "@ohno-editor/core/system/handler";
+} from "@ohno-editor/core/system/types";
 
 export class ExamplePluginHandler implements PagesHandleMethods {
   handleKeyPress(

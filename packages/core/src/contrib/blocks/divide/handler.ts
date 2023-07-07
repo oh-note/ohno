@@ -1,12 +1,12 @@
 import {
   BlockEventContext,
   RangedBlockEventContext,
-  dispatchKeyEvent,
   PagesHandleMethods,
-} from "@ohno-editor/core/system/handler";
+  AnyBlock,
+} from "@ohno-editor/core/system/types";
 import { BlockRemove, BlockReplace } from "../../commands";
-import { AnyBlock } from "@ohno-editor/core/system";
 import { Paragraph } from "../paragraph";
+import { dispatchKeyEvent } from "@ohno-editor/core/system/functional";
 
 export class DivideHandler implements PagesHandleMethods {
   name: string = "divide";
@@ -82,6 +82,7 @@ export class DivideHandler implements PagesHandleMethods {
 
     let nextBlock: AnyBlock;
     let command;
+
     if ((nextBlock = page.getPrevBlock(block)!)) {
       command = new BlockRemove({ page, block })
         .onExecute(() => {

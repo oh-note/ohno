@@ -1,23 +1,50 @@
-import { Paragraph, PasteAll } from "@ohno-editor/core/contrib";
+/**
+ * there are three copy and three paste scenarios need to be considered:
+ *
+ * for copy, users can copy:
+ * c1. multiple block with first and last is inline or block
+ * c2. single full block
+ * c3. copy inline
+ *
+ * for paste, users can paste with:
+ * p1. multiple block selected
+ * p2. have some selected in single block
+ * p3. range collapsed
+ *
+ * finally we got 3*3 = 9 types need to be considered, however, there still have some space can be reduced:
+ * 1. when paste single full block (c2), we just need to append block below current block (and after remove selection and make range collapsed)
+ * 2. when paste multiple block with inline (c1), if current selected block is unmergeable, all data should be paste under this block (same as 1.)
+ * 1. c1xp1: remove selection, but not merge, paste full block at middle, paste first in top block end, and last in bottom block head
+ * 2. c1xp2: remove selection, then go 5.
+ * 3. c1xp3: if mergeable -> commandSet.pasteSplit() else paste below this block, then paste
+ * 4. c2xp1: paste below this block
+ * 5. c2xp2: go 3.
+ * 6. c2xp3: remove selection, then go
+ * 7. c3xp1: remove selection -> try merge first and last -> paste inline at first
+ * 8. c3xp2: remove selection -> try paste inline
+ * 9. c3xp3: try paste inline
+ */
+
+import { PasteAll } from "@ohno-editor/core/contrib";
 import {
-  ListCommandBuilder,
-  RichTextDelete,
-  TextInsert,
+  removeEditableContentAfterLocation,
+  removeSelectionInEditable,
 } from "@ohno-editor/core/contrib/commands";
-import {
-  BlockCreate,
-  BlocksCreate,
-} from "@ohno-editor/core/contrib/commands/block";
-import { outerHTML } from "@ohno-editor/core/helper/element";
-import { tokenBetweenRange } from "@ohno-editor/core/system";
-import { OhNoClipboardData } from "@ohno-editor/core/system/base";
+import { BlockCreate } from "@ohno-editor/core/contrib/commands/block";
 import {
   PagesHandleMethods,
   RangedBlockEventContext,
-} from "@ohno-editor/core/system/handler";
+  OhNoClipboardData,
+  ListCommandBuilder,
+  SplitExtra,
+} from "@ohno-editor/core/system/types";
 
+/**
+ * c1-3
+ * p2, p3
+ */
 export function defaultHandlePaste(
-  handler: PagesHandleMethods,
+  _: PagesHandleMethods,
   e: ClipboardEvent,
   context: RangedBlockEventContext
 ) {
@@ -31,86 +58,46 @@ export function defaultHandlePaste(
   const jsonStr = clipboardData.getData("text/ohno") as any;
   let ohnoData: OhNoClipboardData;
   if (jsonStr) {
-    // 是自家数据
+    // native data
     ohnoData = JSON.parse(jsonStr) as OhNoClipboardData;
   } else {
-    // 是别家数据
+    // data from other source, need to be parsed
     const plugin = page.getPlugin<PasteAll>("pasteall");
-    ohnoData = plugin.parse(clipboardData, context);
+    if (plugin) {
+      ohnoData = plugin.parse(clipboardData, context);
+    } else {
+      return true;
+    }
   }
+
+  const builder = new ListCommandBuilder<RangedBlockEventContext, SplitExtra>(
+    context
+  );
+  if (!range.collapsed) {
+    // 1. remove selection
+    if (block.findEditable(range.commonAncestorContainer)) {
+      removeSelectionInEditable(builder);
+    } else {
+      block.commandSet.removeMultipleEditable?.(builder);
+    }
+  }
+  if (block.mergeable) {
+    const bias = block.getBias([range.startContainer, range.startOffset]);
+    const index = block.findEditableIndex(range.startContainer);
+    removeEditableContentAfterLocation(builder, { page, block, bias, index });
+    block.commandSet.pasteSplit?.(builder as any);
+  }
+
   const { data } = ohnoData;
 
-  const builder = new ListCommandBuilder({
-    page,
-    block,
-  });
+  const isFullBlock = !data[0].head && !data[data.length - 1].tail;
 
-  const index = block.findEditableIndex(range.startContainer);
-  const start = block.getBias([range.startContainer, range.startOffset]);
-  builder.withLazyCommand(() => {
-    if (range.collapsed) {
-      return;
-    }
-    const token_number = tokenBetweenRange(range);
-    return new RichTextDelete({
-      page,
-      block,
-      index,
-      start,
-      token_number,
-    });
-  });
-  // TODO 更改 inline 的序列化行为，通过 serializer part 来将局部内容也保存为 block 的，最多再加一个特殊格式
-  data.forEach((item, index) => {
-    if (item.type === "inline") {
-      builder
-        .withLazyCommand((_, extra) => {
-          if (index === 0) {
-            extra["block"] = block;
-            return;
-          }
-          const newBlock = new Paragraph();
-          const refBlock = extra["block"] || block;
-          extra["block"] = newBlock;
-          return new BlockCreate({
-            page,
-            newBlock,
-            block: refBlock,
-            where: "after",
-          });
-        })
-        .withLazyCommand((_, extra) => {
-          const nodes = page.inlineSerializerV2.deserialize(item);
-          const innerHTML = outerHTML(...nodes);
-          return new TextInsert({
-            page,
-            block: extra["block"],
-            innerHTML,
-            start: -1,
-            index: -1,
-          });
-          // if (index === 0) {
-          // } else {
-          //   return new TextInsert({
-          //     page,
-          //     block: extra["block"],
-          //     innerHTML,
-          //     start: 0,
-          //     index: 0,
-          //   });
-          // }
-        })
-        .withLazyCommand(() => {
-          // split if caret is not last
-        });
-    } else {
-      builder.withLazyCommand((_, extra) => {
-        const newBlock = page.getBlockSerializer(item.type).deserialize(item);
-        // console.log(newBlock);
-
+  const createdBlocks = data.map((item, index) => {
+    const newBlock = page.getBlockSerializer(item.type).deserialize(item);
+    builder.addLazyCommandWithPayLoad(
+      ({ page, block, newBlock }, extra) => {
         const refBlock = extra["block"] || block;
         extra["block"] = newBlock;
-
         const command = new BlockCreate({
           page,
           block: refBlock,
@@ -123,11 +110,52 @@ export function defaultHandlePaste(
           });
         }
         return command;
-      });
-    }
+      },
+      { page, block, newBlock }
+    );
+    return newBlock;
   });
-
   const command = builder.build();
+
+  if (data[0].head && block.mergeable) {
+    builder.addLazyCommand(() => {
+      if (!createdBlocks[0].mergeable) {
+        return;
+      }
+      const startBuilder = new ListCommandBuilder({
+        ...context,
+        nextBlock: createdBlocks[0],
+      });
+      createdBlocks[0].commandSet.deleteFromPrevBlockEnd?.(startBuilder);
+      block.commandSet.deleteAtBlockEnd?.(startBuilder);
+      return startBuilder.build();
+    });
+  }
+  if (
+    data[data.length - 1].tail &&
+    createdBlocks[createdBlocks.length - 1].mergeable
+  ) {
+    builder.addLazyCommand(() => {
+      const nextBlock = page.getNextBlock(
+        createdBlocks[createdBlocks.length - 1]
+      );
+      if (!nextBlock || nextBlock.mergeable) {
+        return;
+      }
+      const endBuilder = new ListCommandBuilder({
+        page,
+        range,
+        block: createdBlocks[createdBlocks.length - 1],
+        nextBlock,
+      });
+      nextBlock.commandSet.deleteFromPrevBlockEnd?.(endBuilder);
+      createdBlocks[createdBlocks.length - 1].commandSet.deleteAtBlockEnd?.(
+        endBuilder
+      );
+
+      return endBuilder.build();
+    });
+  }
 
   page.executeCommand(command);
 

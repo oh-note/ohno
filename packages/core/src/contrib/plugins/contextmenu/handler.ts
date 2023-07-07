@@ -1,10 +1,3 @@
-import {
-  BlockEventContext,
-  RangedBlockEventContext,
-  dispatchKeyEvent,
-  PagesHandleMethods,
-} from "@ohno-editor/core/system/handler";
-import { ContextMenu } from "./plugin";
-import { isPlain } from "@ohno-editor/core/helper";
+import { PagesHandleMethods } from "@ohno-editor/core/system/types";
 
 export class ContextMenuHandler implements PagesHandleMethods {}

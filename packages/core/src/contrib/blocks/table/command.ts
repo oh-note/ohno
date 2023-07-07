@@ -1,6 +1,4 @@
-import { AnyBlock } from "@ohno-editor/core/system/block";
-import { Command } from "@ohno-editor/core/system/history";
-import { Page } from "@ohno-editor/core/system/page";
+import { Command, Page } from "@ohno-editor/core/system/types";
 import { Table } from "./block";
 
 export interface TableChangePayload {

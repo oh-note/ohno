@@ -1,19 +1,16 @@
 import {
   InlineRangedEventContext,
-  RangedBlockEventContext,
   InlineHandler,
   InlineEventContext,
+} from "@ohno-editor/core/system/types";
+import {
   dispatchKeyEvent,
-} from "@ohno-editor/core/system/handler";
-import { Flag } from "./inline";
-import { NodeInsert } from "@ohno-editor/core/contrib/commands/html";
-import { ListCommandBuilder } from "@ohno-editor/core/contrib/commands/concat";
-import { InlineSupport } from "@ohno-editor/core/contrib/plugins/inlineSupport/plugin";
-import { TextDelete } from "@ohno-editor/core/contrib/commands";
-import { getValidAdjacent } from "@ohno-editor/core/system/range";
-import { defaultHandleBeforeInput } from "@ohno-editor/core/core/default/functional/beforeInput";
-import { tryGetDefaultRange } from "@ohno-editor/core/helper";
+  getValidAdjacent,
+  tryGetDefaultRange,
+} from "@ohno-editor/core/system/functional";
 import { defaultSelection } from "@ohno-editor/core/system/selection";
+import { Flag } from "./inline";
+import { defaultHandleBeforeInput } from "@ohno-editor/core/core/default/functional/beforeInput";
 
 export class FlagHandler implements InlineHandler<Flag> {
   handleKeyboardActivated(

@@ -1,20 +1,20 @@
 import {
   createElement,
   innerHTMLToNodeList,
-} from "@ohno-editor/core/helper/document";
-import { IPlugin } from "@ohno-editor/core/system/base";
+} from "@ohno-editor/core/system/functional";
 import {
+  IPlugin,
+  Page,
   BlockEventContext,
   HandlerMethods,
   RangedBlockEventContext,
-} from "@ohno-editor/core/system/handler";
-import { Page } from "@ohno-editor/core/system/page";
+  MouseElement,
+} from "@ohno-editor/core/system/types";
 import { computePosition, flip } from "@floating-ui/dom";
 import "./style.css";
 
 import menu from "./menu.html?raw";
 import templates from "./templates.html?raw";
-import { MouseElement } from "@ohno-editor/core/system/floating";
 
 const TEMPLATES = new DocumentFragment();
 TEMPLATES.append(...innerHTMLToNodeList(templates));

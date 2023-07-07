@@ -1,15 +1,12 @@
-import { createElement } from "@ohno-editor/core/helper/document";
+import { createElement } from "@ohno-editor/core/system/functional";
 import {
-  IComponent,
-  IContainer,
   IPlugin,
   OhNoClipboardData,
-} from "@ohno-editor/core/system/base";
-import { AnyBlock } from "@ohno-editor/core/system/block";
+  AnyBlock,
+  Page,
+} from "@ohno-editor/core/system/types";
 import { computePosition, autoUpdate } from "@floating-ui/dom";
 import "./style.css";
-import { Page } from "@ohno-editor/core/system";
-import { BlockRemove } from "../../commands";
 
 export class Dragable implements IPlugin {
   root: HTMLElement;
@@ -68,9 +65,7 @@ export class Dragable implements IPlugin {
   serialize(option?: any): string {
     throw new Error("Method not implemented.");
   }
-  equals(component?: IComponent | undefined): boolean {
-    throw new Error("Method not implemented.");
-  }
+
   detach(): void {
     throw new Error("Method not implemented.");
   }

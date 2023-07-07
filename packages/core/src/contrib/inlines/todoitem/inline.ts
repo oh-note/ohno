@@ -1,10 +1,12 @@
-import { createElement, createInline } from "@ohno-editor/core/helper/document";
-import { BlockEventContext } from "@ohno-editor/core/system/handler";
-import { InlineBase } from "@ohno-editor/core/system/inline";
-import { makeRangeInNode, setRange } from "@ohno-editor/core/system/range";
-import { addMarkdownHint } from "@ohno-editor/core/helper/markdown";
+import {
+  createElement,
+  createInline,
+  addMarkdownHint,
+  makeRangeInNode,
+  setRange,
+} from "@ohno-editor/core/system/functional";
+import { BlockEventContext, InlineBase } from "@ohno-editor/core/system/types";
 import "./style.css";
-import { markPlain } from "@ohno-editor/core/helper";
 
 type TODOStatus = "done" | "todo" | "deprecated" | "doing";
 

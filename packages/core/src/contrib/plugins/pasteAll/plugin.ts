@@ -1,15 +1,17 @@
-import { getTagName, outerHTML } from "@ohno-editor/core/helper";
 import {
   createElement,
   innerHTMLToNodeList,
-} from "@ohno-editor/core/helper/document";
+  getTagName,
+  outerHTML,
+} from "@ohno-editor/core/system/functional";
 import {
   BlockSerializedData,
   OhNoClipboardData,
   Page,
   RangedBlockEventContext,
-} from "@ohno-editor/core/system";
-import { IPlugin } from "@ohno-editor/core/system/base";
+  IPlugin,
+} from "@ohno-editor/core/system/types";
+
 import sanitizeHtml from "sanitize-html";
 import { CodeData } from "../../blocks/code/block";
 

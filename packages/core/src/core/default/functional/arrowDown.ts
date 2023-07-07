@@ -1,19 +1,17 @@
 import {
-  AnyBlock,
   BlockEventContext,
   BlockInvalideLocationEvent,
   Page,
-} from "@ohno-editor/core/system";
-import {
   PagesHandleMethods,
   RangedBlockEventContext,
-} from "@ohno-editor/core/system/handler";
-import {
   RefLocation,
+} from "@ohno-editor/core/system/types";
+import {
   compareLocation,
   createRange,
   getValidAdjacent,
-} from "@ohno-editor/core/system";
+  isTag,
+} from "@ohno-editor/core/system/functional";
 import { BlockCreate, Paragraph } from "@ohno-editor/core/contrib";
 
 export function ensureLast(context: BlockEventContext) {
@@ -170,11 +168,6 @@ export function defaultHandleArrowDown(
             prev = prevBlock.getLocation(-1, prevContainer);
           }
         }
-        // else {
-        //   // block
-        //   const [tgt, tgtOffset] = anchorBlock.getLocation(0, { index: 0 })!;
-        //   setAnchor(tgt, tgtOffset);
-        // }
       }
       if (prev) {
         setAnchor(...prev, range, e.shiftKey, direction, page);
@@ -248,7 +241,7 @@ export function defaultHandleArrowDown(
       return true;
     }
   } else if (e.key === "ArrowLeft") {
-    let prev;
+    let prev: RefLocation | null;
     if (e.ctrlKey || e.metaKey) {
       prev = anchorBlock.getSoftLineHead(anchorLoc);
     } else if (e.altKey) {
@@ -268,8 +261,13 @@ export function defaultHandleArrowDown(
       const prevBlock = page.getPrevBlock(anchorBlock);
       if (prevBlock) {
         page.setActivate(prevBlock);
-        prev = prevBlock.getLocation(-1, prevBlock.getLastEditable());
+        prev = prevBlock.getLocation(-1, prevBlock.getLastEditable())!;
+      } else {
+        return;
       }
+    }
+    if (e.shiftKey && isTag(prev[0], "label")) {
+      prev = getValidAdjacent(prev[0] as HTMLLabelElement, "beforebegin");
     }
     if (prev) {
       setAnchor(...prev, range, e.shiftKey, direction, page);
@@ -298,8 +296,13 @@ export function defaultHandleArrowDown(
       const nextBlock = page.getNextBlock(anchorBlock);
       if (nextBlock) {
         page.setActivate(nextBlock);
-        next = nextBlock.getLocation(0, 0);
+        next = nextBlock.getLocation(0, 0)!;
+      } else {
+        return;
       }
+    }
+    if (e.shiftKey && isTag(next[0], "label")) {
+      next = getValidAdjacent(next[0] as HTMLLabelElement, "afterend");
     }
     if (next) {
       setAnchor(...next, range, e.shiftKey, direction, page);

@@ -1,12 +1,13 @@
-import { BlockComponent, HandlerEntry } from "@ohno-editor/core/system/page";
+import { BlockComponent } from "@ohno-editor/core/system/types";
 import TableSerializer, { Table } from "./block";
 import { TableHandler } from "./handler";
 import { SHORCUTS } from "./consts";
+import { TableCommandSet } from "./command_set";
 
 export { TableChange } from "./command";
 export { Table, TableHandler };
 
-export function TableBlock(): BlockComponent {
+export function TableBlock(): BlockComponent<Table> {
   return {
     name: "table",
     blockType: Table,
@@ -19,5 +20,6 @@ export function TableBlock(): BlockComponent {
       });
     },
     serializer: new TableSerializer(),
+    commandSet: new TableCommandSet(),
   };
 }

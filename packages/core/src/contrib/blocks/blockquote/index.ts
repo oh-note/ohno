@@ -1,14 +1,15 @@
-import { BlockComponent } from "@ohno-editor/core/system/page";
+import { BlockComponent } from "@ohno-editor/core/system/types";
 import { BlockQuoteHandler } from "./handler";
-import { Blockquote, BlockquoteSerializer } from "./block";
+import { BlockQuote, BlockquoteSerializer } from "./block";
 import { setupSlashMenu } from "./setup";
+import { BlockquoteCommandSet } from "./command_set";
 
-export { BlockQuoteHandler, Blockquote };
+export { BlockQuoteHandler, BlockQuote };
 
-export function BlockQuoteBlock(): BlockComponent {
+export function BlockQuoteBlock(): BlockComponent<BlockQuote> {
   return {
     name: "blockquote",
-    blockType: Blockquote,
+    blockType: BlockQuote,
     handlers: {
       blocks: { blockquote: new BlockQuoteHandler() },
     },
@@ -16,5 +17,6 @@ export function BlockQuoteBlock(): BlockComponent {
       setupSlashMenu(page);
     },
     serializer: new BlockquoteSerializer(),
+    commandSet: new BlockquoteCommandSet(),
   };
 }

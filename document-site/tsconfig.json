@@ -23,9 +23,9 @@
     "noFallthroughCasesInSwitch": true,
     "paths": {
       "@ohno-editor/core*": [
-        "../packages/core/src"
+        "../packages/core/src/"
       ]
-    }
+    },
   },
   "include": [
     "src",

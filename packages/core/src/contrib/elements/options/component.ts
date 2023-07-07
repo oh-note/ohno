@@ -2,8 +2,8 @@ import {
   createElement,
   getTagName,
   parentElementWithFilter,
-} from "@ohno-editor/core/helper";
-import { IComponent, IContainer } from "@ohno-editor/core/system";
+} from "@ohno-editor/core/system/functional";
+// import { IComponent } from "@ohno-editor/core/system/types";
 
 export class OptionMenu {
   component: {
@@ -85,9 +85,7 @@ export class OptionMenu {
   detach(): void {
     throw new Error("Method not implemented.");
   }
-  equals(component?: IComponent | undefined): boolean {
-    throw new Error("Method not implemented.");
-  }
+
   serialize(option?: any) {
     throw new Error("Method not implemented.");
   }

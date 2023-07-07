@@ -1,16 +1,13 @@
-import {
-  BlockComponent,
-  HandlerEntry,
-  Page,
-} from "@ohno-editor/core/system/page";
+import { BlockComponent } from "@ohno-editor/core/system/types";
 import { List, ABCList, ListData, ListSerializer } from "./block";
 import { ListHandler } from "./handler";
 import { setupPasteAll, setupSlashMenu } from "./setup";
+import { ABCListCommandSet } from "./command_set";
 
 export { List, ListHandler, ABCList };
 export type { ListData as ListInit };
 
-export function ListBlock(): BlockComponent {
+export function ListBlock(): BlockComponent<List> {
   return {
     name: "list",
     blockType: List,
@@ -22,5 +19,6 @@ export function ListBlock(): BlockComponent {
       setupPasteAll(page);
     },
     serializer: new ListSerializer(),
+    commandSet: new ABCListCommandSet(),
   };
 }

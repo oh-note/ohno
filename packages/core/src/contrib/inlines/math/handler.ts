@@ -1,17 +1,16 @@
 import {
   InlineRangedEventContext,
   RangedBlockEventContext,
-  dispatchKeyEvent,
   InlineHandler,
   InlineEventContext,
-} from "@ohno-editor/core/system/handler";
+  ListCommandBuilder,
+} from "@ohno-editor/core/system/types";
+import { dispatchKeyEvent } from "@ohno-editor/core/system/functional";
 import { KatexMath } from "./inline";
 
 import { NodeInsert } from "@ohno-editor/core/contrib/commands/html";
-import { ListCommandBuilder } from "@ohno-editor/core/contrib/commands/concat";
-import { InlineSupport } from "@ohno-editor/core/contrib/plugins/inlineSupport/plugin";
+import { InlineSupport } from "@ohno-editor/core/system/inline";
 import { TextDelete } from "@ohno-editor/core/contrib/commands";
-import { defaultSelection } from "@ohno-editor/core/system/selection";
 
 export class InlineMathHandler implements InlineHandler<KatexMath> {
   handleKeyboardActivated(
@@ -158,7 +157,7 @@ export class InlineMathHandler implements InlineHandler<KatexMath> {
           bias,
           index,
         })
-          .withLazyCommand(({ page, block, index }) => {
+          .addLazyCommand(({ page, block, index }) => {
             return new TextDelete({
               page,
               block,
@@ -167,7 +166,7 @@ export class InlineMathHandler implements InlineHandler<KatexMath> {
               token_number: -text.length - 1,
             });
           })
-          .withLazyCommand(({ page, block, index, node }) => {
+          .addLazyCommand(({ page, block, index, node }) => {
             return new NodeInsert({
               page,
               block,

@@ -5,20 +5,23 @@
 import {
   BlockEventContext,
   RangedBlockEventContext,
-  dispatchKeyEvent,
   PagesHandleMethods,
-} from "@ohno-editor/core/system/handler";
-import { isPlain } from "@ohno-editor/core/helper";
+  BlockInvalideLocationEvent,
+} from "@ohno-editor/core/system/types";
 import { defaultHandleArrowDown, setAnchor } from "./functional/arrowDown";
-import { createRange, compareLocation } from "@ohno-editor/core/system/range";
+import {
+  dispatchKeyEvent,
+  createRange,
+  compareLocation,
+  parentElementWithFilter,
+  copyInBlock,
+} from "@ohno-editor/core/system/functional";
 import {
   defaultHandleBeforeInput,
   defaultHandleBeforeInputOfPlainText,
-  prepareBeforeInputCommand,
 } from "./functional/beforeInput";
-import { parentElementWithFilter } from "@ohno-editor/core/helper/element";
+import { isPlain } from "@ohno-editor/core/system/status";
 
-import { OhNoClipboardData } from "@ohno-editor/core/system/base";
 import { defaultHandlePaste } from "./functional/paste";
 import {
   FORMAT_MAP,
@@ -31,8 +34,6 @@ import {
   ST_MOVE_SOFT_HEAD,
   ST_REDO,
   ST_SELECT_ALL,
-  ST_SELECT_SOFTLINE_BACKWARD,
-  ST_SELECT_SOFTLINE_FORWARD,
   ST_UNDO,
 } from "./consts";
 import {
@@ -42,9 +43,11 @@ import {
   Paragraph,
   withNearestLocation,
 } from "@ohno-editor/core/contrib";
-import { BlockInvalideLocationEvent } from "../..";
-import { copyInBlock } from "./functional/copy";
 import { ContextMenu } from "@ohno-editor/core/contrib/plugins/contextmenu/plugin";
+import {
+  defaultHandleMouseMove,
+  defaultHandleMouseUp,
+} from "./functional/mouse";
 
 export class DefaultBlockHandler implements PagesHandleMethods {
   handleBlockInvalideLocation(
@@ -80,7 +83,14 @@ export class DefaultBlockHandler implements PagesHandleMethods {
     // debugger;
     page.setActivate(block);
   }
-  handleMouseUp(e: MouseEvent, context: BlockEventContext): boolean | void {}
+  handleMouseUp(e: MouseEvent, context: BlockEventContext): boolean | void {
+    defaultHandleMouseUp(this, e, context);
+  }
+
+  handleMouseLeave(e: MouseEvent, context: BlockEventContext): boolean | void {}
+  handleMouseMove(e: MouseEvent, context: BlockEventContext): boolean | void {
+    defaultHandleMouseMove(this, e, context);
+  }
 
   handleHomeDown(e: KeyboardEvent, context: BlockEventContext): boolean | void {
     this.moveToSoftlineBound(context, "left", e.shiftKey);
@@ -140,8 +150,6 @@ export class DefaultBlockHandler implements PagesHandleMethods {
 
     return true;
   }
-  handleMouseLeave(e: MouseEvent, context: BlockEventContext): boolean | void {}
-  handleMouseMove(e: MouseEvent, context: BlockEventContext): boolean | void {}
 
   handleKeyDown(
     e: KeyboardEvent,

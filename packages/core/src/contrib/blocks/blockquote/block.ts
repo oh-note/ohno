@@ -1,28 +1,25 @@
-import { outerHTML } from "@ohno-editor/core/helper";
-import { createElement } from "@ohno-editor/core/helper/document";
-
+import { createElement } from "@ohno-editor/core/system/functional";
 import {
-  BaseBlockSerializer,
+  InlineData,
   Block,
   BlockData,
+  BaseBlockSerializer,
   BlockSerializedData,
-} from "@ohno-editor/core/system/block";
-import { InlineData } from "@ohno-editor/core/system/inline";
+} from "@ohno-editor/core/system/types";
 
 export interface BlockQuoteData extends BlockData {
   type?: string;
-  level?: number; // TODO 用 level 模拟 blockquote 深度
+  level?: number; // TODO, not implemented
   children?: InlineData;
 }
 
-export class Blockquote extends Block<BlockQuoteData> {
+export class BlockQuote extends Block<BlockQuoteData> {
   constructor(data?: BlockQuoteData) {
     data = data || {};
-
     super("blockquote", data, { meta: data });
   }
   render(data: BlockQuoteData): HTMLElement {
-    const { type, level, children } = data;
+    const { type, children } = data;
 
     const root = createElement("blockquote", {
       attributes: {},
@@ -32,16 +29,21 @@ export class Blockquote extends Block<BlockQuoteData> {
     return root;
   }
 
+  public get length(): number {
+    return 1;
+  }
+
+  public get editables(): HTMLElement[] {
+    return [this.inner];
+  }
+
   public get head(): string {
     return ">".repeat(this.meta.level || 1) + " ";
   }
-  static create(data: BlockQuoteData) {
-    return new Blockquote(data);
-  }
 }
 
-export class BlockquoteSerializer extends BaseBlockSerializer<Blockquote> {
-  partToMarkdown(block: Blockquote, range: Range): string {
+export class BlockquoteSerializer extends BaseBlockSerializer<BlockQuote> {
+  partToMarkdown(block: BlockQuote, range: Range): string {
     const res = this.rangedEditable(block, range);
     // if(res.start){}
     if (res.start) {
@@ -54,7 +56,7 @@ export class BlockquoteSerializer extends BaseBlockSerializer<Blockquote> {
     return "";
   }
   partToJson(
-    block: Blockquote,
+    block: BlockQuote,
     range: Range
   ): BlockSerializedData<BlockQuoteData> {
     const res = this.rangedEditable(block, range);
@@ -77,12 +79,12 @@ export class BlockquoteSerializer extends BaseBlockSerializer<Blockquote> {
     }
     return { type: block.type, data: {} };
   }
-  toMarkdown(block: Blockquote): string {
+  toMarkdown(block: BlockQuote): string {
     const childNodes = Array.from(block.root.childNodes);
     return "> " + this.serializeInline(childNodes, "markdown") + "\n";
   }
 
-  toJson(block: Blockquote): BlockSerializedData<BlockQuoteData> {
+  toJson(block: BlockQuote): BlockSerializedData<BlockQuoteData> {
     const childNodes = Array.from(block.root.childNodes);
     return {
       type: block.type,
@@ -94,7 +96,7 @@ export class BlockquoteSerializer extends BaseBlockSerializer<Blockquote> {
     };
   }
 
-  deserialize(data: BlockSerializedData<BlockQuoteData>): Blockquote {
-    return new Blockquote(data.data);
+  deserialize(data: BlockSerializedData<BlockQuoteData>): BlockQuote {
+    return new BlockQuote(data.data);
   }
 }

@@ -1,12 +1,14 @@
-import { AnyBlock } from "@ohno-editor/core/system/block";
-import { Command } from "@ohno-editor/core/system/history";
-import { Page } from "@ohno-editor/core/system/page";
-import { ValidNode } from "@ohno-editor/core/helper/element";
+import {
+  ValidNode,
+  AnyBlock,
+  Command,
+  Page,
+} from "@ohno-editor/core/system/types";
 import {
   createFlagNode,
   createTextNode,
   innerHTMLToNodeList,
-} from "@ohno-editor/core/helper/document";
+} from "@ohno-editor/core/system/functional";
 
 export interface ContainerInsertPayload {
   page: Page;
@@ -19,39 +21,17 @@ export interface ContainerInsertPayload {
 export interface ContainerRemovePayload {
   page: Page;
   block: AnyBlock;
-  // beforeOffset?: Offset;
-
   indexs: number[];
-  // undo_hint?: {
-  //   deletedContainer: HTMLElement[];
-  // };
-}
-
-export function makeNode({
-  textContent,
-  innerHTML,
-}: {
-  textContent?: string;
-  innerHTML?: string;
-}): ValidNode[] {
-  if (textContent !== undefined && innerHTML !== undefined) {
-    throw new Error("textContent and innerHTML can only have one");
-  }
-  if (innerHTML !== undefined) {
-    return innerHTMLToNodeList(innerHTML) as ValidNode[];
-  }
-  return [createTextNode(textContent)];
 }
 
 export class ContainerInsert extends Command<ContainerInsertPayload> {
   declare buffer: {
     newIndex: number[];
   };
+
   execute(): void {
     const { block, index, where, newContainer } = this.payload;
-    // if (!this.payload.beforeOffset) {
-    //   this.payload.beforeOffset = block.getOffset();
-    // }
+
     const cur = block.getEditable(index);
     const flag = createFlagNode();
 
@@ -94,9 +74,9 @@ export class ContainerRemove extends Command<ContainerRemovePayload> {
     deletedContainer: HTMLElement[];
   };
   execute(): void {
-    let { block, indexs: index } = this.payload;
+    const { block, indexs } = this.payload;
     // 逆序删除，顺序添加
-    const deletedContainer = index
+    const deletedContainer = indexs
       .slice()
       .sort()
       .reverse()
@@ -111,9 +91,9 @@ export class ContainerRemove extends Command<ContainerRemovePayload> {
     };
   }
   undo(): void {
-    const { block, indexs: index } = this.payload;
+    const { block, indexs } = this.payload;
     // 顺序添加
-    index.forEach((item, ind) => {
+    indexs.forEach((item, ind) => {
       const container = this.buffer.deletedContainer[ind];
       let cur;
       if ((cur = block.getEditable(item)!)) {

@@ -1,13 +1,14 @@
-import { InlineComponent } from "@ohno-editor/core/system/page";
+import { InlineComponent } from "@ohno-editor/core/system/types";
 import { FlagHandler } from "./handler";
 import { Flag, FlagInit, FlagPayload } from "./inline";
-import { InlineSupport } from "@ohno-editor/core/contrib/plugins/inlineSupport/plugin";
+import { InlineSupport } from "@ohno-editor/core/system/inline";
 
 export { Flag, FlagHandler };
 export function FlagInline(init: FlagInit): InlineComponent {
   const instance = new Flag(init);
   const handler = new FlagHandler();
   return {
+    name: "flag",
     manager: instance,
     onPageCreated: (page) => {
       const inline = page.getPlugin<InlineSupport>("inlinesupport");

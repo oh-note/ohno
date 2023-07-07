@@ -1,4 +1,4 @@
-import { BlockCreate, Blockquote, SlashMenu } from "@ohno-editor/core/index";
+import { BlockCreate, BlockQuote, SlashMenu } from "@ohno-editor/core/index";
 import { Page } from "@ohno-editor/core/system";
 
 export function setupSlashMenu(page: Page) {
@@ -11,7 +11,7 @@ export function setupSlashMenu(page: Page) {
     filter: `Blockquote`,
     onSelect: (context) => {
       const { page, block } = context;
-      const newBlock = new Blockquote();
+      const newBlock = new BlockQuote();
       const command = new BlockCreate({
         page,
         block,

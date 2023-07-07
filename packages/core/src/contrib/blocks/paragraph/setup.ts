@@ -4,7 +4,7 @@ import {
   PasteAll,
   SlashMenu,
 } from "@ohno-editor/core/index";
-import { Page } from "@ohno-editor/core/system";
+import { Page } from "@ohno-editor/core/system/types";
 
 export function setupSlashMenu(page: Page) {
   const slashmenu = page.getPlugin<SlashMenu>("slashmenu");

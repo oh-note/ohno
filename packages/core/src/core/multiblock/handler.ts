@@ -3,36 +3,30 @@ import {
   BlockReplace,
   BlocksRemove,
 } from "@ohno-editor/core/contrib/commands/block";
-import { ListCommandBuilder } from "@ohno-editor/core/contrib/commands/concat";
-import { ContainerRemove } from "@ohno-editor/core/contrib/commands/container";
 import { FormatMultipleText } from "@ohno-editor/core/contrib/commands/format";
 import { Empty } from "@ohno-editor/core/contrib/commands/select";
-import { ValidNode } from "@ohno-editor/core/helper/element";
-import { formatTags } from "@ohno-editor/core/system/format";
 import {
+  ValidNode,
   MultiBlockEventContext,
-  dispatchKeyEvent,
   RangedBlockEventContext,
   PagesHandleMethods,
-} from "@ohno-editor/core/system/handler";
+  OhNoClipboardData,
+  ListCommandBuilder,
+} from "@ohno-editor/core/system/types";
 import {
+  dispatchKeyEvent,
+  formatTags,
   getTokenSize,
   locationToBias,
-  rangeToInterval,
-} from "@ohno-editor/core/system/position";
-import { defaultHandleArrowDown } from "../default/functional/arrowDown";
-import {
   createRange,
-  normalizeContainer,
   setRange,
-} from "@ohno-editor/core/system/range";
-import {
-  RichTextDelete,
-  TextInsert,
-} from "@ohno-editor/core/contrib/commands/text";
-import { OhNoClipboardData } from "@ohno-editor/core/system/base";
+  copyMultiBlock,
+} from "@ohno-editor/core/system/functional";
+import { defaultHandleArrowDown } from "../default/functional/arrowDown";
+import { TextInsert } from "@ohno-editor/core/contrib/commands/text";
 import { defaultHandlePaste } from "../default/functional/paste";
-import { Paragraph } from "../..";
+import { MultiBlockPayLoad } from "../..";
+import { defaultHandleMouseUp } from "../default/functional/mouse";
 
 function handleBeforeInputFormat(
   handler: PagesHandleMethods,
@@ -122,13 +116,11 @@ function handleBeforeInputFormat(
   return command;
 }
 
-function prepareDeleteMultiArea(
+function deleteMultiBlockSelection(
   handler: PagesHandleMethods,
   context: MultiBlockEventContext
 ) {
   const { page, range, block, endBlock, blocks } = context;
-  page.getNextBlock;
-
   const startGlobalBias: [number, number] = block.findEditable(
     range.startContainer
   )
@@ -141,130 +133,62 @@ function prepareDeleteMultiArea(
     ? endBlock.getGlobalBiasPair([range.endContainer, range.endOffset])
     : [-1, -1];
 
-  const builder = new ListCommandBuilder<MultiBlockEventContext>(context)
-    .withLazyCommand(({ block, page, range }, extra) => {
-      // 始终保留第一个 block
+  const builder = new ListCommandBuilder<MultiBlockPayLoad>(context);
+  builder.addLazyCommand(({ page }) => {
+    return new Empty({ page, block }).onUndo(({ block }) => {
+      const startLoc = block.getLocation(...startGlobalBias)!;
+      const endLoc = endBlock.getLocation(...endGlobalBias)!;
 
-      if (
-        block.selection.isNodeInRange(block.root, range) &&
-        !block.mergeable
-      ) {
-        const newBlock = new Paragraph();
-        extra["startPosition"] = 0;
-        extra["startContainer"] = newBlock.getFirstEditable();
-        extra["startIndex"] = 0;
-        extra["block"] = newBlock;
-        return new BlockReplace({ page, block, newBlock })
-          .onExecute()
-          .onUndo(() => {
-            const startLoc = block.getLocation(...startGlobalBias)!;
-            const endLoc = endBlock.getLocation(...endGlobalBias)!;
-            const range = createRange(...startLoc, ...endLoc);
-            page.setRange(range);
-          });
-      }
-      const container = block.findEditable(range.startContainer)!;
-      const startIndex = block.getEditableIndex(container);
+      page.setRange(createRange(...startLoc, ...endLoc));
+    });
+  });
 
-      extra["startContainer"] = container;
-      extra["startIndex"] = startIndex;
-      extra["block"] = block;
-      const start = locationToBias(
-        container!,
-        range.startContainer as ValidNode,
-        range.startOffset
-      );
-      const token_number = getTokenSize(container) - start;
-      extra["startPosition"] = start;
+  let startRemove = false,
+    endRemove = false;
+  if (block.selection.isNodeInRange(block.root, range) || !block.mergeable) {
+    builder.addLazyCommand(({ page, block }) => {
+      const newBlock = page.createDefaultBlock();
+      return new BlockReplace({ page, block, newBlock });
+    });
+    startRemove = true;
+  } else {
+    block.commandSet.multiblockPartSelectionRemove(builder, { isEnd: false });
+  }
 
-      return new RichTextDelete({
-        page,
-        block,
-        index: startIndex,
-        start,
-        token_number,
-      })
-        .onExecute()
-        .onUndo(() => {
-          const startLoc = block.getLocation(...startGlobalBias)!;
-          const endLoc = endBlock.getLocation(...endGlobalBias)!;
-          const range = createRange(...startLoc, ...endLoc);
-          page.setRange(range);
-        });
-    })
-    .withLazyCommand(({ endBlock, range, page }, extra) => {
-      if (!endBlock.mergeable) {
-        return;
-      }
-      const container = endBlock.findEditable(range.endContainer)!;
-      const endIndex = endBlock.getEditableIndex(container);
-      extra["endContainer"] = container;
-      extra["endIndex"] = endIndex;
-      const token_number = locationToBias(
-        container!,
-        range.endContainer as ValidNode,
-        range.endOffset
-      );
-      // const delOffset: Offset = {
-      //   start: 0,
-      //   end: locationToBias(
-      //     container!,
-      //     range.endContainer as ValidNode,
-      //     range.endOffset
-      //   ),
-      //   index: endIndex,
-      // };
-      return new RichTextDelete({
-        page,
-        block: endBlock,
-        index: endIndex,
-        start: 0,
-        token_number,
-      });
-      // return new TextDeleteSelection({ block: endBlock, page, delOffset });
-    })
-    .withLazyCommand(({ block, page }, { startIndex }) => {
-      // 删第一个的 container
-      // debugger;
-      if (!block.isMultiEditable) {
-        return;
-      }
-      if (startIndex === block.getEditables().length - 1) {
-        return;
-      }
-      if (!block.mergeable) {
-        // TODO 只删文字
-        return;
-      }
-      const index = Array.from(
-        { length: block.getEditables().length - startIndex - 1 },
-        (_, index) => index + startIndex + 1!
-      );
-      return new ContainerRemove({ block, page, indexs: index });
-    })
-    .withLazyCommand(({ endBlock, page }, { endContainer, endIndex }) => {
-      if (!endBlock.isMultiEditable || endIndex === 0) {
-        return;
-      }
-      if (!endBlock.mergeable) {
-        // TODO 只删文字
-        return;
-      }
-      // TODO 如果是要合并的话，就 endIndex + 1，否则是 endIndex
-      const index = Array.from(Array(endIndex).fill(0).keys());
-      return new ContainerRemove({ block: endBlock, page, indexs: index });
-    })
-    .withLazyCommand(({ blocks, page }) => {
-      if (blocks.length > 2) {
+  if (endBlock.selection.isNodeInRange(endBlock.root, range)) {
+    endRemove = true;
+  } else {
+    endBlock.commandSet.multiblockPartSelectionRemove(builder, { isEnd: true });
+  }
+  if (block.mergeable && endBlock.mergeable && !startRemove && !endRemove) {
+    endBlock.commandSet.multiblockMergeWhenIsLast(builder);
+    block.commandSet.multiblockMergeWhenIsFirst(builder);
+  }
+  builder
+    .addLazyCommand(({ blocks, page }) => {
+      if (endRemove) {
+        return new BlocksRemove({ page, blocks: blocks.slice(1) });
+      } else if (blocks.length > 2) {
         return new BlocksRemove({ page, blocks: blocks.slice(1, -1) });
       }
       return;
     })
-    .withLazyCommand(({ page }, { startPosition, startIndex, block }) => {
+    .addLazyCommand(({ page }, extra) => {
+      extra["start"] = startGlobalBias[0];
+      extra["index"] = startGlobalBias[1];
       return new Empty({ page, block }).onExecute(({ block }) => {
-        page.setLocation(block.getLocation(startPosition, startIndex)!, block);
+        if (block.detached) {
+          block = page.query(block.order)!;
+          page.setLocation(block.getLocation(0, 0)!, block);
+        } else {
+          page.setLocation(
+            block.getLocation(startGlobalBias[0], startGlobalBias[1])!,
+            block
+          );
+        }
       });
     });
+
   return builder;
 }
 
@@ -273,33 +197,7 @@ export class MultiBlockHandler implements PagesHandleMethods {
     e: ClipboardEvent,
     context: MultiBlockEventContext
   ): void | boolean {
-    const { page, blocks, block, endBlock, range } = context;
-    const data = blocks.map((curBlock, index) => {
-      let text, html, json;
-
-      const blockser = page.getBlockSerializer(curBlock.type);
-      if (curBlock.selection.isNodeInRange(curBlock.root, range)) {
-        text = blockser.serialize(curBlock, "markdown");
-        html = blockser.serialize(curBlock, "html");
-        json = blockser.serialize(curBlock, "json");
-      } else {
-        text = blockser.serializePart(curBlock, range, "markdown");
-        html = blockser.serializePart(curBlock, range, "html");
-        json = blockser.serializePart(curBlock, range, "json");
-      }
-
-      return { text: text, html: html, json: json };
-    });
-    const markdown = data.map((item) => item.text).join("\n");
-    const html = data.map((item) => item.html).join("");
-    const json: OhNoClipboardData = {
-      data: data.flatMap((item) => item.json),
-    };
-
-    e.clipboardData!.setData("text/plain", markdown);
-    e.clipboardData!.setData("text/html", html);
-    e.clipboardData!.setData("text/ohno", JSON.stringify(json));
-
+    copyMultiBlock(e.clipboardData!, context);
     return true;
   }
 
@@ -308,7 +206,7 @@ export class MultiBlockHandler implements PagesHandleMethods {
     context: MultiBlockEventContext
   ): boolean | void {
     this.handleCopy(e, context);
-    const builder = prepareDeleteMultiArea(this, context);
+    const builder = deleteMultiBlockSelection(this, context);
     const command = builder.build();
     context.page.executeCommand(command);
     return true;
@@ -317,7 +215,7 @@ export class MultiBlockHandler implements PagesHandleMethods {
     e: ClipboardEvent,
     context: MultiBlockEventContext
   ): void | boolean {
-    const command = prepareDeleteMultiArea(this, context).build();
+    const command = deleteMultiBlockSelection(this, context).build();
     context.page.executeCommand(command);
     return defaultHandlePaste(this, e, context);
   }
@@ -337,7 +235,7 @@ export class MultiBlockHandler implements PagesHandleMethods {
     e: KeyboardEvent,
     context: MultiBlockEventContext
   ): boolean | void {
-    const builder = prepareDeleteMultiArea(this, context).withLazyCommand(
+    const builder = deleteMultiBlockSelection(this, context).addLazyCommand(
       ({ block, page, endBlock }) => {
         return new Empty({ page, block, endBlock }).onExecute(
           ({ endBlock }) => {
@@ -415,27 +313,7 @@ export class MultiBlockHandler implements PagesHandleMethods {
     e: MouseEvent,
     context: MultiBlockEventContext
   ): void | boolean {
-    console.log("handleMouseUp", e, context.block);
-    const { block, endBlock, range, page } = context;
-    const startRoot = block.findEditable(range.startContainer)!;
-    const endRoot = endBlock.findEditable(range.endContainer)!;
-    range.startOffset, range.endOffset;
-    const [startContainer, startOffset] = normalizeContainer(
-      startRoot,
-      range.startContainer,
-      range.startOffset,
-      "left"
-    );
-    const [endContainer, endOffset] = normalizeContainer(
-      endRoot,
-      range.endContainer,
-      range.endOffset,
-      "right"
-    );
-    setRange(createRange(startContainer, startOffset, endContainer, endOffset));
-
-    page.rangeDirection = "next";
-    return true;
+    defaultHandleMouseUp(this, e, context);
   }
   handleClick(e: MouseEvent, context: MultiBlockEventContext): void | boolean {
     console.log("handleClick", e, context.block);
@@ -453,7 +331,7 @@ export class MultiBlockHandler implements PagesHandleMethods {
     e: TypedInputEvent,
     context: MultiBlockEventContext
   ): void | boolean {
-    const { block, blocks, range, page } = context;
+    const { page } = context;
     let command;
     if (
       e.inputType === "formatBold" ||
@@ -464,57 +342,10 @@ export class MultiBlockHandler implements PagesHandleMethods {
     } else {
       // 下面这些都是要先把选中内容删干净，即跨 Container 的删除
 
-      const builder = prepareDeleteMultiArea(this, context);
-      builder
-        .withLazyCommand(({ endBlock, page }, extra) => {
-          // 先存储 innerHTML
-          // 如果是 multiblock ，则 remove container 或 remove Block
-          // 否则直接 remove Block
-          if (!endBlock.mergeable) {
-            extra["innerHTML"] = "";
-            return;
-          }
-          const { endContainer } = extra;
-          extra["innerHTML"] = endContainer.innerHTML;
-          if (
-            endBlock.isMultiEditable &&
-            endBlock.getNextEditable(endContainer)
-          ) {
-            if (endBlock.mergeable) {
-              return new ContainerRemove({
-                block: endBlock,
-                indexs: [0],
-                page,
-              });
-            } else {
-              return;
-            }
-          }
-          return new BlockRemove({ block: endBlock, page });
-        })
-        .withLazyCommand(({ page }, extra) => {
-          const { block, startContainer, innerHTML } = extra;
-          const start = getTokenSize(startContainer);
-          const index = block.getEditableIndex(startContainer);
-          extra["start"] = start;
-          extra["index"] = index;
-          return new TextInsert({
-            page,
-            block,
-            innerHTML,
-            start,
-            index,
-          }).onExecute(({ block, start, index }) => {
-            page.setLocation(block.getLocation(start, index)!, block);
-          });
-        });
+      const builder = deleteMultiBlockSelection(this, context);
 
       if (e.inputType === "insertText") {
-        builder.withLazyCommand(({ block }, { start, index }) => {
-          // const offset = block.getOffset(range);
-          // if (range.startContainer instanceof HTMLLabelElement) {
-          //   offset.start++;
-          // }
+        builder.addLazyCommand(({ block }, { start, index }) => {
           return new TextInsert({
             page,
             block,
@@ -547,59 +378,19 @@ export class MultiBlockHandler implements PagesHandleMethods {
     console.log(e);
 
     return true;
-    return true;
   }
-  handleCompositionEnd(
-    e: CompositionEvent,
-    context: MultiBlockEventContext
-  ): void | boolean {
-    console.log("handleCompositionEnd", e, context.block);
-  }
+
   handleCompositionStart(
     e: CompositionEvent,
     context: MultiBlockEventContext
   ): void | boolean {
     const { page } = context;
-    const builder = prepareDeleteMultiArea(this, context);
-    builder
-      .withLazyCommand(({ endBlock, page }, extra) => {
-        // 先存储 innerHTML
-        // 如果是 multiblock ，则 remove container 或 remove Block
-        // 否则直接 remove Block
-        const { endContainer } = extra;
-        extra["innerHTML"] = endContainer.innerHTML;
-        if (
-          endBlock.isMultiEditable &&
-          endBlock.getNextEditable(endContainer)
-        ) {
-          return new ContainerRemove({ block: endBlock, indexs: [0], page });
-        }
-        return new BlockRemove({ block: endBlock, page });
-      })
-      .withLazyCommand(({ block, page }, extra) => {
-        const { startContainer, innerHTML } = extra;
-        const insertOffset = {
-          index: block.getEditableIndex(startContainer),
-          start: getTokenSize(startContainer),
-        };
-        const start = getTokenSize(startContainer);
-        const index = block.getEditableIndex(startContainer);
-        extra["insertOffset"] = insertOffset;
-
-        return new TextInsert({
-          block,
-          innerHTML,
-          page,
-          start,
-          index,
-        }).onExecute(({ block, start, index }) => {
-          page.setLocation(block.getLocation(start, index)!, block);
-        });
-      });
+    const builder = deleteMultiBlockSelection(this, context);
     const command = builder.build();
     page.executeCommand(command);
     return true;
   }
+
   handleCompositionUpdate(
     e: CompositionEvent,
     context: MultiBlockEventContext

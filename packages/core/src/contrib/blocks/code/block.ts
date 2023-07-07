@@ -2,28 +2,22 @@ import {
   createElement,
   createTextNode,
   innerHTMLToNodeList,
-} from "@ohno-editor/core/helper/document";
+  outerHTML,
+} from "@ohno-editor/core/system/functional";
 import {
   BaseBlockSerializer,
   BlockSerializedData,
-  Page,
-} from "@ohno-editor/core/system";
-import { Block, BlockData } from "@ohno-editor/core/system/block";
-import {
-  clipRange,
-  createRange,
-  getLineInfo,
-  getValidAdjacent,
-} from "@ohno-editor/core/system/range";
-import hljs from "highlight.js";
-import "highlight.js/styles/github.css";
-import "./style.css";
-import { markPlain, outerHTML } from "@ohno-editor/core/helper";
-import {
+  Block,
+  BlockData,
   PlainSelection,
   RefLocation,
   SelectionMethods,
-} from "@ohno-editor/core/system/selection";
+} from "@ohno-editor/core/system/types";
+import hljs from "highlight.js";
+import "highlight.js/styles/github.css";
+import "./style.css";
+import { markPlain } from "@ohno-editor/core/system/status";
+
 export interface CodeData extends BlockData {
   language?: string;
   code?: string;
@@ -39,6 +33,26 @@ export class Code extends Block<CodeData> {
   constructor(data?: CodeData) {
     data = Object.assign({}, { code: " " }, data);
     super("code", data, { meta: data, plain: true });
+  }
+
+  public get length(): number {
+    return 1;
+  }
+
+  public get editables(): HTMLElement[] {
+    return [this.plain];
+  }
+
+  public get inner(): HTMLElement {
+    return this.plain;
+  }
+
+  public get language(): string {
+    return this.meta.language || "";
+  }
+
+  public get code(): string {
+    return this.plain.textContent || "";
   }
   render(data: CodeData): HTMLElement {
     const editer = createElement("code", { textContent: data.code || " " });
@@ -74,18 +88,6 @@ export class Code extends Block<CodeData> {
   }
   async lazy_render(): Promise<void> {
     this.updateRender();
-  }
-
-  public get inner(): HTMLElement {
-    return this.plain;
-  }
-
-  public get language(): string {
-    return this.meta.language || "";
-  }
-
-  public get code(): string {
-    return this.plain.textContent || "";
   }
 
   isLocationInLastLine(loc: RefLocation): boolean {

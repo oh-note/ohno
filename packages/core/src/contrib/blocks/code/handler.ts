@@ -1,23 +1,20 @@
 import {
   BlockEventContext,
   RangedBlockEventContext,
-  dispatchKeyEvent,
   PagesHandleMethods,
-} from "@ohno-editor/core/system/handler";
-
-import { Code } from "./block";
-import { AnyBlock } from "@ohno-editor/core/system/block";
+  AnyBlock,
+  BlockUpdateEvent,
+} from "@ohno-editor/core/system/types";
 import {
-  defaultHandleBeforeInput,
+  dispatchKeyEvent,
+  createRange,
+} from "@ohno-editor/core/system/functional";
+
+import {
   defaultHandleBeforeInputOfPlainText,
   insertPlainText,
-  prepareInsertPlainTextCommand,
 } from "@ohno-editor/core/core/default/functional/beforeInput";
-import {
-  BlockInvalideLocationEvent,
-  BlockUpdateEvent,
-} from "@ohno-editor/core/system/pageevent";
-import { createRange } from "@ohno-editor/core/system";
+import { Code } from "./block";
 import { BlockReplace } from "../../commands";
 import { Paragraph } from "../paragraph";
 

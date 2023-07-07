@@ -1,21 +1,14 @@
 import {
+  parentElementWithTag,
   createElement,
-  tryGetDefaultRange,
-} from "@ohno-editor/core/helper/document";
-import { parentElementWithTag } from "@ohno-editor/core/helper/element";
+  getValidAdjacent,
+} from "@ohno-editor/core/system/functional";
 import {
-  IComponent,
-  IContainer,
-  IInline,
-  IPlugin,
-} from "@ohno-editor/core/system/base";
-import { AnyBlock } from "@ohno-editor/core/system/block";
-import {
+  Page,
   BlockEventContext,
-  InlineHandler,
-} from "@ohno-editor/core/system/handler";
+  IPlugin,
+} from "@ohno-editor/core/system/types";
 import "./style.css";
-import { Page, getValidAdjacent } from "@ohno-editor/core/system";
 import { computePosition } from "@floating-ui/dom";
 import { SetLinkHref } from "./command";
 

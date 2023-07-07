@@ -2,9 +2,8 @@
 import {
   createElement,
   createTextNode,
-} from "@ohno-editor/core/helper/document";
-import { IComponent, IContainer, IPlugin } from "@ohno-editor/core/system/base";
-import { AnyBlock } from "@ohno-editor/core/system/block";
+} from "@ohno-editor/core/system/functional";
+import { AnyBlock, IPlugin, Page } from "@ohno-editor/core/system/types";
 import { computePosition } from "@floating-ui/dom";
 
 export interface Option {
@@ -28,7 +27,7 @@ export interface ToolbarInit {
 export class Toolbar implements IPlugin {
   root: HTMLElement;
   name: string = "toolbar";
-  parent?: IComponent | undefined;
+  parent?: Page | undefined;
   constructor(init: ToolbarInit) {
     this.root = createElement("div", {
       className: "oh-is-toolbar",
@@ -56,17 +55,8 @@ export class Toolbar implements IPlugin {
   destory(): void {
     throw new Error("Method not implemented.");
   }
-  setParent(parent?: IContainer | undefined): void {
+  setParent(parent?: Page | undefined): void {
     this.parent = parent;
-  }
-  serialize(option?: any): string {
-    throw new Error("Method not implemented.");
-  }
-  equals(component?: IComponent | undefined): boolean {
-    throw new Error("Method not implemented.");
-  }
-  detach(): void {
-    throw new Error("Method not implemented.");
   }
 
   span(block: AnyBlock) {

@@ -1,21 +1,27 @@
 import {
-  BlockEventContext,
   RangedBlockEventContext,
-  dispatchKeyEvent,
   PagesHandleMethods,
-} from "@ohno-editor/core/system/handler";
+  ListCommandBuilder,
+  InnerHTMLExtra,
+  BackspacePayLoad,
+  EditableExtra,
+  DeletePayLoad,
+} from "@ohno-editor/core/system/types";
 import {
   BlockCreate,
   BlockReplace,
 } from "@ohno-editor/core/contrib/commands/block";
 import {
-  Paragraph,
-  prepareDeleteCommand,
-  prepareEnterCommand,
-} from "../paragraph";
-import { Headings } from "./block";
-import { createRange } from "@ohno-editor/core/system/range";
+  createRange,
+  dispatchKeyEvent,
+} from "@ohno-editor/core/system/functional";
 
+import { Paragraph } from "../paragraph";
+import { Headings } from "./block";
+import {
+  removeEditableContentAfterLocation,
+  removeSelectionInEditable,
+} from "../../commands";
 export class HeadingsHandler implements PagesHandleMethods {
   name: string = "headings";
   handleKeyPress(
@@ -30,58 +36,62 @@ export class HeadingsHandler implements PagesHandleMethods {
   }
   handleDeleteDown(
     e: KeyboardEvent,
-    { page, block, range }: RangedBlockEventContext
+    context: RangedBlockEventContext
   ): boolean | void {
-    if (
-      !range.collapsed ||
-      !block.isLocationInLeft([range.startContainer, range.startOffset])
-    ) {
+    const { page, block, range } = context;
+    if (!block.isLocationInRight([range.startContainer, range.startOffset])) {
       return;
     }
     const nextBlock = page.getNextBlock(block);
     if (!nextBlock) {
-      // 在右下方，不做任何操作
-
+      return true;
+    }
+    if (!nextBlock.mergeable) {
+      const newRange = createRange();
+      newRange.selectNode(nextBlock.root);
+      page.setRange(newRange);
       return true;
     }
 
-    // 需要将下一个 Block 的第一个 Container 删除，然后添加到尾部
-    // 执行过程是 TextInsert -> ContainerDelete
-    if (nextBlock.isMultiEditable) {
-      // block.firstContainer();
-      throw new Error("Not supported yet");
-    } else {
-      const command = prepareDeleteCommand({ page, block, nextBlock }).build();
-      page.executeCommand(command);
-      return true;
-    }
+    const builder = new ListCommandBuilder<DeletePayLoad, EditableExtra>({
+      ...context,
+      nextBlock,
+    });
+    nextBlock.commandSet.deleteFromPrevBlockEnd?.(builder);
+    block.commandSet.deleteAtBlockEnd?.(builder);
+    const command = builder.build();
+    page.executeCommand(command);
+    return true;
   }
 
   handleBackspaceDown(
     e: KeyboardEvent,
-    { page, block, range }: RangedBlockEventContext
+    context: RangedBlockEventContext
   ): boolean | void {
-    if (!range.collapsed) {
+    const { block, page, range } = context;
+    if (
+      range &&
+      (!range.collapsed ||
+        !block.isLocationInLeft([range.startContainer, range.startOffset]))
+    ) {
       return;
     }
 
-    if (!block.isLocationInLeft([range.startContainer, range.startOffset])) {
-      return;
-    }
+    const builder = new ListCommandBuilder<BackspacePayLoad, EditableExtra>(
+      context as BackspacePayLoad
+    );
 
-    const command = new BlockReplace({
-      block,
-      page,
-      newBlock: new Paragraph({ children: block.root.innerHTML }),
-    });
+    block.commandSet.backspaceAtStart!(builder);
+    const command = builder.build();
     page.executeCommand(command);
     return true;
   }
 
   handleEnterDown(
     e: KeyboardEvent,
-    { page, block, range }: RangedBlockEventContext
+    context: RangedBlockEventContext
   ): boolean | void {
+    const { page, block, range } = context;
     if (e.shiftKey) {
       const newBlock = new Paragraph();
       const command = new BlockCreate({
@@ -91,42 +101,22 @@ export class HeadingsHandler implements PagesHandleMethods {
         newBlock,
       });
       page.executeCommand(command);
-    } else {
-      let command;
-      if (block.isLocationInLeft([range.startContainer, range.startOffset])) {
-        const newBlock = new Paragraph({});
-        command = new BlockCreate({
-          page,
-          block,
-          newBlock,
-          where: "before",
-        }).onExecute(({ block, page }) => {
-          page.setLocation(block.getLocation(0, 0)!, block);
-        });
-      } else {
-        command = prepareEnterCommand({ page, block, range })
-          .withLazyCommand(({ block, page }, { innerHTML }) => {
-            if (innerHTML === undefined) {
-              throw new Error("sanity check");
-            }
-            const paragraph = new Paragraph({
-              children: innerHTML,
-            });
-
-            return new BlockCreate({
-              block: block,
-              newBlock: paragraph,
-              where: "after",
-              page: page,
-            });
-          })
-          .build();
-      }
-      page.executeCommand(command);
+      return true;
     }
-
+    const builder = new ListCommandBuilder<
+      RangedBlockEventContext,
+      InnerHTMLExtra
+    >(context);
+    removeSelectionInEditable(builder);
+    const bias = block.getBias([range.startContainer, range.startOffset]);
+    const index = block.findEditableIndex(range.startContainer);
+    removeEditableContentAfterLocation(builder, { page, block, bias, index });
+    block.commandSet.collapsedEnter?.(builder);
+    const command = builder.build();
+    page.executeCommand(command);
     return true;
   }
+
   handleSpaceDown(
     e: KeyboardEvent,
     context: RangedBlockEventContext

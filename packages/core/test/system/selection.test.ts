@@ -1,4 +1,4 @@
-import { createElement } from "@ohno-editor/core/helper";
+import { createElement } from "@ohno-editor/core/system/functional";
 
 import { describe, test } from "vitest";
 import { PlainSelection } from "@ohno-editor/core/system/selection";

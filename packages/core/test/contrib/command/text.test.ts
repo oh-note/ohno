@@ -1,18 +1,15 @@
 import { describe, expect, test } from "vitest";
 
+// import { TextDeleteSelection } from "@ohno-editor/core/contrib/commands/text";
+import { Page } from "@ohno-editor/core/system/types";
 import {
+  getIntervalFromRange,
+  getRangeFromInterval,
   createElement,
   getDefaultRange,
-} from "@ohno-editor/core/helper/document";
-
-// import { TextDeleteSelection } from "@ohno-editor/core/contrib/commands/text";
-import { Page } from "@ohno-editor/core/system/page";
-import { addMarkdownHint } from "@ohno-editor/core/helper/markdown";
-import {
-  intervalToRange,
-  rangeToInterval,
-} from "@ohno-editor/core/system/position";
-import { setRange } from "@ohno-editor/core/system/range";
+  setRange,
+  addMarkdownHint,
+} from "@ohno-editor/core/system/functional";
 import { RichTextDelete, TextInsert } from "@ohno-editor/core/contrib/commands";
 
 function makeFakePage() {
@@ -74,7 +71,7 @@ describe("test command", () => {
     const block = page.query("n")!;
     expect(block.root.textContent).toBe("012**456**89");
     // "012<b>4[56</b>8]9" -> "012[<b>4[56</b>]8]9" -> "012[<b>4|</b>8]9";
-    const range = intervalToRange(block.root, { start: 5, end: 9 })!;
+    const range = getIntervalFromRange(block.root, { start: 5, end: 9 })!;
     setRange(range);
     let del = new RichTextDelete({
       page: page,
@@ -87,7 +84,7 @@ describe("test command", () => {
     page.executeCommand(del);
     expect(block.root.textContent).toBe("012**4**9");
     // "012<b>4|</b>9";
-    expect(rangeToInterval(block.root, getDefaultRange()).start).toBe(5);
+    expect(getRangeFromInterval(block.root, getDefaultRange()).start).toBe(5);
     // "012[<b>4|</b>8]9" -> "012 9" -> "012[<b>4[56</b>]8]9"
     page.history.undo();
     expect(block.root.textContent).toBe("012**456**89");

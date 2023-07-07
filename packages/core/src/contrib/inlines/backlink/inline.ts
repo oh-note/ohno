@@ -1,15 +1,19 @@
-import { createElement, createInline } from "@ohno-editor/core/helper/document";
 import {
   BlockEventContext,
   RangedBlockEventContext,
   UIEventHandleMethods,
-} from "@ohno-editor/core/system/handler";
+  InlineBase,
+} from "@ohno-editor/core/system/types";
 
-import { makeRangeInNode, setRange } from "@ohno-editor/core/system/range";
-import { addMarkdownHint } from "@ohno-editor/core/helper/markdown";
+import {
+  createElement,
+  createInline,
+  makeRangeInNode,
+  setRange,
+  addMarkdownHint,
+} from "@ohno-editor/core/system/functional";
+import { markPlain } from "@ohno-editor/core/system/status";
 import "./style.css";
-import { markPlain } from "@ohno-editor/core/helper";
-import { InlineBase } from "@ohno-editor/core/system";
 
 export interface BackLinkOption {
   cite?: string;

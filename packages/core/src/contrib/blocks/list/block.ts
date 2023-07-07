@@ -15,19 +15,22 @@
  *  - 先降级，再退回 p，可能有分隔 li -> For
  *
  */
-import { ChildrenData, createElement } from "@ohno-editor/core/helper/document";
+
 import {
+  createElement,
   indexOfNode,
   parentElementWithTag,
-} from "@ohno-editor/core/helper/element";
+} from "@ohno-editor/core/system/functional";
+
 import {
+  Block,
+  BlockData,
   BaseBlockSerializer,
   BlockSerializedData,
   Editable,
   EditableFlag,
-} from "@ohno-editor/core/system";
-import { Block, BlockData } from "@ohno-editor/core/system/block";
-import { InlineData } from "@ohno-editor/core/system/inline";
+  InlineData,
+} from "@ohno-editor/core/system/types";
 
 export interface ListData extends BlockData {
   indent?: number[];
@@ -53,6 +56,10 @@ export class ABCList<T extends ListData = ListData> extends Block<T> {
       }
     });
     return root;
+  }
+
+  public get editables(): HTMLElement[] {
+    return Array.from(this.root.querySelectorAll("li"));
   }
 
   getEditable(flag: EditableFlag): HTMLElement {
@@ -109,10 +116,6 @@ export class ABCList<T extends ListData = ListData> extends Block<T> {
     return this.root.lastElementChild as HTMLElement;
   }
 
-  getEditables(): HTMLElement[] {
-    return Array.from(this.root.querySelectorAll("li"));
-  }
-
   getEditableIndex(container: HTMLElement, reverse?: boolean): number {
     let index = indexOfNode(container, "li");
     if (reverse) {
@@ -143,9 +146,14 @@ export class ABCList<T extends ListData = ListData> extends Block<T> {
     return ["disc", "circle", "square"];
   }
 
+  public get length(): number {
+    return this.getEditables().length;
+  }
+
   updateValue() {
     const containers = this.getEditables();
     const lvstack: number[] = [];
+    const types = this.listStyleTypes;
     containers.forEach((container) => {
       const level = parseFloat(container.dataset["level"] || "0");
       while (lvstack[level] === undefined) {
@@ -156,6 +164,10 @@ export class ABCList<T extends ListData = ListData> extends Block<T> {
       }
       lvstack[level]++;
       container.dataset["value"] = lvstack[level] + "";
+      Object.assign(container.style, {
+        marginLeft: `${level * 20}px`,
+        listStyleType: types[level % types.length],
+      });
     });
   }
 }

@@ -1,27 +1,21 @@
-import {
-  createElement,
-  getDefaultRange,
-} from "@ohno-editor/core/helper/document";
-import {
-  indexOfNode,
-  outerHTML,
-  parentElementWithTag,
-} from "@ohno-editor/core/helper/element";
-import { Block, BlockData } from "@ohno-editor/core/system/block";
+import { outerHTML, createElement } from "@ohno-editor/core/system/functional";
+
+import { Block, BlockData } from "@ohno-editor/core/system/types";
 import katex from "katex";
 import {
   BaseBlockSerializer,
   BlockSerializedData,
   EditableFlag,
-} from "@ohno-editor/core/system";
+} from "@ohno-editor/core/system/types";
+import { markPlain } from "@ohno-editor/core/system/status";
+
 import "./style.css";
 import { computePosition } from "@floating-ui/dom";
-import { markPlain } from "@ohno-editor/core/helper";
 export interface EquationData extends BlockData {
   src: string;
 }
 export class Equation extends Block<EquationData> {
-  isMultiEditable: boolean = true;
+  isMultiEditable: boolean = false;
   mergeable: boolean = false;
   component!: {
     math: HTMLElement;
@@ -40,7 +34,7 @@ export class Equation extends Block<EquationData> {
     const math = createElement("math" as keyof HTMLElementTagNameMap, {
       style: {},
     });
-    math.contentEditable = "false";
+    // math.contentEditable = "false";
     const input = createElement("p");
     markPlain(input);
     root.appendChild(input);
@@ -53,6 +47,13 @@ export class Equation extends Block<EquationData> {
     this.update();
     return root;
   }
+
+  length: number = 1;
+
+  public get editables(): HTMLElement[] {
+    return [this.inner];
+  }
+
   public get inner(): HTMLElement {
     return this.component.input;
   }

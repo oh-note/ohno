@@ -1,12 +1,8 @@
-import {
-  BlockCreate,
-  PasteAll,
-  SlashMenu,
-  getTagName,
-} from "@ohno-editor/core/index";
-import { Page } from "@ohno-editor/core/system";
+import { BlockCreate, PasteAll, SlashMenu } from "@ohno-editor/core/contrib";
+import { Page } from "@ohno-editor/core/system/types";
 import { Headings } from "./";
 import { HeadingLevel } from "./block";
+import { getTagName } from "@ohno-editor/core/system/functional";
 export function setupSlashMenu(page: Page) {
   const slashmenu = page.getPlugin<SlashMenu>("slashmenu");
   if (slashmenu) {

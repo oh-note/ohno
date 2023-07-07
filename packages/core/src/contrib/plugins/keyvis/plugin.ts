@@ -1,7 +1,6 @@
 import { computePosition } from "@floating-ui/dom";
-import { createElement } from "@ohno-editor/core/helper/document";
-import { Page } from "@ohno-editor/core/system";
-import { IComponent, IContainer, IPlugin } from "@ohno-editor/core/system/base";
+import { createElement } from "@ohno-editor/core/system/functional";
+import { IPlugin, Page } from "@ohno-editor/core/system/types";
 
 export class KeyVis implements IPlugin {
   root: HTMLElement;

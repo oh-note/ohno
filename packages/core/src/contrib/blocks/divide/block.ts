@@ -1,10 +1,10 @@
-import { createElement } from "@ohno-editor/core/helper/document";
+import { createElement } from "@ohno-editor/core/system/functional";
 import {
   BaseBlockSerializer,
   Block,
   BlockData,
   BlockSerializedData,
-} from "@ohno-editor/core/system/block";
+} from "@ohno-editor/core/system/types";
 import "./style.css";
 export interface DivideData extends BlockData {}
 
@@ -15,6 +15,8 @@ export class Divide extends Block<DivideData> {
   constructor(data?: DivideData) {
     super("divide", data || {});
   }
+  length: number = 1;
+  editables: HTMLElement[] = [this.inner];
   render(data: DivideData): HTMLElement {
     const root = createElement("div", {
       attributes: {},

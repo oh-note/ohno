@@ -3,14 +3,16 @@ import {
   RangedBlockEventContext,
   InlineHandler,
   InlineEventContext,
-  dispatchKeyEvent,
-} from "@ohno-editor/core/system/handler";
+  ListCommandBuilder,
+} from "@ohno-editor/core/system/types";
 import { BackLink } from "./inline";
 import { NodeInsert } from "@ohno-editor/core/contrib/commands/html";
-import { ListCommandBuilder } from "@ohno-editor/core/contrib/commands/concat";
-import { InlineSupport } from "@ohno-editor/core/contrib/plugins/inlineSupport/plugin";
+import { InlineSupport } from "@ohno-editor/core/system/inline";
 import { TextDelete } from "@ohno-editor/core/contrib/commands";
-import { getValidAdjacent } from "@ohno-editor/core/system/range";
+import {
+  dispatchKeyEvent,
+  getValidAdjacent,
+} from "@ohno-editor/core/system/functional";
 import { defaultHandleBeforeInput } from "@ohno-editor/core/core/default/functional/beforeInput";
 import { defaultSelection } from "@ohno-editor/core/system/selection";
 
@@ -237,7 +239,7 @@ export class BackLinkHandler implements InlineHandler<BackLink> {
           bias,
           index,
         })
-          .withLazyCommand(({ page, block, index }) => {
+          .addLazyCommand(({ page, block, index }) => {
             return new TextDelete({
               page,
               block,
@@ -246,7 +248,7 @@ export class BackLinkHandler implements InlineHandler<BackLink> {
               token_number: -1,
             });
           })
-          .withLazyCommand(({ page, block, index, node }) => {
+          .addLazyCommand(({ page, block, index, node }) => {
             return new NodeInsert({
               page,
               block,

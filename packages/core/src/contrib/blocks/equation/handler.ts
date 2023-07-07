@@ -1,15 +1,16 @@
-import { isParent } from "@ohno-editor/core/helper/element";
+import {
+  isParent,
+  dispatchKeyEvent,
+} from "@ohno-editor/core/system/functional";
 import {
   BlockEventContext,
   RangedBlockEventContext,
-  dispatchKeyEvent,
   PagesHandleMethods,
-} from "@ohno-editor/core/system/handler";
-import {
   BlockActiveEvent,
   BlockDeActiveEvent,
   BlockUpdateEvent,
-} from "@ohno-editor/core/system/pageevent";
+} from "@ohno-editor/core/system/types";
+
 import { Equation } from "./block";
 import { Paragraph } from "../paragraph";
 import { BlockReplace } from "../../commands";

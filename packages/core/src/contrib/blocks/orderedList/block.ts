@@ -15,12 +15,10 @@
  *  - 先降级，再退回 p，可能有分隔 li -> For
  *
  */
-import { ChildrenData, createElement } from "@ohno-editor/core/helper/document";
 import {
   BaseBlockSerializer,
-  BlockData,
   BlockSerializedData,
-} from "@ohno-editor/core/system/block";
+} from "@ohno-editor/core/system/types";
 import { ABCList } from "../list";
 import { ListData } from "../list/block";
 

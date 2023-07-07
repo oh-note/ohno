@@ -1,10 +1,10 @@
 import {
   BlockEventContext,
   RangedBlockEventContext,
-  dispatchKeyEvent,
   PagesHandleMethods,
-} from "@ohno-editor/core/system/handler";
+} from "@ohno-editor/core/system/types";
 import { Toolbar } from "./plugin";
+import { dispatchKeyEvent } from "@ohno-editor/core/system/functional";
 
 export class ToolbarPluginHandler implements PagesHandleMethods {
   handleKeyPress(

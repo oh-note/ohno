@@ -1,70 +1,70 @@
-import { tryGetDefaultRange } from "@ohno-editor/core/helper/document";
+import { createRange } from "@ohno-editor/core/system/functional";
 import {
   BlockEventContext,
   RangedBlockEventContext,
-  dispatchKeyEvent,
-  ControlKeyEventHandleMethods,
-  UIEventHandleMethods,
   PagesHandleMethods,
-} from "@ohno-editor/core/system/handler";
+  ListCommandBuilder,
+  InnerHTMLExtra,
+  BackspacePayLoad,
+  EditableExtra,
+  DeletePayLoad,
+} from "@ohno-editor/core/system/types";
+import { dispatchKeyEvent } from "@ohno-editor/core/system/functional";
+import "./style.css";
 import {
   BlockCreate,
-  BlockReplace,
-} from "@ohno-editor/core/contrib/commands/block";
-import { containHTMLElement } from "@ohno-editor/core/helper/element";
-import {
-  Paragraph,
-  prepareDeleteCommand,
-  prepareEnterCommand,
-} from "../paragraph";
-import { Blockquote } from "./block";
-import "./style.css";
+  removeEditableContentAfterLocation,
+  removeSelectionInEditable,
+} from "../../commands";
+import { Paragraph } from "../paragraph";
 export class BlockQuoteHandler implements PagesHandleMethods {
   handleKeyPress(
     e: KeyboardEvent,
     context: BlockEventContext
   ): boolean | void {}
+
   handleKeyDown(
     e: KeyboardEvent,
     context: RangedBlockEventContext
   ): boolean | void {
     return dispatchKeyEvent(this, e, context);
   }
+
   handleDeleteDown(
     e: KeyboardEvent,
-    { page, block, range }: BlockEventContext
+    context: RangedBlockEventContext
   ): boolean | void {
-    if (!range) {
-      throw new NoRangeError();
-    }
-
+    const { page, block, range } = context;
     if (!block.isLocationInRight([range.startContainer, range.startOffset])) {
       return;
     }
     const nextBlock = page.getNextBlock(block);
     if (!nextBlock) {
-      // 在右下方，不做任何操作
-
+      return true;
+    }
+    if (!nextBlock.mergeable) {
+      const newRange = createRange();
+      newRange.selectNode(nextBlock.root);
+      page.setRange(newRange);
       return true;
     }
 
-    // 需要将下一个 Block 的第一个 Container 删除，然后添加到尾部
-    // 执行过程是 TextInsert -> ContainerDelete
-    if (nextBlock.isMultiEditable) {
-      // block.firstContainer();
-      throw new Error("Not supported yet");
-    } else {
-      const command = prepareDeleteCommand({ page, block, nextBlock }).build();
-      page.executeCommand(command);
-      return true;
-    }
+    const builder = new ListCommandBuilder<DeletePayLoad, EditableExtra>({
+      ...context,
+      nextBlock,
+    });
+    nextBlock.commandSet.deleteFromPrevBlockEnd?.(builder);
+    block.commandSet.deleteAtBlockEnd?.(builder);
+    const command = builder.build();
+    page.executeCommand(command);
+    return true;
   }
 
   handleBackspaceDown(
     e: KeyboardEvent,
-    { block, page }: BlockEventContext
+    context: RangedBlockEventContext
   ): boolean | void {
-    const range = tryGetDefaultRange();
+    const { block, page, range } = context;
     if (
       range &&
       (!range.collapsed ||
@@ -72,41 +72,46 @@ export class BlockQuoteHandler implements PagesHandleMethods {
     ) {
       return;
     }
+    const builder = new ListCommandBuilder<BackspacePayLoad, EditableExtra>(
+      context as BackspacePayLoad
+    );
 
-    const command = new BlockReplace({
-      block,
-      page,
-      newBlock: new Paragraph({ children: [block.root.innerHTML] }),
-    });
+    block.commandSet.backspaceAtStart!(builder);
+    const command = builder.build();
     page.executeCommand(command);
-    // 向前合并
     return true;
   }
 
   handleEnterDown(
     e: KeyboardEvent,
-    { page, block, range }: BlockEventContext
+    context: RangedBlockEventContext
   ): boolean | void {
-    const command = prepareEnterCommand({ page, block, range })
-      .withLazyCommand(({ block, page }, { innerHTML }) => {
-        if (innerHTML === undefined) {
-          throw new Error("sanity check");
-        }
-        const blockquote = new Blockquote({
-          children: innerHTML,
-        });
-        return new BlockCreate({
-          block: block,
-          newBlock: blockquote,
-          where: "after",
-          page: page,
-        });
-      }) // 将新文本添加到
-      .build();
-
+    const { page, block, range } = context;
+    if (e.shiftKey) {
+      const newBlock = new Paragraph();
+      const command = new BlockCreate({
+        page,
+        block,
+        where: "after",
+        newBlock,
+      });
+      page.executeCommand(command);
+      return true;
+    }
+    const builder = new ListCommandBuilder<
+      RangedBlockEventContext,
+      InnerHTMLExtra
+    >(context);
+    removeSelectionInEditable(builder);
+    const bias = block.getBias([range.startContainer, range.startOffset]);
+    const index = block.findEditableIndex(range.startContainer);
+    removeEditableContentAfterLocation(builder, { page, block, bias, index });
+    block.commandSet.collapsedEnter?.(builder);
+    const command = builder.build();
     page.executeCommand(command);
     return true;
   }
+
   handleSpaceDown(
     e: KeyboardEvent,
     context: RangedBlockEventContext
@@ -120,10 +125,6 @@ export class BlockQuoteHandler implements PagesHandleMethods {
     ) {
       return;
     }
-    // 存在 HTMLElement 取消判定
-    // if (containHTMLElement(block.root)) {
-    //   return;
-    // }
 
     const prefix = block.root.textContent || "";
     if (prefix.match(/^#{1,6} *$/)) {

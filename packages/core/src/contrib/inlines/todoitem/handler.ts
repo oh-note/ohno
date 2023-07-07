@@ -3,17 +3,20 @@ import {
   RangedBlockEventContext,
   InlineHandler,
   InlineEventContext,
+  ListCommandBuilder,
+} from "@ohno-editor/core/system/types";
+import {
+  tryGetDefaultRange,
   dispatchKeyEvent,
-} from "@ohno-editor/core/system/handler";
+  getValidAdjacent,
+} from "@ohno-editor/core/system/functional";
+import { defaultSelection } from "@ohno-editor/core/system/selection";
+
 import { TodoItem } from "./inline";
 import { NodeInsert } from "@ohno-editor/core/contrib/commands/html";
-import { ListCommandBuilder } from "@ohno-editor/core/contrib/commands/concat";
-import { InlineSupport } from "@ohno-editor/core/contrib/plugins/inlineSupport/plugin";
+import { InlineSupport } from "@ohno-editor/core/system/inline";
 import { TextDelete } from "@ohno-editor/core/contrib/commands";
-import { getValidAdjacent } from "@ohno-editor/core/system/range";
 import { defaultHandleBeforeInput } from "@ohno-editor/core/core/default/functional/beforeInput";
-import { tryGetDefaultRange } from "@ohno-editor/core/helper";
-import { defaultSelection } from "@ohno-editor/core/system/selection";
 
 export class TodoItemHandler implements InlineHandler<TodoItem> {
   handleKeyboardActivated(
@@ -214,7 +217,7 @@ export class TodoItemHandler implements InlineHandler<TodoItem> {
           bias,
           index,
         })
-          .withLazyCommand(({ page, block, index }) => {
+          .addLazyCommand(({ page, block, index }) => {
             return new TextDelete({
               page,
               block,
@@ -223,7 +226,7 @@ export class TodoItemHandler implements InlineHandler<TodoItem> {
               token_number: -2,
             });
           })
-          .withLazyCommand(({ page, block, index, node }) => {
+          .addLazyCommand(({ page, block, index, node }) => {
             return new NodeInsert({
               page,
               block,

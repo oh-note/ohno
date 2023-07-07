@@ -1,7 +1,7 @@
 import {
   BlockEventContext,
   PagesHandleMethods,
-} from "@ohno-editor/core/system/handler";
+} from "@ohno-editor/core/system/types";
 
 export class DebuggerHandler implements PagesHandleMethods {
   handleCopy(e: ClipboardEvent, context: BlockEventContext): void | boolean {

@@ -1,23 +1,21 @@
-import { createElement, createInline } from "@ohno-editor/core/helper/document";
-import { InlineBase } from "@ohno-editor/core/system/inline";
-import { addMarkdownHint } from "@ohno-editor/core/helper/markdown";
 import {
-  BlockEventContext,
-  InlineRangedEventContext,
-  Page,
-  ShortCutManager,
-  Shortcut,
+  createElement,
+  createInline,
   makeRangeInNode,
   setRange,
-  visualKeyEvent,
-} from "@ohno-editor/core/system";
-import "./style.css";
+  visualizeKeyEvent,
+} from "@ohno-editor/core/system/functional";
 import {
+  InlineBase,
+  BlockEventContext,
+  InlineRangedEventContext,
+  Shortcut,
   InlineData,
   InlineSerializer,
   LabelData,
   LabelSerializer,
-} from "@ohno-editor/core/system/inline";
+} from "@ohno-editor/core/system/types";
+import "./style.css";
 
 export class KeyLabel extends InlineBase {
   // options: BackLinkOption[];
@@ -29,7 +27,7 @@ export class KeyLabel extends InlineBase {
   }
 
   create(option: Shortcut): HTMLLabelElement {
-    const keystr = visualKeyEvent(option);
+    const keystr = visualizeKeyEvent(option);
     const q = createElement("data");
     q.textContent = keystr;
     const ks = keystr.split("+").map((item) => {
@@ -45,7 +43,7 @@ export class KeyLabel extends InlineBase {
     const { inline } = context;
     const q = inline.querySelector("data")!;
 
-    const keystr = visualKeyEvent(e);
+    const keystr = visualizeKeyEvent(e);
     const ks = keystr.split("+").map((item) => {
       return createElement("kbd", { textContent: item });
     });

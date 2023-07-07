@@ -2,7 +2,7 @@
  * source from
  * - https://primer.style/design/foundations/icons/
  */
-import { innerHTMLToNodeList } from "@ohno-editor/core/helper/document";
+import { innerHTMLToNodeList } from "@ohno-editor/core/system/functional";
 export function createIcon(innerHTML: string) {
   return innerHTMLToNodeList(innerHTML)[0];
 }

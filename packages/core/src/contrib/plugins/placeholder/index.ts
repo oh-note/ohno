@@ -1,4 +1,4 @@
-import { PluginComponent } from "@ohno-editor/core/system/page";
+import { PluginComponent } from "@ohno-editor/core/system/types";
 // import {} from "./handler";
 import { Placeholder } from "./plugin";
 import { PlaceholaderHandler } from "./handler";
@@ -9,7 +9,7 @@ export function PlaceholderPlugin(): PluginComponent {
   return {
     manager: manager,
     handlers: {
-      plugins: new PlaceholaderHandler({}),
+      plugins: new PlaceholaderHandler(),
     },
   };
 }

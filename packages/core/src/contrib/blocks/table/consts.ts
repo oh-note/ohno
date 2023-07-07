@@ -1,8 +1,4 @@
-import {
-  PlatformShortcut,
-  ShorcutEntry,
-  Shortcut,
-} from "@ohno-editor/core/system";
+import { PlatformShortcut, ShorcutEntry } from "@ohno-editor/core/system/types";
 
 const field = "table";
 export const ST_ADD_UP = "add_up";

@@ -1,21 +1,21 @@
 import {
-  ChildrenData,
   createElement,
   getDefaultRange,
-} from "@ohno-editor/core/helper/document";
-import {
   indexOfNode,
   parentElementWithTag,
-} from "@ohno-editor/core/helper/element";
+} from "@ohno-editor/core/system/functional";
+
 import {
   BaseBlockSerializer,
   BlockSerializedData,
   EditableFlag,
-} from "@ohno-editor/core/system";
-import { Block, BlockData } from "@ohno-editor/core/system/block";
+  InlineData,
+  Block,
+  BlockData,
+} from "@ohno-editor/core/system/types";
+import { markActivate, removeActivate } from "@ohno-editor/core/system/status";
 import "./style.css";
-import { markActivate, removeActivate } from "@ohno-editor/core/helper";
-import { InlineData } from "@ohno-editor/core/system/inline";
+
 export interface TableData extends BlockData {
   row: number;
   col: number;
@@ -38,6 +38,15 @@ export class Table extends Block<TableData> {
 
     super("table", data);
   }
+
+  public get length(): number {
+    return this.rowNumber * this.colNumber;
+  }
+
+  public get editables(): HTMLElement[] {
+    return this.rows.flatMap((item) => Array.from(item.querySelectorAll("p")));
+  }
+
   render(data: TableData): HTMLElement {
     const root = createElement("table", {
       attributes: {},

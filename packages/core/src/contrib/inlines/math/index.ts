@@ -1,7 +1,7 @@
-import { InlineComponent } from "@ohno-editor/core/system/page";
+import { InlineComponent } from "@ohno-editor/core/system/types";
 import { InlineMathHandler } from "./handler";
-import { KatexMath, Option } from "./inline";
-import { InlineSupport } from "@ohno-editor/core/contrib/plugins/inlineSupport/plugin";
+import { KatexMath } from "./inline";
+import { InlineSupport } from "@ohno-editor/core/system/inline";
 
 export { KatexMath };
 export function KatexMathInline(): InlineComponent {

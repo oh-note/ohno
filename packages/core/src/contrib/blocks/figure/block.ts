@@ -1,21 +1,20 @@
-import {
-  createElement,
-  getDefaultRange,
-} from "@ohno-editor/core/helper/document";
-import {
-  isParent,
-  parentElementWithTag,
-} from "@ohno-editor/core/helper/element";
+import { isParent, createElement } from "@ohno-editor/core/system/functional";
 import {
   BaseBlockSerializer,
   Block,
   BlockData,
   BlockSerializedData,
-} from "@ohno-editor/core/system/block";
+  EditableFlag,
+  RefLocation,
+  InlineData,
+} from "@ohno-editor/core/system/types";
 import "./style.css";
-import { EditableFlag, RefLocation } from "@ohno-editor/core/system";
-import { isHide, isShow, markHide, markShow } from "@ohno-editor/core/helper";
-import { InlineData } from "@ohno-editor/core/system/inline";
+import {
+  isHide,
+  isShow,
+  markHide,
+  markShow,
+} from "@ohno-editor/core/system/status";
 export interface FigureData extends BlockData {
   src: string;
   caption?: InlineData;
@@ -29,6 +28,7 @@ export class Figure extends Block<FigureData> {
     data = data || { src: "" };
     super("figure", data, { meta: data });
   }
+
   render(data: FigureData): HTMLElement {
     const img = createElement("img", { attributes: { src: data.src } });
     const figcaption = createElement("figcaption", {
@@ -45,6 +45,16 @@ export class Figure extends Block<FigureData> {
     }
 
     return root;
+  }
+  public get length(): number {
+    return this.hasCaption ? 2 : 1;
+  }
+
+  public get editables(): HTMLElement[] {
+    if (this.hasCaption) {
+      return [this.img, this.figcaption];
+    }
+    return [this.img];
   }
 
   public get inner(): HTMLElement {
@@ -151,16 +161,6 @@ export class Figure extends Block<FigureData> {
   }
   getFirstEditable(): HTMLElement {
     return this.img;
-  }
-
-  getEditables(
-    start?: number | undefined,
-    end?: number | undefined
-  ): HTMLElement[] {
-    if (this.hasCaption) {
-      return [this.img, this.figcaption];
-    }
-    return [this.img];
   }
 
   isLocationInFirstLine(loc: RefLocation): boolean {

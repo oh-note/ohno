@@ -27,7 +27,7 @@ import {
 } from "@ohno-editor/core//contrib/blocks";
 import { DragablePlugin } from "@ohno-editor/core//contrib/plugins/dragable";
 import { SlashMenuPlugin } from "@ohno-editor/core//contrib/plugins/slashmenu";
-import { InlineSupportPlugin } from "@ohno-editor/core//contrib/plugins/inlineSupport";
+import { InlineSupportPlugin } from "@ohno-editor/core//system/inline";
 import { BackLinkInline } from "@ohno-editor/core//contrib/inlines/backlink";
 import { EquationBlock } from "@ohno-editor/core//contrib/blocks/equation";
 

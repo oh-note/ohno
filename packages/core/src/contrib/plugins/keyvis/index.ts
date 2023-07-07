@@ -1,4 +1,4 @@
-import { PluginComponent } from "@ohno-editor/core/system/page";
+import { PluginComponent } from "@ohno-editor/core/system/types";
 
 import { KeyVis } from "./plugin";
 import { KeyVisPluginHandler } from "./handler";
@@ -9,7 +9,7 @@ export function KeyVisPlugin(): PluginComponent {
   return {
     manager: manager,
     handlers: {
-      plugins: new KeyVisPluginHandler({}),
+      plugins: new KeyVisPluginHandler(),
     },
   };
 }

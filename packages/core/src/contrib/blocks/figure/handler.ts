@@ -1,12 +1,11 @@
 import {
   BlockEventContext,
   RangedBlockEventContext,
-  dispatchKeyEvent,
   PagesHandleMethods,
-} from "@ohno-editor/core/system/handler";
+} from "@ohno-editor/core/system/types";
 import { Figure } from "./block";
 import { BlockRemove, Empty, withNearestLocation } from "../../commands";
-import { isEmpty } from "@ohno-editor/core/helper";
+import { isEmpty, dispatchKeyEvent } from "@ohno-editor/core/system/functional";
 
 export class FigureHandler implements PagesHandleMethods {
   name: string = "figure";
@@ -232,9 +231,9 @@ export class FigureHandler implements PagesHandleMethods {
     }
   }
   handleMouseUp(e: MouseEvent, context: BlockEventContext): boolean | void {
-    const { page, block } = context;
+    const { page, block, range } = context;
     const typedBlock = block as Figure;
-    if (e.target === typedBlock.img) {
+    if (e.target === typedBlock.img && range && range.collapsed) {
       page.setLocation(block.getLocation(0, 0)!);
     }
   }

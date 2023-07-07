@@ -1,13 +1,13 @@
-import { ChildrenData, createElement } from "@ohno-editor/core/helper/document";
+import { createElement } from "@ohno-editor/core/system/functional";
 import {
   BaseBlockSerializer,
   BlockSerializedData,
-} from "@ohno-editor/core/system";
-import { Block, BlockData } from "@ohno-editor/core/system/block";
-import { clipRange } from "@ohno-editor/core/system/range";
+  Block,
+  BlockData,
+  InlineData,
+} from "@ohno-editor/core/system/types";
 import "./style.css";
-import { outerHTML } from "@ohno-editor/core/helper";
-import { InlineData } from "@ohno-editor/core/system/inline";
+
 export type HeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;
 
 export interface HeadingsData extends BlockData {
@@ -28,7 +28,13 @@ export class Headings extends Block<HeadingsData> {
   public get levelStr(): string {
     return "#".repeat(this.level) + " ";
   }
+  public get length(): number {
+    return 1;
+  }
 
+  public get editables(): HTMLElement[] {
+    return [this.inner];
+  }
   render(data: HeadingsData): HTMLElement {
     const root = createElement(`h${data.level}`, {
       attributes: {},

@@ -1,10 +1,11 @@
-import { BlockComponent, HandlerEntry } from "@ohno-editor/core/system/page";
+import { BlockComponent } from "@ohno-editor/core/system/types";
 import { Code, CodeSerializer } from "./block";
 import { CodeHandler } from "./handler";
 import { setupPasteAll, setupSlashMenu } from "./setup";
+import { CodeCommandSet } from "./command_set";
 
 export { Code, CodeHandler };
-export function CodeBlock(): BlockComponent {
+export function CodeBlock(): BlockComponent<Code> {
   return {
     name: "code",
     blockType: Code,
@@ -16,5 +17,6 @@ export function CodeBlock(): BlockComponent {
       setupSlashMenu(page);
     },
     serializer: new CodeSerializer(),
+    commandSet: new CodeCommandSet(),
   };
 }

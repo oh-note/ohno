@@ -1,14 +1,14 @@
-import { createElement } from "@ohno-editor/core/helper/document";
+import { createElement } from "@ohno-editor/core/system/functional";
 import {
+  InlineData,
+  Block,
+  BlockData,
   BaseBlockSerializer,
   BlockSerializedData,
-} from "@ohno-editor/core/system";
-import { Block, BlockData } from "@ohno-editor/core/system/block";
+} from "@ohno-editor/core/system/types";
 import "./style.css";
-import { InlineData } from "@ohno-editor/core/system/inline";
 
 export interface ParagraphData extends BlockData {
-  // innerHTML?: string;
   children?: InlineData;
 }
 
@@ -16,6 +16,14 @@ export class Paragraph extends Block<ParagraphData> {
   constructor(data?: ParagraphData) {
     data = data || {};
     super("paragraph", data);
+  }
+
+  public get length(): number {
+    return 1;
+  }
+
+  public get editables(): HTMLElement[] {
+    return [this.inner];
   }
   render(data: ParagraphData): HTMLElement {
     const root = createElement("p", {

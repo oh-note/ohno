@@ -1,8 +1,10 @@
-import { createElement, createInline } from "@ohno-editor/core/helper/document";
-import { BlockEventContext } from "@ohno-editor/core/system/handler";
+import {
+  createElement,
+  createInline,
+  getValidAdjacent,
+} from "@ohno-editor/core/system/functional";
+import { BlockEventContext, InlineBase } from "@ohno-editor/core/system/types";
 import katex from "katex";
-import { InlineBase } from "@ohno-editor/core/system/inline";
-import { getValidAdjacent } from "@ohno-editor/core/system/range";
 import { computePosition } from "@floating-ui/dom";
 
 export interface Option {

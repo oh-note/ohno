@@ -1,13 +1,12 @@
-import { createElement } from "@ohno-editor/core/helper/document";
-import { IComponent, IContainer, IPlugin } from "@ohno-editor/core/system/base";
-import { AnyBlock } from "@ohno-editor/core/system/block";
+import { createElement } from "@ohno-editor/core/system/functional";
+import { AnyBlock, IPlugin, Page } from "@ohno-editor/core/system/types";
 import { computePosition } from "@floating-ui/dom";
 import "./style.css";
 
 export class Placeholder implements IPlugin {
   root: HTMLElement;
   name: string = "placeholder";
-  parent?: IComponent | undefined;
+  parent?: Page;
   current?: AnyBlock;
   constructor() {
     this.root = createElement("div", {
@@ -22,15 +21,13 @@ export class Placeholder implements IPlugin {
   destory(): void {
     throw new Error("Method not implemented.");
   }
-  setParent(parent?: IContainer | undefined): void {
+  setParent(parent?: Page | undefined): void {
     this.parent = parent;
   }
   serialize(option?: any): string {
     throw new Error("Method not implemented.");
   }
-  equals(component?: IComponent | undefined): boolean {
-    throw new Error("Method not implemented.");
-  }
+
   detach(): void {
     throw new Error("Method not implemented.");
   }

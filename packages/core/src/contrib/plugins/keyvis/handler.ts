@@ -1,8 +1,8 @@
-import { PagesHandleMethods } from "@ohno-editor/core/system";
+import { PagesHandleMethods } from "@ohno-editor/core/system/types";
 import {
   BlockEventContext,
   RangedBlockEventContext,
-} from "@ohno-editor/core/system/handler";
+} from "@ohno-editor/core/system/types";
 import { KeyVis } from "./plugin";
 
 export class KeyVisPluginHandler implements PagesHandleMethods {

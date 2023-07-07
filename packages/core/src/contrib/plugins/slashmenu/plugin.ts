@@ -1,14 +1,21 @@
 import { TextDelete } from "@ohno-editor/core/contrib/commands";
-import { ListCommandBuilder } from "@ohno-editor/core/contrib/commands/concat";
-import { createElement } from "@ohno-editor/core/helper/document";
-import { parentElementWithFilter } from "@ohno-editor/core/helper/element";
-import { IComponent, IPlugin } from "@ohno-editor/core/system/base";
-import { RangedBlockEventContext } from "@ohno-editor/core/system/handler";
-import { Command } from "@ohno-editor/core/system/history";
-import { Page } from "@ohno-editor/core/system/page";
+
+import {
+  parentElementWithFilter,
+  createElement,
+} from "@ohno-editor/core/system/functional";
+
+import {
+  RangedBlockEventContext,
+  IPlugin,
+  Command,
+  Page,
+  RangeElement,
+  ListCommandBuilder,
+} from "@ohno-editor/core/system/types";
+
 import { computePosition } from "@floating-ui/dom";
 import "./style.css";
-import { RangeElement } from "@ohno-editor/core/system/floating";
 
 const CLASS_OPTION = "oh-is-option";
 const CLASS_PLUGIN = "oh-is-slashmenu";
@@ -275,7 +282,7 @@ export class SlashMenu implements IPlugin {
       });
       const { page, block, range } = this.context!;
       const command = new ListCommandBuilder({})
-        .withLazyCommand(() => {
+        .addLazyCommand(() => {
           const text = range.startContainer.textContent!;
           const bias = block.getBias([range.startContainer, range.startOffset]);
 
@@ -292,7 +299,7 @@ export class SlashMenu implements IPlugin {
             page.focusEditable();
           });
         })
-        .withCommand(one)
+        .addCommand(one)
         .build();
       page.executeCommand(command);
 
@@ -317,10 +324,6 @@ export class SlashMenu implements IPlugin {
   }
 
   serialize(option?: any): string {
-    throw new Error("Method not implemented.");
-  }
-
-  equals(component?: IComponent | undefined): boolean {
     throw new Error("Method not implemented.");
   }
 

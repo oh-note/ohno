@@ -1,12 +1,11 @@
-import { createElement } from "@ohno-editor/core/helper/document";
 import {
-  isParent,
   parentElementWithTag,
-} from "@ohno-editor/core/helper/element";
+  createElement,
+} from "@ohno-editor/core/system/functional";
 import {
   BlockEventContext,
   PagesHandleMethods,
-} from "@ohno-editor/core/system/handler";
+} from "@ohno-editor/core/system/types";
 
 export class InlineTest implements PagesHandleMethods {
   el: HTMLElement;

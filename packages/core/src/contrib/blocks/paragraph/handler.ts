@@ -1,30 +1,44 @@
 import {
   BlockEventContext,
   RangedBlockEventContext,
-  dispatchKeyEvent,
   PagesHandleMethods,
-} from "@ohno-editor/core/system/handler";
+  AnyBlock,
+  ListCommandBuilder,
+} from "@ohno-editor/core/system/types";
 import {
   BlockCreate,
   BlockRemove,
   BlockReplace,
   BlocksRemove,
 } from "@ohno-editor/core/contrib/commands/block";
-import { outerHTML } from "@ohno-editor/core/helper/element";
-import { ListCommandBuilder } from "@ohno-editor/core/contrib/commands/concat";
+import {
+  dispatchKeyEvent,
+  outerHTML,
+  createRange,
+} from "@ohno-editor/core/system/functional";
+
 import { Headings } from "../headings";
 import { Paragraph } from "./block";
-import { AnyBlock } from "@ohno-editor/core/system/block";
-import { Blockquote } from "../blockquote";
+
+import { BlockQuote } from "../blockquote";
 import { List } from "../list";
 import { RichTextDelete, TextInsert } from "@ohno-editor/core/contrib/commands";
 import { Empty } from "@ohno-editor/core/contrib/commands/select";
-import { ContainerRemove } from "@ohno-editor/core/contrib/commands/container";
 
-import { createRange } from "@ohno-editor/core/system/range";
 import { Code } from "../code";
 import { Divide } from "../divide";
 import { OrderedList } from "../orderedList";
+
+import {
+  DeletePayLoad,
+  EditableExtra,
+  InnerHTMLExtra,
+  BackspacePayLoad,
+} from "@ohno-editor/core/system/block/command_set";
+import {
+  removeEditableContentAfterLocation,
+  removeSelectionInEditable,
+} from "../../commands/common_passes";
 
 export interface DeleteContext extends BlockEventContext {
   nextBlock: AnyBlock;
@@ -36,7 +50,7 @@ export function prepareDeleteCommand({
   nextBlock,
 }: DeleteContext) {
   const builder = new ListCommandBuilder({ page, block, nextBlock })
-    .withLazyCommand(({ page, block, nextBlock }, extra, status) => {
+    .addLazyCommand(({ page, block, nextBlock }, extra, status) => {
       //
       if (nextBlock.inner.innerHTML.length > 0) {
         const token_number = block.selection.getTokenSize(block.inner);
@@ -53,7 +67,7 @@ export function prepareDeleteCommand({
       }
       return null;
     })
-    .withLazyCommand(() => {
+    .addLazyCommand(() => {
       // 2. 将下一个 block 删除。
       return new BlocksRemove({ page, blocks: [nextBlock] });
     });
@@ -65,7 +79,7 @@ export function prepareEnterCommand({ page, block, range }: BlockEventContext) {
     throw new NoRangeError();
   }
   const builder = new ListCommandBuilder({ page, block, range })
-    .withLazyCommand(({ block, page, range }) => {
+    .addLazyCommand(({ block, page, range }) => {
       // 1. 如果存在选中文本，则删除。
       if (range.collapsed) {
         // 没有选中文本，不需要删除
@@ -89,7 +103,7 @@ export function prepareEnterCommand({ page, block, range }: BlockEventContext) {
         );
       });
     })
-    .withLazyCommand(({ block, page, range }, extra) => {
+    .addLazyCommand(({ block, page, range }, extra) => {
       // 2. 在删除后（上一条命令保证了是 range.collapsed），如果位于右侧，则直接创建
       const start = block.getBias([range.startContainer, range.startOffset]);
       if (block.isLocationInRight([range.startContainer, range.startOffset])) {
@@ -141,8 +155,9 @@ export class ParagraphHandler implements PagesHandleMethods {
 
   handleDeleteDown(
     e: KeyboardEvent,
-    { page, block, range }: RangedBlockEventContext
+    context: RangedBlockEventContext
   ): boolean | void {
+    const { page, block, range } = context;
     if (!block.isLocationInRight([range.startContainer, range.startOffset])) {
       return;
     }
@@ -156,57 +171,22 @@ export class ParagraphHandler implements PagesHandleMethods {
       page.setRange(newRange);
       return true;
     }
-
-    // 需要将下一个 Block 的第一个 Container 删除，然后添加到尾部
-    // 执行过程是 TextInsert -> ContainerDelete
-    if (nextBlock.isMultiEditable) {
-      // 删除第一个 Container
-      // 将 Container 的内容插入到末尾
-      const command = new ListCommandBuilder({
-        page,
-        block,
-        nextBlock,
-      })
-        .withLazyCommand(({ block, nextBlock }, extra) => {
-          // 1/1 删除下一个 Block 的首元素
-          // 1/2 如果下一个多区域元素是只有一个 Editable，则直接删除整个 Block
-          const n = nextBlock.getEditables().length;
-          extra["innerHTML"] = nextBlock.getFirstEditable().innerHTML;
-          if (n === 1) {
-            return new BlockRemove({ page, block: nextBlock });
-          } else {
-            return new ContainerRemove({ page, block: nextBlock, indexs: [0] });
-          }
-        })
-        .withLazyCommand(({ block, page }, { innerHTML }) => {
-          // const insertOffset = block.getOffset();
-          // 将删除的 Editable 的内容插入到该 block
-          const start = block.selection.getTokenSize(block.getEditable(0));
-          return new TextInsert({
-            page,
-            block,
-            innerHTML,
-            start,
-            index: -1,
-          }).onExecute(({ block, start, index }) => {
-            page.setLocation(block.getLocation(start, index)!, block);
-          });
-        })
-        .build();
-      page.executeCommand(command);
-      return true;
-    } else {
-      const command = prepareDeleteCommand({ page, block, nextBlock }).build();
-      page.executeCommand(command);
-
-      return true;
-    }
+    const builder = new ListCommandBuilder<DeletePayLoad, EditableExtra>({
+      ...context,
+      nextBlock,
+    });
+    nextBlock.commandSet.deleteFromPrevBlockEnd?.(builder);
+    block.commandSet.deleteAtBlockEnd?.(builder);
+    const command = builder.build();
+    page.executeCommand(command);
+    return true;
   }
 
   handleBackspaceDown(
     e: KeyboardEvent,
-    { block, page, range }: RangedBlockEventContext
+    context: RangedBlockEventContext
   ): boolean | void {
+    const { block, page, range } = context;
     if (
       !range.collapsed ||
       !block.isLocationInLeft([range.startContainer, range.startOffset])
@@ -219,56 +199,23 @@ export class ParagraphHandler implements PagesHandleMethods {
       return true;
     }
 
+    // const command = builder.build();
     if (!prevBlock.mergeable) {
       const newRange = createRange();
       newRange.selectNode(prevBlock.root);
       page.setRange(newRange);
-      // page.setLocation(prevBlock.getLocation(0, 0)!);
       return true;
     }
 
-    // 只需要考虑 Paragraph 类和 List 类型的退格删除导致的 Block 间信息增删行为
-    // 对这两种删除行为，List 是将退格部分转化为 Paragraph（可能导致 List 分裂成两个）
-    // Paragraph 是将整个 Block 的内容 put 到上一个 Block 的 LastContainer 中
-    // 对 Paragraph，只需要 BlockRemove 和 TextInsert 两个命令的组合，即可完成这一操作
-    // 对 List，还需要额外分析退格的 Container Index，并额外的创建 1 或 2 个 BlockCreate 命令
-    const command = new ListCommandBuilder({ page, block, prevBlock })
-      .withLazyCommand(() => {
-        // 1. 删除当前 block
-        return new BlockRemove({
-          page,
-          block,
-        }).onUndo((_, { block }) => {
-          page.setLocation(block.getLocation(0, 0)!, block);
-        });
-      })
-      .withLazyCommand(({ page, block, prevBlock }, extra, status) => {
-        const token_number = block.selection.getTokenSize(
-          prevBlock.getLastEditable()
-        );
-        if (block.root.innerHTML.length > 0) {
-          // 2/1. 将当前 block 的内容添加到上一个 block的 lastBlock 中
-          return new TextInsert({
-            page: page,
-            block: prevBlock,
-            start: token_number,
-            index: -1,
-            // insertOffset: { index: -1, start: -1 },
-            innerHTML: block.root.innerHTML,
-          }).onExecute(({ block }) => {
-            page.setLocation(block.getLocation(token_number, -1)!, block);
-          });
-        } else {
-          // 2/2. 如果是个空 Block，直接在删除后将内容放到上面去
-          return new Empty({ page, block, prevBlock }).onExecute(({ page }) => {
-            page.setLocation(
-              prevBlock.getLocation(token_number, -1)!,
-              prevBlock
-            );
-          });
-        }
-      })
-      .build();
+    const builder = new ListCommandBuilder<BackspacePayLoad, EditableExtra>({
+      ...context,
+      prevBlock,
+    });
+
+    if (block.commandSet.backspaceAtStart!(builder) === "connect") {
+      prevBlock.commandSet.backspaceFromNextBlockStart!(builder);
+    }
+    const command = builder.build();
     page.executeCommand(command);
     // 向前合并
     return true;
@@ -276,8 +223,9 @@ export class ParagraphHandler implements PagesHandleMethods {
 
   handleEnterDown(
     e: KeyboardEvent,
-    { page, block, range }: RangedBlockEventContext
+    context: RangedBlockEventContext
   ): boolean | void {
+    const { page, block, range } = context;
     if (e.shiftKey) {
       const newBlock = new Paragraph();
       const command = new BlockCreate({
@@ -288,23 +236,16 @@ export class ParagraphHandler implements PagesHandleMethods {
       });
       page.executeCommand(command);
     } else {
-      const command = prepareEnterCommand({ page, block, range })
-        .withLazyCommand(({ block, page }, { innerHTML }) => {
-          if (innerHTML === undefined) {
-            throw new Error("sanity check");
-          }
-          const paragraph = new Paragraph({
-            children: innerHTML,
-          });
-          return new BlockCreate({
-            page: page,
-            block: block,
-            newBlock: paragraph,
-            where: "after",
-          });
-        })
-        .build();
-
+      const builder = new ListCommandBuilder<
+        RangedBlockEventContext,
+        InnerHTMLExtra
+      >(context);
+      removeSelectionInEditable(builder);
+      const bias = block.getBias([range.startContainer, range.startOffset]);
+      const index = block.findEditableIndex(range.startContainer);
+      removeEditableContentAfterLocation(builder, { page, block, bias, index });
+      block.commandSet.collapsedEnter?.(builder);
+      const command = builder.build();
       page.executeCommand(command);
     }
 
@@ -338,7 +279,7 @@ export class ParagraphHandler implements PagesHandleMethods {
         newBlock,
       });
     } else if ((matchRes = prefix.match(/^[>》]([!? ])?$/))) {
-      const newBlock = new Blockquote({
+      const newBlock = new BlockQuote({
         children: block.root.innerHTML.replace(/^(》|&gt;)([!? ])?/, ""),
       });
       command = new BlockReplace({

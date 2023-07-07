@@ -1,5 +1,5 @@
 import { createDefaultPage } from "../basePage";
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 
 import {
   BackLink,
@@ -7,10 +7,7 @@ import {
   InlineSupport,
   KatexMath,
   KeyLabel,
-  Table,
   TodoItem,
-  createElement,
-  createTextNode,
   createToolbar,
   outerHTML,
 } from "@ohno-editor/core";
@@ -105,6 +102,7 @@ const data = [
     name: "headings",
     init: {
       children: [`Heading with level 2.`],
+      level: 2,
     },
   },
   {
@@ -297,9 +295,7 @@ const data = [
   },
   {
     name: "divide",
-    init: {
-      code: "Code now is not well supported, edit operation may have problems.",
-    },
+    init: {},
   },
   {
     name: "paragraph",
@@ -330,6 +326,25 @@ const data = [
           "Optimizing user experience.",
         ],
       ],
+    },
+  },
+  {
+    name: "headings",
+    init: {
+      level: 1,
+      children: "Rich block support list",
+    },
+  },
+  {
+    name: "paragraph",
+    init: {
+      children: [`Equation is supported by katex, you can edit it by click:`],
+    },
+  },
+  {
+    name: "equation",
+    init: {
+      src: "f(x) = ax+b",
     },
   },
 ];

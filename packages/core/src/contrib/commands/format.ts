@@ -1,54 +1,35 @@
-import { HTMLElementTagName } from "@ohno-editor/core/helper/document";
-import { createElement } from "@ohno-editor/core/helper/document";
 import {
+  HTMLElementTagName,
   ValidNode,
-  getTagName,
-  outerHTML,
-} from "@ohno-editor/core/helper/element";
+  EditableInterval,
+  Interval,
+  FormatOp,
+  AnyBlock,
+  Command,
+  Page,
+} from "@ohno-editor/core/system/types";
 import {
+  createElement,
+  getTagName,
   parentElementWithTag,
   validChildNodes,
-} from "@ohno-editor/core/helper/element";
-import { addMarkdownHint } from "@ohno-editor/core/helper/markdown";
-import {
-  intervalOfElement,
-  intervalToRange,
-} from "@ohno-editor/core/system/position";
-import { AnyBlock } from "@ohno-editor/core/system/block";
-import { Command } from "@ohno-editor/core/system/history";
-import { Page } from "@ohno-editor/core/system/page";
-import {
+  addMarkdownHint,
+  getIntervalOfNodes,
+  getIntervalFromRange,
   createRange,
   getValidAdjacent,
   nodesOfRange,
-  normalizeRange,
   setRange,
-} from "@ohno-editor/core/system/range";
-import {
   addFormat,
-  FormatOp,
   getFormatStatus,
   removeFormat,
-} from "@ohno-editor/core/system/format";
-import { EditableInterval, Interval } from "@ohno-editor/core/system/base";
+} from "@ohno-editor/core/system/functional";
 
 export interface FormatPayload {
   page: Page;
   block: AnyBlock;
-  // offset: Interval;
   interval: EditableInterval;
   format: HTMLElementTagName;
-  // remove?: boolean;
-  // execute?: {
-  //   elements: ValidNode[];
-  // };
-  // undo_hint?: {
-  //   offsets: Interval[];
-  //   op?: FormatOp;
-  // };
-  intime?: {
-    range: Range;
-  };
 }
 
 export interface FormatRemovePayload {
@@ -57,10 +38,6 @@ export interface FormatRemovePayload {
   offset: Interval;
   interval: EditableInterval;
   format: HTMLElementTagName;
-  // remove?: boolean;
-  // undo_hint?: {
-  //   offsets: Interval[];
-  // };
 }
 
 export class FormatRemove extends Command<FormatRemovePayload> {
@@ -70,7 +47,6 @@ export class FormatRemove extends Command<FormatRemovePayload> {
   execute(): void {
     const { block, format, interval } = this.payload;
     const range = block.getEditableRange(interval)!;
-    normalizeRange(range.commonAncestorContainer as HTMLElement, range);
     const editable = block.getEditable(interval.index)!;
     // 1. 判断选中的子节点中是否有待应用格式
     let fathers: ValidNode[] = [];
@@ -109,7 +85,7 @@ export class FormatRemove extends Command<FormatRemovePayload> {
     ) {
       // deformat
       related.forEach((item) => {
-        const itemOffset = intervalOfElement(editable, item);
+        const itemOffset = getIntervalOfNodes(editable, item);
         this.buffer.offsets.push(itemOffset);
         const childs = validChildNodes(item);
         item.replaceWith(...childs);
@@ -117,7 +93,7 @@ export class FormatRemove extends Command<FormatRemovePayload> {
 
       fathers = fathers.flatMap((item) => {
         if (getTagName(item) === format) {
-          const itemOffset = intervalOfElement(editable, item);
+          const itemOffset = getIntervalOfNodes(editable, item);
           this.buffer.offsets.push(itemOffset);
           const childs = validChildNodes(item);
           item.replaceWith(...childs);
@@ -144,7 +120,7 @@ export class FormatRemove extends Command<FormatRemovePayload> {
       // <b>te[x<i>te]xt</i>t</b>
       const childs = validChildNodes(fmt);
 
-      const itemOffset = intervalOfElement(editable, fmt);
+      const itemOffset = getIntervalOfNodes(editable, fmt);
       this.buffer.offsets.push(itemOffset);
 
       fmt.replaceWith(...childs);
@@ -220,7 +196,7 @@ export class FormatText extends Command<FormatPayload> {
       //   elements: flatFathers,
       // };
       if (!this.onExecuteFn) {
-        const range = intervalToRange(container, boundingOffset)!;
+        const range = getIntervalFromRange(container, boundingOffset)!;
         // 2023.04.19 替换，虽然可能增加了一些开销，但简化了代码实现
         // const [startContainer, startOffset] = getValidAdjacent(
         //   flatFathers[0],
@@ -241,7 +217,7 @@ export class FormatText extends Command<FormatPayload> {
 
       if (!this.onExecuteFn) {
         setRange(
-          intervalToRange(addResults.fathers[0], { start: 0, end: -1 })!
+          getIntervalFromRange(addResults.fathers[0], { start: 0, end: -1 })!
         );
       }
     }
@@ -280,7 +256,7 @@ export class FormatText extends Command<FormatPayload> {
       });
 
     if (!this.onUndoFn) {
-      const range = intervalToRange(container, interval)!;
+      const range = getIntervalFromRange(container, interval)!;
       setRange(range);
     }
   }
@@ -358,7 +334,7 @@ export class FormatMultipleText extends Command<FormatAreasPayload> {
           console.log(item);
           if (op === "removeFormat") {
             item.end! -= 2;
-            const range = intervalToRange(container, item)!;
+            const range = getIntervalFromRange(container, item)!;
             const children = Array.from(range.extractContents().childNodes);
             const wrap = createElement(format, {
               children: children,
@@ -366,7 +342,7 @@ export class FormatMultipleText extends Command<FormatAreasPayload> {
             addMarkdownHint(wrap);
             range.insertNode(wrap);
           } else {
-            const range = intervalToRange(container, item)!;
+            const range = getIntervalFromRange(container, item)!;
             nodesOfRange(range).flatMap((item) => {
               if (getTagName(item) === format) {
                 const childs = validChildNodes(item);

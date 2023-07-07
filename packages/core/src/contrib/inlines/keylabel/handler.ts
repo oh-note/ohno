@@ -3,16 +3,16 @@ import {
   RangedBlockEventContext,
   InlineHandler,
   InlineEventContext,
+  ListCommandBuilder,
+} from "@ohno-editor/core/system/types";
+import {
   dispatchKeyEvent,
-} from "@ohno-editor/core/system/handler";
+  getValidAdjacent,
+} from "@ohno-editor/core/system/functional";
 import { KeyLabel } from "./inline";
 import { NodeInsert } from "@ohno-editor/core/contrib/commands/html";
-import { ListCommandBuilder } from "@ohno-editor/core/contrib/commands/concat";
-import { InlineSupport } from "@ohno-editor/core/contrib/plugins/inlineSupport/plugin";
+import { InlineSupport } from "@ohno-editor/core/system/inline";
 import { TextDelete } from "@ohno-editor/core/contrib/commands";
-import {
-  getValidAdjacent,
-} from "@ohno-editor/core/system/range";
 
 export class KeyLabelHandler implements InlineHandler<KeyLabel> {
   handleKeyboardActivated(
@@ -142,7 +142,7 @@ export class KeyLabelHandler implements InlineHandler<KeyLabel> {
           bias,
           index,
         })
-          .withLazyCommand(({ page, block, index }) => {
+          .addLazyCommand(({ page, block, index }) => {
             return new TextDelete({
               page,
               block,
@@ -151,7 +151,7 @@ export class KeyLabelHandler implements InlineHandler<KeyLabel> {
               token_number: -1,
             });
           })
-          .withLazyCommand(({ page, block, index, node }) => {
+          .addLazyCommand(({ page, block, index, node }) => {
             return new NodeInsert({
               page,
               block,

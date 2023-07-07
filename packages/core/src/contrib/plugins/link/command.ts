@@ -1,4 +1,4 @@
-import { AnyBlock, Command, Page } from "@ohno-editor/core/system";
+import { AnyBlock, Command, Page } from "@ohno-editor/core/system/types";
 export interface LinkHrefPayload {
   page: Page;
   block: AnyBlock;

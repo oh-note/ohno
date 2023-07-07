@@ -1,19 +1,18 @@
 import {
   BlockEventContext,
   RangedBlockEventContext,
-  dispatchKeyEvent,
   PagesHandleMethods,
-} from "@ohno-editor/core/system/handler";
-import { createRange, setLocation } from "@ohno-editor/core/system/range";
+} from "@ohno-editor/core/system/types";
+import {
+  dispatchKeyEvent,
+  createRange,
+  setLocation,
+} from "@ohno-editor/core/system/functional";
+import { isLeftButtonDown } from "@ohno-editor/core/system/status";
+
 import { Table } from "./block";
 import { TableChange, TableChangePayload } from "./command";
-import { ST_ADD_DOWN, ST_ADD_RIGHT, ST_ADD_UP } from "./consts";
-import { ST_ADD_LEFT } from "./consts";
-import { BlockInvalideLocationEvent } from "@ohno-editor/core/system";
-import { BlockReplace } from "../../commands";
-import { Paragraph } from "../paragraph";
-import { isLeftButtonDown, markActivate } from "@ohno-editor/core/helper";
-import { copyInBlock } from "@ohno-editor/core/core/default/functional/copy";
+import { ST_ADD_LEFT, ST_ADD_DOWN, ST_ADD_RIGHT, ST_ADD_UP } from "./consts";
 
 export class TableHandler implements PagesHandleMethods {
   handleKeyPress(
@@ -205,7 +204,5 @@ export class TableHandler implements PagesHandleMethods {
   handleCopy(
     e: ClipboardEvent,
     context: RangedBlockEventContext
-  ): boolean | void {
-    copyInBlock;
-  }
+  ): boolean | void {}
 }

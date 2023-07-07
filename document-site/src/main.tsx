@@ -1,6 +1,11 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import {
+  BrowserRouter,
+  createBrowserRouter,
+  RouteObject,
+  RouterProvider,
+} from "react-router-dom";
 import ErrorPage from "./error-page";
 import Route, { navlist } from "./route";
 import "./main.css";
@@ -8,8 +13,8 @@ import { loader as rootLoader } from "./route";
 
 const extraRouter = navlist;
 
-const mainRouter = {
-  path: "/",
+const mainRouter: RouteObject = {
+  path: "*",
   element: <Route></Route>,
   loader: rootLoader,
   errorElement: <ErrorPage />,

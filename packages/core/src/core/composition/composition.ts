@@ -3,26 +3,20 @@ import {
   TextInsert,
 } from "@ohno-editor/core/contrib/commands/text";
 import {
-  UNIQUE_SPACE,
-  createFlagNode,
-  splitUniqueSpace,
-} from "@ohno-editor/core/helper/document";
-import {
-  isHintHTMLElement,
-  isHintLeft,
-  parentElementWithTag,
-} from "@ohno-editor/core/helper/element";
-import {
   BlockEventContext,
   PagesHandleMethods,
   RangedBlockEventContext,
-} from "@ohno-editor/core/system/handler";
+} from "@ohno-editor/core/system/types";
 
 import {
-  createRange,
-  setRange,
+  createFlagNode,
+  splitUniqueSpace,
   validateRange,
-} from "@ohno-editor/core/system/range";
+  isHintHTMLElement,
+  isHintLeft,
+  parentElementWithTag,
+  getUniqueSpace,
+} from "@ohno-editor/core/system/functional";
 
 export class CompositionHandler implements PagesHandleMethods {
   handleKeyDown(e: KeyboardEvent, context: BlockEventContext): boolean | void {
@@ -76,7 +70,7 @@ export class CompositionHandler implements PagesHandleMethods {
       ) {
         // 两边没有元素或者只有 HTML 元素
 
-        const text = UNIQUE_SPACE;
+        const text = getUniqueSpace();
         cur.replaceWith(text);
         range.setStart(text, 1);
         range.setEnd(text, 1);
@@ -87,7 +81,7 @@ export class CompositionHandler implements PagesHandleMethods {
         range.startOffset,
       ])!;
       const next = block.selection.createRange(...nextLoc);
-      const text = UNIQUE_SPACE;
+      const text = getUniqueSpace();
       next.insertNode(text);
       next.setStart(text, 1);
       next.setEnd(text, 1);

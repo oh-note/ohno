@@ -1,13 +1,13 @@
 import {
+  AnyBlock,
+  BlockQuery,
+  Order,
   Command,
-  CommandBuffer,
   CommandCallback,
-} from "@ohno-editor/core/system/history";
-import { Page } from "@ohno-editor/core/system/page";
-import { setLocation } from "@ohno-editor/core/system/range";
-import { AnyBlock } from "@ohno-editor/core/system/block";
-import { BlockQuery, Order } from "@ohno-editor/core/system/base";
-import { ListCommandBuilder } from "./concat";
+  Page,
+  ListCommandBuilder,
+} from "@ohno-editor/core/system/types";
+
 import { Paragraph } from "../blocks";
 
 export interface BlockCreatePayload {
@@ -116,7 +116,7 @@ export function withNearestLocation(command: BlockRemove): Command<any> {
   }
 
   const builder = new ListCommandBuilder({ page, block })
-    .withLazyCommand(() => {
+    .addLazyCommand(() => {
       const newBlock = new Paragraph();
       return new BlockCreate({
         block: page.query(block)!,
@@ -125,7 +125,7 @@ export function withNearestLocation(command: BlockRemove): Command<any> {
         where: "before",
       });
     })
-    .withCommand(command);
+    .addCommand(command);
 
   return builder.build();
 }

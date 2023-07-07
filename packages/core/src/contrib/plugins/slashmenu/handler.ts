@@ -1,11 +1,11 @@
 import {
   BlockEventContext,
   RangedBlockEventContext,
-  dispatchKeyEvent,
   PagesHandleMethods,
-} from "@ohno-editor/core/system/handler";
+} from "@ohno-editor/core/system/types";
 import { SlashMenu } from "./plugin";
-import { isPlain } from "@ohno-editor/core/helper";
+import { isPlain } from "@ohno-editor/core/system/status";
+import { dispatchKeyEvent } from "@ohno-editor/core/system/functional";
 
 export class SlashMenuHandler implements PagesHandleMethods {
   handleKeyPress(

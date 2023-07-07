@@ -1,7 +1,7 @@
-import { InlineComponent } from "@ohno-editor/core/system/page";
+import { InlineComponent } from "@ohno-editor/core/system/types";
 import { KeyLabelHandler } from "./handler";
 import { KeyLabel, KeyLabelSerializer } from "./inline";
-import { InlineSupport } from "@ohno-editor/core/contrib/plugins/inlineSupport/plugin";
+import { InlineSupport } from "@ohno-editor/core/system/inline";
 
 export { KeyLabel, KeyLabelHandler };
 export function KeyLabelInline(): InlineComponent {

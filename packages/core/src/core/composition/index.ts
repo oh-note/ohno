@@ -1,4 +1,4 @@
-import { HandlerEntry } from "@ohno-editor/core/system/page";
+import { HandlerEntry } from "@ohno-editor/core/system/types";
 import { CompositionHandler } from "./composition";
 
 export * from "./composition";

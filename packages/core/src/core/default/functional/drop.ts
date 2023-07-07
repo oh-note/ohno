@@ -1,18 +1,11 @@
-import {
-  ListCommandBuilder,
-  BlocksCreate,
-  BlockRemove,
-  BlockMove,
-} from "@ohno-editor/core/contrib";
-import { outerHTML } from "@ohno-editor/core/helper";
+import { BlocksCreate, BlockMove } from "@ohno-editor/core/contrib";
+import { createRange } from "@ohno-editor/core/system/functional";
 import {
   HandlerMethods,
-  InlineSerializedData,
   OhNoClipboardData,
   RangedBlockEventContext,
-  createRange,
-} from "@ohno-editor/core/system";
-
+  ListCommandBuilder,
+} from "@ohno-editor/core/system/types";
 export function handleInsertFromDrop(
   handler: HandlerMethods,
   e: TypedInputEvent,
@@ -59,7 +52,7 @@ export function handleInsertFromDrop(
       });
 
       data.forEach((item) => {
-        builder.withLazyCommand((_, extra) => {
+        builder.addLazyCommand((_, extra) => {
           const newBlock = page.getBlockSerializer(item.type).deserialize(item);
           extra["block"] = newBlock;
           return new BlocksCreate({

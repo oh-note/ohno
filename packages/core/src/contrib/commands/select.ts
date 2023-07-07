@@ -1,4 +1,4 @@
-import { Command } from "@ohno-editor/core/system/history";
+import { Command } from "@ohno-editor/core/system/types";
 
 export class Empty<T> extends Command<T> {
   execute(): void {}

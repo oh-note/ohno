@@ -1,17 +1,21 @@
 import {
-  intervalOfElement,
-  intervalToRange,
-} from "@ohno-editor/core/system/position";
-import { AnyBlock } from "@ohno-editor/core/system/block";
-import { Command, CommandCallback } from "@ohno-editor/core/system/history";
-import { Page } from "@ohno-editor/core/system/page";
-import {
+  getIntervalOfNodes,
+  getIntervalFromRange,
   createRange,
   getValidAdjacent,
   setRange,
-} from "@ohno-editor/core/system/range";
-import { InlineSupport } from "../plugins";
-import { Interval, removeActivate, removeHover } from "../..";
+} from "@ohno-editor/core/system/functional";
+import {
+  AnyBlock,
+  Command,
+  CommandCallback,
+  Page,
+  Interval,
+} from "@ohno-editor/core/system/types";
+
+import { InlineSupport } from "@ohno-editor/core/system/inline";
+
+import { removeActivate, removeHover } from "@ohno-editor/core/system/status";
 
 export interface IBlockRemovePayload {
   page: Page;
@@ -69,7 +73,7 @@ export class InlineSubmit extends Command<IBlockReplacePayload> {
     // clone 是为了防止删除时 current（在 document 上的 element）消失
     if (this.buffer.offset) {
       const { offset, label } = this.buffer!;
-      const range = intervalToRange(block.root, {
+      const range = getIntervalFromRange(block.root, {
         start: offset.start,
         end: offset.start + 2,
       })!;
@@ -81,7 +85,7 @@ export class InlineSubmit extends Command<IBlockReplacePayload> {
         label: label.cloneNode(true) as HTMLLabelElement,
       };
     } else {
-      const offset = intervalOfElement(block.root, label);
+      const offset = getIntervalOfNodes(block.root, label);
       this.buffer = {
         ...this.buffer,
         current: label,
@@ -95,7 +99,7 @@ export class InlineSubmit extends Command<IBlockReplacePayload> {
   undo(): void {
     const { block } = this.payload;
     const { old, offset } = this.buffer!;
-    const range = intervalToRange(block.root, {
+    const range = getIntervalFromRange(block.root, {
       start: offset.start,
       end: offset.start + 2,
     })!;

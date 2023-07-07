@@ -1,17 +1,11 @@
 import {
   BlockEventContext,
   RangedBlockEventContext,
-  dispatchKeyEvent,
-  PagesHandleMethods,
-} from "@ohno-editor/core/system/handler";
-import { Link } from "./plugin";
-import { InlineRangedEventContext } from "@ohno-editor/core/system/handler";
-import { getTagName } from "@ohno-editor/core/helper/element";
-import {
-  BlockActiveEvent,
   BlockSelectChangeEvent,
-} from "@ohno-editor/core/system";
-import { tryGetDefaultRange } from "@ohno-editor/core/helper";
+  PagesHandleMethods,
+} from "@ohno-editor/core/system/types";
+import { Link } from "./plugin";
+import { dispatchKeyEvent } from "@ohno-editor/core/system/functional";
 
 export class LinkPluginHandler implements PagesHandleMethods {
   currentInline?: HTMLLabelElement;
