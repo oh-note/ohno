@@ -136,10 +136,8 @@ export class InlineSerializer {
         if (tagName === "label") {
           const labelType = getLabelType(node as HTMLLabelElement);
           if (!this.map[labelType]) {
-            const errorUrl = encodeURIComponent(
-              `ohno://?type=error&tagName=${tagName}&labelType=${labelType}`
-            );
-            return `[Error parse md: ${tagName}/${labelType}](${errorUrl})`;
+            const errorUrl = `ohno://?type=error&tagName=${tagName}&labelType=${labelType}`;
+            return ` [Error parse md: ${tagName}/${labelType}](${errorUrl}) `;
           }
           return this.map[labelType].toMarkdown(node as HTMLLabelElement, this);
         } else if (this.common.test(node)) {
@@ -149,10 +147,8 @@ export class InlineSerializer {
         } else if (isHintHTMLElement(node)) {
           return "";
         } else {
-          const errorUrl = encodeURIComponent(
-            `ohno://?type=error&tagName=${tagName}`
-          );
-          return `[Error parse md: ${tagName}](${errorUrl})`;
+          const errorUrl = `ohno://?type=error&tagName=${tagName}`;
+          return ` [Error parse md: ${tagName}](${errorUrl}) `;
         }
       })
       .join("");

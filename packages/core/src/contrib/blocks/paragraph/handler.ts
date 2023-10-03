@@ -211,7 +211,6 @@ export class ParagraphHandler implements PagesHandleMethods {
       ...context,
       prevBlock,
     });
-
     if (block.commandSet.backspaceAtStart!(builder) === "connect") {
       prevBlock.commandSet.backspaceFromNextBlockStart!(builder);
     }

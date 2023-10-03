@@ -24,6 +24,7 @@ import {
   BlockReplace,
   ContainerInsert,
   ContainerRemove,
+  Empty,
   RichTextDelete,
   TextInsert,
 } from "@ohno-editor/core/contrib/commands";
@@ -261,8 +262,11 @@ export class ABCListCommandSet implements CommandSet<ABCList> {
         prevBlock.getLastEditable()
       );
       if (editables.length == 0 || editables[0].innerHTML.length === 0) {
-        return;
+        return new Empty({ prevBlock }).onExecute(({ prevBlock }) => {
+          page.setLocation(prevBlock.getLocation(token_number, -1)!, prevBlock);
+        });
       }
+
       // insert first editable content into last of paragraph
       return new TextInsert({
         page: page,

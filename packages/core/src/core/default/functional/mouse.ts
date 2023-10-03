@@ -60,28 +60,13 @@ export function expandRangeToValid(
   return;
 }
 
-export function defaultHandleMouseMove(
-  handler: PagesHandleMethods,
-  e: MouseEvent,
-  context: BlockEventContext
-) {
-  if (!isLeftButtonDown(e)) {
-    return;
-  }
-  // expand range if there has one
-  const { range, block, page } = context;
-  if (!range || range.collapsed) {
-    return;
-  }
-}
-
 export function defaultHandleMouseUp(
   handler: PagesHandleMethods,
   e: MouseEvent,
   context: BlockEventContext
 ) {
   const { range, block, page } = context;
-  if (!range || range.collapsed) {
+  if (!range) {
     return;
   }
 
@@ -91,11 +76,13 @@ export function defaultHandleMouseUp(
     "left"
   );
 
-  const endLoc = expandRangeToValid(
-    context.isMultiBlock ? context.endBlock! : block,
-    [range.endContainer, range.endOffset],
-    "right"
-  );
+  const endLoc = range.collapsed
+    ? startLoc
+    : expandRangeToValid(
+        context.isMultiBlock ? context.endBlock! : block,
+        [range.endContainer, range.endOffset],
+        "right"
+      );
   if (startLoc && endLoc) {
     page.setRange(createRange(...startLoc, ...endLoc));
   } else if (startLoc) {

@@ -52,13 +52,13 @@ export function createDefaultPage() {
         CompositionHandlerEntry(),
       ],
       plugins: [
+        ContextMenuPlugin(),
         LinkPlugin(),
         InlineSupportPlugin(),
         DragablePlugin(),
         SlashMenuPlugin(),
         KeyVisPlugin(),
         PasteAllPlugin(),
-        // ContextMenuPlugin(),
       ],
       inlines: [
         FlagInline({}),

@@ -27,6 +27,11 @@ export function hasMark(node: HTMLElement, name: string) {
   return node.classList.contains(name);
 }
 
+export const markFloat = (node: HTMLElement) =>
+  (node.style.position = "absolute");
+
+export const isMenu = (node: HTMLElement) => hasMark(node, "menu");
+
 export const markPlain = (node: HTMLElement) => addMark(node, "plain");
 export const isPlain = (node: HTMLElement) => hasMark(node, "plain");
 export const removePlain = (node: HTMLElement) => removeMark(node, "plain");

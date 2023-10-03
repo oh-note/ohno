@@ -20,9 +20,10 @@ export class TableHandler implements PagesHandleMethods {
     context: RangedBlockEventContext
   ): boolean | void {}
 
-  handleContextMenu(e: MouseEvent, context: BlockEventContext): boolean | void {
-    return true;
-  }
+  handleContextMenu(
+    e: MouseEvent,
+    context: BlockEventContext
+  ): boolean | void {}
 
   handleKeyDown(
     e: KeyboardEvent,

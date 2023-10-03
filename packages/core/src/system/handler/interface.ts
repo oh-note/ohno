@@ -6,6 +6,7 @@ import {
   BlockInvalideLocationEvent,
   BlockSelectChangeEvent,
   BlockUpdateEvent,
+  Dict,
   IInline,
   PageRedoEvent,
   PageUndoEvent,
@@ -17,8 +18,33 @@ import {
   RangedBlockEventContext,
 } from "./context";
 
-export interface HandlerOption {
-  [key: string]: any;
+export type HandlerOption = Dict;
+
+export interface RawHandlerMethods {
+  handleCopy?(e: ClipboardEvent): void | boolean;
+  handleCut?(e: ClipboardEvent): void | boolean;
+  handlePaste?(e: ClipboardEvent): void | boolean;
+  handleBlur?(e: FocusEvent): void | boolean;
+  handleFocus?(e: FocusEvent): void | boolean;
+  handleKeyDown?(e: KeyboardEvent): void | boolean;
+  handleKeyPress?(e: KeyboardEvent): void | boolean;
+  handleKeyUp?(e: KeyboardEvent): void | boolean;
+  handleMouseDown?(e: MouseEvent): void | boolean;
+  handleMouseEnter?(e: MouseEvent): void | boolean;
+  handleMouseLeave?(e: MouseEvent): void | boolean;
+  handleMouseMove?(e: MouseEvent): void | boolean;
+  handleMouseUp?(e: MouseEvent): void | boolean;
+  handleClick?(e: MouseEvent): void | boolean;
+  handleContextMenu?(e: MouseEvent): void | boolean;
+  handleInput?(e: Event): void | boolean;
+  handleBeforeInput?(e: InputEvent): void | boolean;
+  handleDrop?(e: DragEvent): void | boolean;
+  handleSelectStart?(e: Event): void | boolean;
+  handleSelectionChange?(e: Event): void | boolean;
+  handleSelect?(e: Event): void | boolean;
+  handleCompositionEnd?(e: CompositionEvent): void | boolean;
+  handleCompositionStart?(e: CompositionEvent): void | boolean;
+  handleCompositionUpdate?(e: CompositionEvent): void | boolean;
 }
 
 export type HandlerMethod<K = Event, T = BlockEventContext> = (
@@ -58,7 +84,7 @@ export interface MouseEventHandleMethods<
   handleMouseDown?(e: MouseEvent, context: T): void | boolean;
   handleMouseUp?(e: MouseEvent, context: T): void | boolean;
   handleMouseMove?(e: MouseEvent, context: T): void | boolean;
-  handleClick?(e: MouseEvent, context: T): void | boolean;
+  handleClick?(e: MouseEvent, context: RangedBlockEventContext): void | boolean;
   handleContextMenu?(e: MouseEvent, context: T): void | boolean;
 }
 

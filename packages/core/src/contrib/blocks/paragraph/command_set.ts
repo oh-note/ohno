@@ -16,6 +16,7 @@ import {
 import {
   BlockCreate,
   BlockRemove,
+  Empty,
   TextInsert,
   removeEditableContentAfterLocation,
   removeEditableContentBeforeLocation,
@@ -95,7 +96,9 @@ export class ParagraphCommandSet implements CommandSet<Paragraph> {
     builder.addLazyCommand(({ page, prevBlock }, { editables }) => {
       const token_number = prevBlock.selection.getTokenSize(prevBlock.inner);
       if (editables.length == 0 || editables[0].innerHTML.length === 0) {
-        return;
+        return new Empty({ block: prevBlock }).onExecute(({ block }) => {
+          page.setLocation(block.getLocation(token_number, -1)!, block);
+        });
       }
       // insert first editable content into last of paragraph
       return new TextInsert({

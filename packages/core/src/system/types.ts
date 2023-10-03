@@ -141,3 +141,4 @@ export type ValidNode = Text | HTMLElement | Element;
 export type FormatOp = "addFormat" | "removeFormat";
 
 export type Dict = { [key: string]: any };
+export type Icon = string | { link: string } | undefined | null;

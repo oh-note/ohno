@@ -6,4 +6,4 @@ export * from "./toolbar";
 export * from "./keyvis";
 export * from "./link";
 export * from "./pasteAll";
-export * from "./contextmenu";
+export * from "./contextmenuv2";

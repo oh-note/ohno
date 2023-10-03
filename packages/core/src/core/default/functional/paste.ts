@@ -131,6 +131,7 @@ export function defaultHandlePaste(
       return startBuilder.build();
     });
   }
+
   if (
     data[data.length - 1].tail &&
     createdBlocks[createdBlocks.length - 1].mergeable
@@ -139,7 +140,7 @@ export function defaultHandlePaste(
       const nextBlock = page.getNextBlock(
         createdBlocks[createdBlocks.length - 1]
       );
-      if (!nextBlock || nextBlock.mergeable) {
+      if (!nextBlock || !nextBlock.mergeable) {
         return;
       }
       const endBuilder = new ListCommandBuilder({

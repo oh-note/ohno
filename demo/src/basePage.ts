@@ -1,6 +1,5 @@
 import "@ohno-editor/core/style.css";
 import {
-  ContextMenuPlugin,
   DivideBlock,
   FigureBlock,
   FlagInline,
@@ -58,7 +57,6 @@ export function createDefaultPage() {
         SlashMenuPlugin(),
         KeyVisPlugin(),
         PasteAllPlugin(),
-        ContextMenuPlugin(),
       ],
       inlines: [
         FlagInline({}),

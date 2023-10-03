@@ -213,6 +213,77 @@ export class PageHandler {
     }
     return { block, endBlock };
   }
+
+  _dispatchEvent<K extends Event | PageEvent>(
+    handlers: PagesHandleMethods[],
+    context:
+      | BlockEventContext
+      | RangedBlockEventContext
+      | MultiBlockEventContext,
+    e: K,
+    eventName: keyof HandlerMethods
+  ) {
+    for (let i = 0; i < handlers.length; i++) {
+      const handler = handlers[i] as any;
+      const method = handler[eventName] as HandlerMethod<K>;
+      if (!method) {
+        continue;
+      }
+      const res = method.call(handler, e, context);
+      if (res) {
+        console.log("Stoped", handler, eventName);
+        e.stopPropagation();
+        e.preventDefault();
+        return true;
+      }
+    }
+    return false;
+  }
+
+  retriveBlockFromMouse(
+    e: MouseEvent
+  ): { block: Block; focusNode: Node } | null {
+    const rect = this.page.blockRoot.getBoundingClientRect();
+    // TODO change method when support multiple column mode
+    const middleX = rect.x + rect.width / 2;
+    const node = document.elementFromPoint(middleX, e.clientY);
+    if (node) {
+      const block = this.findBlock(node);
+      if (block) {
+        return { block, focusNode: node };
+      } else {
+        // TODO should use Segment Tree or some method to handle
+      }
+    }
+    return null;
+  }
+
+  retriveBlockFromRange(
+    range: Range
+  ): { block: Block; focusNode: Node } | null {
+    let block, node;
+
+    if ((block = this.findBlock(range.commonAncestorContainer))) {
+      node = range.commonAncestorContainer;
+    } else if ((block = this.findBlock(range.startContainer))) {
+      node = range.startContainer;
+    } else if (
+      (block = this.findBlock(
+        range.startContainer.childNodes[range.startOffset]
+      ))
+    ) {
+      node = range.startContainer.childNodes[range.startOffset];
+    } else if (
+      (block = this.findBlock(
+        range.startContainer.childNodes[range.startOffset - 1]
+      ))
+    ) {
+      node = range.startContainer.childNodes[range.startOffset - 1];
+    } else {
+      return null;
+    }
+    return { block, focusNode: node };
+  }
   getContextFromRange(
     range: Range
   ): RangedBlockEventContext | MultiBlockEventContext {
@@ -256,32 +327,6 @@ export class PageHandler {
 
   findBlock(target: EventTarget | Node | null | undefined): AnyBlock | null {
     return this.page.findBlock(target);
-  }
-
-  _dispatchEvent<K extends Event | PageEvent>(
-    handlers: PagesHandleMethods[],
-    context:
-      | BlockEventContext
-      | RangedBlockEventContext
-      | MultiBlockEventContext,
-    e: K,
-    eventName: keyof HandlerMethods
-  ) {
-    for (let i = 0; i < handlers.length; i++) {
-      const handler = handlers[i] as any;
-      const method = handler[eventName] as HandlerMethod<K>;
-      if (!method) {
-        continue;
-      }
-      const res = method.call(handler, e, context);
-      if (res) {
-        console.log("Stoped", handler, eventName);
-        e.stopPropagation();
-        e.preventDefault();
-        return true;
-      }
-    }
-    return false;
   }
 
   dispatchEvent<K extends Event | PageEvent>(
@@ -549,50 +594,10 @@ export class PageHandler {
       return;
     }
     this.dispatchEvent<MouseEvent>(blocks, e, "handleContextMenu");
-  }
-  retriveBlockFromMouse(
-    e: MouseEvent
-  ): { block: Block; focusNode: Node } | null {
-    const rect = this.page.blockRoot.getBoundingClientRect();
-    // TODO change method when support multiple column mode
-    const middleX = rect.x + rect.width / 2;
-    const node = document.elementFromPoint(middleX, e.clientY);
-    if (node) {
-      const block = this.findBlock(node);
-      if (block) {
-        return { block, focusNode: node };
-      } else {
-        // TODO should use Segment Tree or some method to handle
-      }
-    }
-    return null;
-  }
-
-  retriveBlockFromRange(
-    range: Range
-  ): { block: Block; focusNode: Node } | null {
-    let block, node;
-
-    if ((block = this.findBlock(range.commonAncestorContainer))) {
-      node = range.commonAncestorContainer;
-    } else if ((block = this.findBlock(range.startContainer))) {
-      node = range.startContainer;
-    } else if (
-      (block = this.findBlock(
-        range.startContainer.childNodes[range.startOffset]
-      ))
-    ) {
-      node = range.startContainer.childNodes[range.startOffset];
-    } else if (
-      (block = this.findBlock(
-        range.startContainer.childNodes[range.startOffset - 1]
-      ))
-    ) {
-      node = range.startContainer.childNodes[range.startOffset - 1];
-    } else {
-      return null;
-    }
-    return { block, focusNode: node };
+    // context menu event should be prevented by default,
+    // and handleContextMenu implementation should return void rather than bool;
+    e.preventDefault();
+    e.stopPropagation();
   }
 
   handleInput(e: Event): void | boolean {

@@ -44,10 +44,7 @@ import {
   withNearestLocation,
 } from "@ohno-editor/core/contrib";
 import { ContextMenu } from "@ohno-editor/core/contrib/plugins/contextmenu/plugin";
-import {
-  defaultHandleMouseMove,
-  defaultHandleMouseUp,
-} from "./functional/mouse";
+import { defaultHandleMouseUp } from "./functional/mouse";
 
 export class DefaultBlockHandler implements PagesHandleMethods {
   handleBlockInvalideLocation(
@@ -88,9 +85,7 @@ export class DefaultBlockHandler implements PagesHandleMethods {
   }
 
   handleMouseLeave(e: MouseEvent, context: BlockEventContext): boolean | void {}
-  handleMouseMove(e: MouseEvent, context: BlockEventContext): boolean | void {
-    defaultHandleMouseMove(this, e, context);
-  }
+  handleMouseMove(e: MouseEvent, context: BlockEventContext): boolean | void {}
 
   handleHomeDown(e: KeyboardEvent, context: BlockEventContext): boolean | void {
     this.moveToSoftlineBound(context, "left", e.shiftKey);
@@ -144,11 +139,10 @@ export class DefaultBlockHandler implements PagesHandleMethods {
   }
 
   handleContextMenu(e: MouseEvent, context: BlockEventContext): boolean | void {
-    const { page, block } = context;
-    const plugin = page.getPlugin<ContextMenu>("contextmenu");
-    plugin.span(e, context);
-
-    return true;
+    // const { page, block } = context;
+    // const plugin = page.getPlugin<ContextMenu>("contextmenu");
+    // plugin.open(e, context);
+    // return true;
   }
 
   handleKeyDown(

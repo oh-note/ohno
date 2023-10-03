@@ -254,9 +254,8 @@ export function parentElementWithFilter(
   el: Node,
   root: Node,
   filter: ElementFilter
-) {
-  var cur = el as HTMLElement;
-  // el.parentElement
+): HTMLElement | null {
+  let cur = el as HTMLElement;
   while (cur && cur !== root) {
     if (filter(cur)) {
       return cur;
