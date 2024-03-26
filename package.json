@@ -1,9 +1,10 @@
 {
-  "name": "ohno-editor-monorepo",
-  "version": "0.0.0",
-  "description": "ohno's monorepo",
+  "name": "ohno-core",
+  "version": "0.0.1",
+  "description": "ohno core repository",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "vite build"
   },
   "keywords": [],
   "author": "haozhe",
@@ -15,11 +16,13 @@
     "@ohno-editor/core": "@ohno-editor/core/src/index.ts"
   },
   "workspaces": [
-    "./packages/*"
+    "./packages/core"
   ],
   "dependencies": {
     "@types/jest": "^29.5.1",
+    "vite": "^5.2.6",
     "vite-plugin-svgr": "^3.2.0",
     "vite-svg-loader": "^4.0.0"
-  }
+  },
+  "files": []
 }

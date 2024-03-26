@@ -1,12 +1,11 @@
 {
-  "name": "@ohno-editor/core",
+  "name": "ohno-core",
   "author": {
     "name": "haozhe",
     "email": "sailist@outlook.com"
   },
   "main": "src/index.ts",
-  "private": true,
-  "version": "0.0.0",
+  "version": "0.0.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -39,5 +38,6 @@
     "htm": "^3.1.1",
     "katex": "^0.16.4",
     "sanitize-html": "^2.10.0"
-  }
+  },
+  "files": ["./src"]
 }
