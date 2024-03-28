@@ -1,5 +1,5 @@
 {
-  "name": "demo",
+  "name": "document-size",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -26,7 +26,7 @@
   },
   "dependencies": {
     "@mdx-js/rollup": "^2.3.0",
-    "@ohno-editor/core": "workspace:*",
+    "@ohno/core": "workspace:*",
     "@types/mdx": "^2.0.5",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"

@@ -1,0 +1,42 @@
+{
+  "compilerOptions": {
+    "noEmit": true,
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "lib": [
+      "ESNext",
+      "DOM"
+    ],
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "types": [
+      "vite-plugin-svgr/client"
+    ],
+    "paths": {
+      "@ohno/core/*": [
+        "../../core/src/*"
+      ],
+      "@ohno/core/": [
+        "../../core/src/index.ts"
+      ],
+      "virtual:reload-on-update-in-background-script": [
+        "./src/global.d.ts"
+      ],
+      "virtual:reload-on-update-in-view": [
+        "./src/global.d.ts"
+      ]
+    }
+  },
+  "include": [
+    "src",
+    "test"
+  ]
+}

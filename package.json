@@ -1,28 +1,59 @@
 {
-  "name": "ohno-core",
-  "version": "0.0.1",
-  "description": "ohno core repository",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "vite build"
-  },
-  "keywords": [],
-  "author": "haozhe",
-  "license": "ISC",
-  "devDependencies": {
-    "@changesets/cli": "^2.26.1"
-  },
-  "alias": {
-    "@ohno-editor/core": "@ohno-editor/core/src/index.ts"
-  },
+  "name": "@ohno/monorepo",
+  "private": true,
+  "version": "0.0.0",
+  "description": "ohno monorepo",
   "workspaces": [
     "./packages/core"
   ],
-  "dependencies": {
-    "@types/jest": "^29.5.1",
-    "vite": "^5.2.6",
-    "vite-plugin-svgr": "^3.2.0",
-    "vite-svg-loader": "^4.0.0"
+  "packageManager": "pnpm",
+  "scripts": {
+    "lint": "turbo lint",
+    "playwright": "turbo playwright",
+    "playwright:update": "turbo playwright -- -u",
+    "build": "turbo build",
+    "build:api": "turbo build:api",
+    "clean": "turbo clean",
+    "publint": "turbo publint",
+    "test": "turbo test",
+    "prepack": "turbo prepack",
+    "typecheck": "turbo typecheck",
+    "release": "turbo prepack && turbo publint && changeset publish"
   },
-  "files": []
+  "author": "haozhe",
+  "license": "ISC",
+  "devDependencies": {
+    "@babel/preset-env": "^7.23.7",
+    "@babel/preset-typescript": "^7.23.3",
+    "@changesets/cli": "^2.26.1",
+    "@microsoft/api-extractor": "^7.39.1",
+    "@playwright/test": "^1.40.1",
+    "@rollup/plugin-alias": "^5.1.0",
+    "@rollup/plugin-babel": "^6.0.4",
+    "@rollup/plugin-commonjs": "^25.0.7",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-replace": "^5.0.5",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^11.1.5",
+    "@types/jest": "^29.5.11",
+    "@types/node": "^20.10.6",
+    "babel-plugin-annotate-pure-calls": "^0.4.0",
+    "jsdom": "^22.1.0",
+    "postcss": "^8.4.32",
+    "prettier": "^3.1.1",
+    "publint": "^0.2.7",
+    "rollup": "^4.9.2",
+    "rollup-plugin-copy": "^3.5.0",
+    "turbo": "^1.11.2",
+    "typescript": "~5.2.2",
+    "vite": "^5.0.10",
+    "vitest": "^1.1.1"
+  },
+  "alias": {
+    "@ohno/core": "@ohno/core/src/index.ts"
+  },
+  "dependencies": {
+    "rollup-plugin-import-css": "^3.5.0",
+    "rollup-plugin-svg-import": "^3.0.0"
+  }
 }

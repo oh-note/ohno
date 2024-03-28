@@ -1,0 +1,13 @@
+figure.figure.oh-is-block {
+  margin: 0;
+}
+
+figure.figure.oh-is-block img {
+  max-width: 100%;
+}
+
+figure.figure.oh-is-block figcaption {
+  font-size: small;
+  padding-left: 2em;
+  min-height: 1.5em;
+}

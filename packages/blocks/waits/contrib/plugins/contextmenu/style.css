@@ -1,0 +1,29 @@
+.oh-is-contextmenu .oh-is-option.hover {
+  background-color: aquamarine;
+  z-index: 10000;
+}
+
+.oh-is-contextmenu {
+  background-color: white;
+  position: absolute;
+
+  /* width: 200px; */
+  z-index: 10000;
+  /* padding: 4px; */
+}
+
+.oh-is-contextmenu menu {
+  list-style-type: none;
+  padding: 2px;
+  margin: 0;
+}
+.oh-is-contextmenu menu button {
+  list-style-type: none;
+  padding: 2px;
+  width: 100%;
+}
+
+/* .oh-is-contextmenu .oh-is-option {
+  padding: 2px;
+  padding-left: 4px;
+} */

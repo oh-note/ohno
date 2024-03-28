@@ -1,4 +1,6 @@
 packages:
-  - "./packages/**"
-  - "./demo/"
-  - "./document-site/"
+  - "./packages/temp"
+  - "./packages/core"
+  - "./packages/blocks/*"
+  # - "./document-site/"
+  - "./config/"

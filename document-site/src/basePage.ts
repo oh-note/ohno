@@ -1,4 +1,4 @@
-import "@ohno-editor/core/style.css";
+import "@ohno/core/style.css";
 import {
   ContextMenuPlugin,
   DivideBlock,
@@ -10,26 +10,26 @@ import {
   Page,
   PasteAllPlugin,
   TodoItemInline,
-} from "@ohno-editor/core";
-import { ListBlock } from "@ohno-editor/core/contrib/blocks/list";
-import { KatexMathInline } from "@ohno-editor/core//contrib/inlines/math";
+} from "@ohno/core";
+import { ListBlock } from "@ohno/core/contrib/blocks/list";
+import { KatexMathInline } from "@ohno/core//contrib/inlines/math";
 
-import { OrderedListBlock } from "@ohno-editor/core//contrib/blocks/orderedList";
-import { CodeBlock } from "@ohno-editor/core//contrib/blocks/code";
-import { TableBlock } from "@ohno-editor/core//contrib/blocks/table";
-import { DefaultBlockHandlerEntry } from "@ohno-editor/core//core/default";
-import { MultiBlockHandlerEntry } from "@ohno-editor/core//core/multiblock";
-import { CompositionHandlerEntry } from "@ohno-editor/core//core/composition";
+import { OrderedListBlock } from "@ohno/core//contrib/blocks/orderedList";
+import { CodeBlock } from "@ohno/core//contrib/blocks/code";
+import { TableBlock } from "@ohno/core//contrib/blocks/table";
+import { DefaultBlockHandlerEntry } from "@ohno/core//core/default";
+import { MultiBlockHandlerEntry } from "@ohno/core//core/multiblock";
+import { CompositionHandlerEntry } from "@ohno/core//core/composition";
 import {
   BlockQuoteBlock,
   HeadingsBlock,
   ParagraphBlock,
-} from "@ohno-editor/core//contrib/blocks";
-import { DragablePlugin } from "@ohno-editor/core//contrib/plugins/dragable";
-import { SlashMenuPlugin } from "@ohno-editor/core//contrib/plugins/slashmenu";
-import { InlineSupportPlugin } from "@ohno-editor/core//system/inline";
-import { BackLinkInline } from "@ohno-editor/core//contrib/inlines/backlink";
-import { EquationBlock } from "@ohno-editor/core//contrib/blocks/equation";
+} from "@ohno/core//contrib/blocks";
+import { DragablePlugin } from "@ohno/core//contrib/plugins/dragable";
+import { SlashMenuPlugin } from "@ohno/core//contrib/plugins/slashmenu";
+import { InlineSupportPlugin } from "@ohno/core//system/inline";
+import { BackLinkInline } from "@ohno/core//contrib/inlines/backlink";
+import { EquationBlock } from "@ohno/core//contrib/blocks/equation";
 
 export function createDefaultPage() {
   const page = new Page({

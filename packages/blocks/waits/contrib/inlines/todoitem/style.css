@@ -1,0 +1,8 @@
+.todoitem.oh-inline-block {
+  background-color: white;
+  padding-left: 4px;
+}
+
+.todoitem.oh-inline-block dt {
+  display: inline;
+}

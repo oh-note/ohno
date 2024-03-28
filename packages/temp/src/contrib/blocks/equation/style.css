@@ -1,0 +1,29 @@
+.equation.oh-is-block math {
+  cursor: pointer;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  width: 100%;
+}
+
+.equation.oh-is-block {
+  align-items: stretch;
+  display: flex;
+  flex-direction: column;
+}
+
+.equation.oh-is-block math:hover,
+.equation.oh-is-block.active math {
+  background-color: rgb(239, 249, 255);
+}
+
+.equation.oh-is-block p {
+  display: none;
+  align-self: center;
+  min-height: 1.5em;
+  width: 100%;
+  text-align: center;
+}
+
+/* .equation.oh-is-block.active p {
+  display: block;
+} */

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
-import { FormatText } from "../../../src/contrib/commands/format";
+import { FormatText } from "@ohno/core/contrib/commands/format";
 
-import { ValidNode, Page } from "@ohno-editor/core/system/types";
+import { ValidNode, Page } from "@ohno/core/system/types";
 import {
   innerHTML,
   setRange,
@@ -9,7 +9,7 @@ import {
   removeMarkdownHint,
   createElement,
   getDefaultRange,
-} from "@ohno-editor/core/system/functional";
+} from "@ohno/core/system/functional";
 
 function makeFakePage() {
   const page = new Page();

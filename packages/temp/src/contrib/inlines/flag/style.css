@@ -1,0 +1,11 @@
+.flag.oh-inline-block {
+  background-color: white;
+  padding-left: 4px;
+}
+
+.flag.oh-inline-block dt {
+  display: inline;
+}
+.flag.oh-inline-block img {
+  vertical-align: text-bottom;
+}

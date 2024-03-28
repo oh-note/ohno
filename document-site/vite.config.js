@@ -9,7 +9,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "../packages/core/src/"),
-      "@ohno-editor/core": path.resolve(__dirname, "../packages/core/src/"),
+      "@ohno/core": path.resolve(__dirname, "../packages/core/src/"),
     },
   },
   plugins: [{ enforce: "pre", ...mdx() }, react()],

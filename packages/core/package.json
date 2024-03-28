@@ -1,19 +1,28 @@
 {
-  "name": "ohno-core",
+  "name": "@ohno/core",
   "author": {
     "name": "haozhe",
     "email": "sailist@outlook.com"
   },
-  "main": "src/index.ts",
-  "version": "0.0.2",
-  "type": "module",
+  "version": "0.0.4",
+  "main": "./dist/ohno.umd.js",
+  "module": "./dist/ohno.esm.js",
+  "unpkg": "./dist/ohno.umd.min.js",
+  "types": "./dist/ohno.d.ts",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "rollup -c -w",
+    "build": "rollup -c",
     "preview": "vite preview",
-    "test": "vitest",
+    "test": "vitest run",
     "debug": "vitest  --inspect-brk --no-threads",
-    "coverage": "vitest run --coverage"
+    "coverage": "vitest run --coverage",
+    "test:watch": "vitest watch",
+    "#lint": "biome lint .",
+    "#clean": "rimraf dist out-tsc",
+    "#build:api": "build-api --tsc tsconfig.lib.json",
+    "#publint": "publint",
+    "#prepack": "compat-exports",
+    "#typecheck": "tsc -b"
   },
   "devDependencies": {
     "@edge-runtime/vm": "^2.1.2",
@@ -28,9 +37,8 @@
     "happy-dom": "^9.1.0",
     "jsdom": "^21.1.1",
     "typescript": "^4.9.3",
-    "vite": "^4.2.0",
     "vite-plugin-eslint": "^1.8.1",
-    "vitest": "^0.29.8"
+    "config": "workspace:*"
   },
   "dependencies": {
     "@floating-ui/dom": "^1.2.6",
@@ -39,5 +47,24 @@
     "katex": "^0.16.4",
     "sanitize-html": "^2.10.0"
   },
-  "files": ["./src"]
+  "files": [
+    "./dist"
+  ],
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "import": {
+        "types": "./dist/ohno.d.mts",
+        "default": "./dist/ohno.mjs"
+      },
+      "types": "./dist/ohno.d.ts",
+      "module": "./dist/ohno.esm.js",
+      "default": "./dist/ohno.umd.js"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/oh-note/ohno",
+    "directory": "packages/core"
+  }
 }

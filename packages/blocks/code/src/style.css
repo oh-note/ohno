@@ -1,0 +1,48 @@
+.oh-is-page .code {
+  position: relative;
+  tab-size: 4;
+  border: 1px;
+  border-style: solid;
+  border-color: lightgray;
+}
+
+.oh-is-page .code .code-head {
+  height: 8px;
+  background-color: #f6f8fa;
+}
+
+.oh-is-page .code .code-body {
+  display: flex;
+  flex-direction: row;
+  padding-left: 4px;
+}
+
+.oh-is-page .code .code-body .line-number {
+  margin-right: 4px;
+}
+
+.oh-is-page .code .code-body .container {
+  width: 100%;
+}
+
+.oh-is-page .code .code-body .container * {
+  margin: 0;
+  font-size: medium;
+  font-family: monospace;
+}
+
+.oh-is-page .code .code-body .container .plain {
+  width: 100%;
+  background-color: white;
+}
+
+.oh-is-page .code .code-body .container .plain li {
+  list-style-type: none;
+  display: inline;
+}
+
+/* .oh-is-page .code .code-body .container .plain li::before {
+  content: counter(name);
+  position: absolute;
+  left: -0.5em;
+} */

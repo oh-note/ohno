@@ -1,0 +1,34 @@
+{
+  "name": "temp",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "rollup -c -w",
+    "build": "rollup -c",
+    "preview": "vite preview",
+    "test": "vitest"
+  },
+  "devDependencies": {
+    "@edge-runtime/vm": "^2.1.2",
+    "@types/katex": "^0.16.0",
+    "@types/sanitize-html": "^2.9.0",
+    "@typescript-eslint/eslint-plugin": "^5.58.0",
+    "@typescript-eslint/parser": "^5.58.0",
+    "@vitest/coverage-c8": "^0.29.8",
+    "eslint": "^8.38.0",
+    "eslint-config-prettier": "^8.8.0",
+    "eslint-plugin-prettier": "^4.2.1",
+    "happy-dom": "^9.1.0",
+    "jsdom": "^21.1.1",
+    "typescript": "^4.9.3",
+    "vite-plugin-eslint": "^1.8.1"
+  },
+  "dependencies": {
+    "@floating-ui/dom": "^1.2.6",
+    "highlight.js": "^11.7.0",
+    "htm": "^3.1.1",
+    "katex": "^0.16.4",
+    "sanitize-html": "^2.10.0"
+  }
+}

@@ -1,0 +1,18 @@
+name: ohno-dev-v3
+services:
+    ohno-dev:
+        privileged: false
+        ports:
+            - 8124:22
+            - 10127:10124
+            - 28888:28888
+            - 22000:22000
+        network_mode: bridge
+        volumes:
+            - D:\:/workspace/
+            # - /usr/local
+            - F:\docker-data\home\:/home/haozhe/
+        build: 
+            context: .
+            args:
+              USER: haozhe

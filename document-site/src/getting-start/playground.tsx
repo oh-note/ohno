@@ -10,7 +10,7 @@ import {
   TodoItem,
   createToolbar,
   outerHTML,
-} from "@ohno-editor/core";
+} from "@ohno/core";
 
 const page = createDefaultPage();
 const el = document.querySelector("#app") as HTMLElement;

@@ -1,0 +1,58 @@
+{
+  "name": "@ohno-blocks/block-quote",
+  "author": {
+    "name": "haozhe",
+    "email": "sailist@outlook.com"
+  },
+  "version": "0.0.4",
+  "main": "./dist/ohno.block.blockquote.umd.js",
+  "module": "./dist/ohno.block.blockquote.esm.js",
+  "unpkg": "./dist/ohno.block.blockquote.umd.min.js",
+  "types": "./dist/ohno.block.blockquote.d.ts",
+  "scripts": {
+    "dev": "rollup -c -w",
+    "build": "rollup -c",
+    "preview": "vite preview",
+    "test": "vitest",
+    "debug": "vitest  --inspect-brk --no-threads",
+    "coverage": "vitest run --coverage",
+    "test:watch": "vitest watch",
+    "#lint": "biome lint .",
+    "#clean": "rimraf dist out-tsc",
+    "#build:api": "build-api --tsc tsconfig.lib.json",
+    "#publint": "publint",
+    "#prepack": "compat-exports",
+    "#typecheck": "tsc -b"
+  },
+  "devDependencies": {
+    "config": "workspace:*"
+  },
+  "dependencies": {
+    "@floating-ui/dom": "^1.2.6",
+    "highlight.js": "^11.7.0",
+    "htm": "^3.1.1",
+    "katex": "^0.16.4",
+    "sanitize-html": "^2.10.0",
+    "@ohno/core": "workspace:*"
+  },
+  "files": [
+    "./dist"
+  ],
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "import": {
+        "types": "./dist/ohno.block.paragraph.d.mts",
+        "default": "./dist/ohno.block.paragraph.mjs"
+      },
+      "types": "./dist/ohno.block.paragraph.d.ts",
+      "module": "./dist/ohno.block.paragraph.esm.js",
+      "default": "./dist/ohno.block.paragraph.umd.js"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/oh-note/ohno",
+    "directory": "packages/blocks/paragraph"
+  }
+}

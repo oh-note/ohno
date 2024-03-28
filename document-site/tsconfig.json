@@ -22,7 +22,7 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "paths": {
-      "@ohno-editor/core*": [
+      "@ohno/core*": [
         "../packages/core/src/"
       ]
     },

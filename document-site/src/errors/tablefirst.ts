@@ -1,4 +1,4 @@
-import { BackLink, InlineSupport, KatexMath } from "@ohno-editor/core";
+import { BackLink, InlineSupport, KatexMath } from "@ohno/core";
 import { createDefaultPage } from "../basePage";
 
 const page = createDefaultPage();

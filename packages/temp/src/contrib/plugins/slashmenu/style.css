@@ -1,0 +1,18 @@
+.oh-is-slashmenu .oh-is-option.hover {
+  background-color: aquamarine;
+  z-index: 10000;
+}
+
+.oh-is-slashmenu {
+  background-color: white;
+  position: absolute;
+  display: none;
+  width: 200px;
+  z-index: 10000;
+  padding: 4px;
+}
+
+.oh-is-slashmenu .oh-is-option {
+  padding: 2px;
+  padding-left: 4px;
+}

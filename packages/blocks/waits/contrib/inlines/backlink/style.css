@@ -1,0 +1,20 @@
+.inline.oh-is-backlink .dropdown option.hover {
+  background-color: aliceblue;
+  z-index: 10000000;
+}
+
+.inline.oh-is-backlink .dropdown {
+  background-color: white;
+  z-index: 10000000;
+  padding-left: 4px;
+  padding-right: 4px;
+  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.inline.oh-is-backlink .tips {
+  background-color: white;
+  z-index: 10000000;
+  padding-left: 4px;
+  padding-right: 4px;
+  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+}
